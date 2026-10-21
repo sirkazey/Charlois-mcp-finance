@@ -140,6 +140,18 @@ jamais visibles en prod, et inversement.
 dans l'en-tête et le pied de page du portail, dans `/api/me` et dans chaque envoi de télémétrie. L'incrémenter à chaque
 fusion dans `main` (et aligner `hub/package.json`).
 
+## Suivi : backlog, versions, releases
+
+Tout se passe dans GitHub, sans outil supplémentaire :
+
+* **Issues** = backlog. Trois étiquettes : `bug`, `évolution`, `infra`. Deux modèles d'issue (bug, évolution) guident la
+  saisie ; les issues vierges sont désactivées. Un commit qui règle une issue la cite (`Fixes #12`).
+* **Milestones** = versions à venir. Chaque issue planifiée est rattachée à un milestone (`1.1.0`, …) ; quand il est vide,
+  on livre.
+* **Livrer une version** : incrémenter `hub/version.js` et `hub/package.json`, ajouter la section dans `CHANGELOG.md`,
+  fusionner `dev` dans `main`, créer la **Release** GitHub `vX.Y.Z` (elle pose le tag) avec le texte du changelog, fermer
+  le milestone. Le badge du portail et la télémétrie affichent alors ce numéro : c'est la preuve de ce qui tourne.
+
 Pour une stack locale ou de test, `docker compose -f docker-compose.dev.yml config` et `... prod.yml config` affichent la
 configuration résolue sans rien déployer.
 
