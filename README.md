@@ -14,7 +14,7 @@ Claude (mobile / desktop / code)
 │                expirée chaque nuit à 03:00                           │
 │ connectors/    salesforce.js · sagex3.js  (REST natif, Bearer user)  │
 │ public/        index.html  (boutons OAuth, diagnostic, questions)    │
-│ test/          node:test, amont mocké, 30 tests                      │
+│ test/          node:test, amont mocké, 31 tests                      │
 └──────────┬────────────────────────────────────────┬──────────────────┘
            ▼ /services/data/v62.0/query…             ▼ /api1/x3/erp/<dossier>/<repr>?representation=…$query
       Salesforce REST                           Sage X3 24R1 REST (Syracuse) — ou simulateur intégré
@@ -28,6 +28,24 @@ Claude (mobile / desktop / code)
 * **Jeton passif** : chaque appel amont porte le jeton de l'appelant. Le callback OAuth est lié au navigateur
   qui a lancé le flux (anti login-CSRF).
 * **Un conteneur** : les connecteurs sont des modules, pas des services.
+
+## Cloisonnement des identités (règle non négociable)
+
+Aucun compte de service, générique ou global, pour Salesforce ni Sage X3.
+
+* `users.json` ne contient que des jetons **individuels**, obtenus par chaque collaborateur en cliquant sur les
+  boutons OAuth du portail, rangés sous sa clé MCP personnelle : `users.<clé>.salesforce` / `users.<clé>.sagex3`.
+* Chaque appel MCP est authentifié par la clé de l'appelant. Le hub lit **son** jeton dans `users.json`
+  (`oauth.js` → `withToken`) et le transmet tel quel en `Authorization: Bearer` à l'API. Salesforce et Sage X3
+  appliquent donc le profil de droits de ce collaborateur (objets, champs, enregistrements, dossiers).
+* Le cache de structure est par utilisateur : la liste des objets et des champs reflète ses propres droits.
+* Aucun jeton n'est lu depuis l'environnement. Les seules variables d'environnement d'authentification sont
+  les identifiants de l'application OAuth (client id / secret), qui servent à l'échange de code et au refresh,
+  jamais à requêter les API.
+* Seule exception : le **simulateur Sage X3** (sans `SAGE_URL`), qui ne contacte aucun système et n'a pas de jeton.
+
+Le test `Cloisonnement` de `hub/test/mcp.test.js` vérifie que deux utilisateurs interrogeant les mêmes outils
+n'émettent que leurs propres jetons et que `users.json` ne contient rien hors de `users.<clé>`.
 
 ## Démarrage rapide (Docker Desktop)
 
@@ -80,5 +98,5 @@ Outils : `salesforce_objects`, `salesforce_describe`, `salesforce_query` · `sag
 ```bash
 cd hub && npm install
 PUBLIC_URL=http://localhost:8080 SF_CLIENT_ID=… SF_CLIENT_SECRET=… node server.js   # Sage X3 en mode simulé
-npm test    # 30 tests node:test : SSE + Streamable HTTP, lecture seule, refresh de jeton, cache, OAuth, portail, simulateur
+npm test    # 31 tests node:test : SSE + Streamable HTTP, lecture seule, refresh de jeton, cache, OAuth, portail, simulateur
 ```

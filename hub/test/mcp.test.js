@@ -7,9 +7,12 @@ import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { startUpstream, SF_V } from "./helpers/upstream.js";
 import { startHub, connectedUser, KEY } from "./helpers/hub.js";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 const TOOLS = ["salesforce_objects", "salesforce_describe", "salesforce_query", "sagex3_representations", "sagex3_describe", "sagex3_query", "sagex3_get"];
 const KEY_NO_REFRESH = "test-key-bob-no-refresh-token";
+const KEY_CAROL = "test-key-carol-0123456789";
 
 let up, hub;
 
@@ -20,6 +23,8 @@ before(async () => {
     users: {
       [KEY]: connectedUser(up.url),
       [KEY_NO_REFRESH]: { createdAt: "2026-01-01T00:00:00.000Z", sagex3: { access_token: "sage-token-bob" } },
+      [KEY_CAROL]: { createdAt: "2026-01-01T00:00:00.000Z", email: "carol@example.com",
+        salesforce: { access_token: "sf-token-carol", instance_url: up.url }, sagex3: { access_token: "sage-token-carol" } },
     },
   });
 });
@@ -208,6 +213,29 @@ test("Lecture seule : noms d'objet / représentation / clé invalides sont rejet
     assert.ok(g.NUM, "clé encodée, reste dans le dossier");
     assert.ok(up.state.requests.every((r) => r.path.startsWith("/api1/x3/erp/PROD/SINVOICE(")), JSON.stringify(up.state.requests.map((r) => r.path)));
   } finally { await c.close(); }
+});
+
+// ---------------------------------------------------------------- cloisonnement des identités
+test("Cloisonnement : chaque appel amont porte le jeton personnel de l'appelant, jamais celui d'un autre ni un jeton de service", async () => {
+  up.reset();
+  const alice = await sseClient(KEY), carol = await httpClient(KEY_CAROL);
+  try {
+    const args = [["salesforce_query", { soql: "SELECT Id FROM Account" }], ["salesforce_describe", { object: "Lead" }], ["sagex3_query", { representation: "BPCUSTOMER" }], ["sagex3_describe", { representation: "PORDER" }]];
+    for (const [name, a] of args) {
+      assert.equal((await alice.callTool({ name, arguments: a })).isError, undefined, `alice ${name}`);
+      assert.equal((await carol.callTool({ name, arguments: a })).isError, undefined, `carol ${name}`);
+    }
+    const bearers = new Set(up.state.requests.map((r) => r.headers.authorization));
+    assert.deepEqual([...bearers].sort(), ["Bearer sage-token-alice", "Bearer sage-token-carol", "Bearer sf-token-alice", "Bearer sf-token-carol"], "seuls les jetons des deux appelants circulent");
+    assert.equal(up.requests("/", "POST").length, 0, "aucune écriture, aucun échange OAuth déclenché");
+
+    // users.json ne contient que des jetons individuels, rangés sous la clé de leur propriétaire
+    const users = hub.readUsers();
+    assert.equal(users[KEY].salesforce.access_token, "sf-token-alice");
+    assert.equal(users[KEY_CAROL].salesforce.access_token, "sf-token-carol");
+    const raw = JSON.parse(readFileSync(join(hub.dataDir, "users.json"), "utf8"));
+    assert.deepEqual(Object.keys(raw), ["users"], "aucun jeton global hors de users.{clé}");
+  } finally { await alice.close(); await carol.close(); }
 });
 
 // ---------------------------------------------------------------- 3. refresh de jeton
