@@ -2,123 +2,281 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Charlois · Finance MCP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>MCP Charlois · Charlois AI Gateway</title>
 <style>
-  :root { --bg:#f6f7f9; --card:#fff; --ink:#1b1f24; --muted:#6b7280; --line:#e5e7eb; --ok:#16a34a; --ko:#dc2626; --sf:#00a1e0; --sage:#00dc82; --sage-ink:#064e3b; }
+  /* ---- Charte : noirs profonds, blancs aérés, accents bronze et vert forêt. Une colonne, sections à œil-de-perdrix. ---- */
+  :root {
+    --bg:#f7f5f0; --card:#ffffff; --ink:#141414; --muted:#6f6c66; --line:#e4dfd4; --soft:#efebe3;
+    --gold:#b08d57; --gold-ink:#8a6a3a; --forest:#1f4d3a; --ok:#2e7d4f; --ko:#b3261e;
+    --serif:"Cormorant Garamond","Garamond","Didot","Baskerville","Palatino Linotype",Georgia,serif;
+    --sans:"Helvetica Neue",Helvetica,Inter,"Segoe UI",system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sf:#00a1e0; --sagex3:#00b86b; --sharepoint:#0f6cbd; --dropbox:#0061ff; --myreport:#e4572e;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg:#0d0d0e; --card:#161618; --ink:#ece9e2; --muted:#9b978f; --line:#2a2a2e; --soft:#1d1d20; --gold:#c9a76a; --gold-ink:#d9b97e; --forest:#3f8a68; --ok:#4caf79; --ko:#e0574d; color-scheme:dark } }
+  :root[data-theme="dark"] {
+    --bg:#0d0d0e; --card:#161618; --ink:#ece9e2; --muted:#9b978f; --line:#2a2a2e; --soft:#1d1d20; --gold:#c9a76a; --gold-ink:#d9b97e; --forest:#3f8a68; --ok:#4caf79; --ko:#e0574d; color-scheme:dark }
+
   * { box-sizing:border-box }
-  body { margin:0; font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink) }
-  main { max-width:720px; margin:0 auto; padding:32px 16px 64px }
-  h1 { font-size:1.6rem; margin:0 0 4px } .sub { color:var(--muted); margin:0 0 28px }
-  h2 { font-size:1.05rem; margin:28px 0 10px }
-  .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px } @media (max-width:560px){ .grid{ grid-template-columns:1fr } }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px }
-  .btn { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; padding:16px; border:0; border-radius:12px; font-size:1.05rem; font-weight:600; color:#fff; cursor:pointer; text-decoration:none; font-family:inherit }
-  .btn.salesforce { background:var(--sf) } .btn.sagex3 { background:var(--sage); color:var(--sage-ink) } .btn.sharepoint { background:#0f6cbd } .btn.dropbox { background:#0061ff } .btn.myreport { background:#e4572e }
-  .btn[aria-disabled=true] { opacity:.45; pointer-events:none }
-  .btn.test { background:var(--ink); padding:12px; font-size:.95rem }
-  .status { margin-top:12px; font-size:.9rem; color:var(--muted); display:flex; justify-content:space-between; align-items:center }
-  .dot { display:inline-block; width:10px; height:10px; border-radius:50%; background:#d1d5db; margin-right:6px; vertical-align:middle } .dot.on { background:var(--ok) } .dot.off { background:var(--ko) }
-  .led { width:16px; height:16px; box-shadow:0 0 0 3px #fff inset } .led.on { box-shadow:0 0 10px var(--ok) } .led.off { box-shadow:0 0 10px var(--ko) }
-  .apikey { display:grid; gap:8px } .apikey input { font:inherit; padding:10px 12px; border:1px solid var(--line); border-radius:10px; width:100% }
-  .link { background:none; border:0; color:var(--muted); text-decoration:underline; cursor:pointer; font-size:.85rem; padding:0 }
-  .result { margin-top:12px; font-size:.9rem; min-height:1.5em; word-break:break-word } .result code { font-size:.8rem; color:var(--ko) }
-  .chips span { display:inline-block; background:#ecfdf5; color:var(--sage-ink); border:1px solid #a7f3d0; border-radius:999px; padding:2px 10px; margin:6px 6px 0 0; font-size:.85rem; font-family:ui-monospace,monospace }
-  pre { background:#0f172a; color:#e2e8f0; padding:14px; border-radius:10px; overflow:auto; font-size:.82rem; margin:0 }
-  .copy { float:right; font-size:.8rem; padding:4px 10px; border:1px solid var(--line); background:#fff; border-radius:8px; cursor:pointer }
-  table { width:100%; border-collapse:collapse; font-size:.85rem; background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden }
-  td { padding:8px 12px; border-top:1px solid var(--line) } tr:first-child td { border-top:0 } td:first-child { font-family:ui-monospace,monospace; white-space:nowrap } td:last-child { color:var(--muted); word-break:break-all }
-  ul.q { list-style:none; padding:0; margin:0; display:grid; gap:8px }
-  ul.q li { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; cursor:pointer } ul.q li:hover { border-color:#9ca3af }
-  ul.q li small { display:block; color:var(--muted); font-size:.78rem; margin-top:2px }
-  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:10px 16px; border-radius:10px; opacity:0; transition:.2s } .toast.show { opacity:1 }
+  html, body { margin:0; background:var(--bg); color:var(--ink) }
+  body { font:300 16px/1.6 var(--sans); -webkit-font-smoothing:antialiased }
+  a { color:inherit }
+  main { max-width:880px; margin:0 auto; padding-block:0 72px; padding-left:max(20px, env(safe-area-inset-left, 0px)); padding-right:max(20px, env(safe-area-inset-right, 0px)) }
+
+  /* En-tête */
+  header { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:22px 0 18px; border-bottom:1px solid var(--line) }
+  .brand { display:flex; flex-direction:column; line-height:1.1 }
+  .brand b { font:600 13px var(--sans); letter-spacing:.32em; text-transform:uppercase }
+  .brand span { font:italic 400 15px var(--serif); color:var(--gold-ink); letter-spacing:.04em }
+  .who { display:flex; align-items:center; gap:10px; min-width:0 }
+  .profile { font-size:.84rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:52vw }
+  .profile strong { color:var(--ink); font-weight:500 }
+  .theme { width:36px; height:36px; border-radius:50%; border:1px solid var(--line); background:var(--card); color:var(--ink); cursor:pointer; font-size:15px; flex:none }
+  .theme:hover { border-color:var(--gold) }
+
+  /* Bandeau de scénarios (mode démo) */
+  .demo { margin-top:18px; border:1px solid var(--line); border-radius:12px; background:var(--soft); padding:10px 14px; font-size:.82rem; display:grid; gap:8px }
+  .demo .row { display:flex; flex-wrap:wrap; gap:6px 12px; align-items:center }
+  .demo label.sw { display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-weight:500 }
+  .demo button { font:inherit; padding:4px 10px; border-radius:999px; border:1px solid var(--line); background:transparent; color:var(--ink); cursor:pointer }
+  .demo button[aria-pressed=true] { background:var(--ink); color:var(--bg); border-color:var(--ink) }
+  .demo .sc { display:none } .demo.on .sc { display:flex }
+
+  /* Hero */
+  .hero { padding:44px 0 28px }
+  h1 { font:300 clamp(2.2rem, 6vw, 3.4rem)/1.05 var(--serif); letter-spacing:.01em; margin:0 0 10px; text-wrap:balance }
+  h1 em { font-style:italic; color:var(--gold-ink) }
+  .lead { max-width:62ch; color:var(--muted); margin:0; font-size:1.02rem }
+
+  /* Sections */
+  section { padding:28px 0 6px }
+  .eyebrow { display:flex; align-items:center; gap:14px; margin:0 0 18px; font:500 11px var(--sans); letter-spacing:.3em; text-transform:uppercase; color:var(--gold-ink) }
+  .eyebrow::after { content:""; flex:1; height:1px; background:var(--line) }
+  .eyebrow .copy { letter-spacing:0; text-transform:none; margin-left:auto }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:14px }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; min-width:0; display:flex; flex-direction:column; gap:10px }
+  .sys { display:flex; align-items:center; gap:10px; font:500 15px var(--sans) }
+  .sys i { width:8px; height:8px; border-radius:50%; background:var(--c, var(--gold)); flex:none }
+  .btn { display:flex; align-items:center; justify-content:center; width:100%; padding:12px 14px; border:1px solid var(--ink); border-radius:10px; background:var(--ink); color:var(--bg); font:500 14px var(--sans); letter-spacing:.02em; cursor:pointer; text-decoration:none; transition:.18s }
+  .btn:hover { background:var(--gold); border-color:var(--gold); color:#141414 }
+  .btn[aria-disabled=true] { opacity:.35; pointer-events:none }
+  .btn.ghost { background:transparent; color:var(--ink) } .btn.ghost:hover { background:var(--ink); color:var(--bg) }
+  .status { font-size:.84rem; color:var(--muted); display:flex; justify-content:space-between; align-items:center; gap:8px }
+  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; background:var(--line); margin-right:7px; vertical-align:middle } .dot.on { background:var(--ok) } .dot.off { background:var(--ko) }
+  .led { width:14px; height:14px } .led.on { box-shadow:0 0 12px var(--ok) } .led.off { box-shadow:0 0 12px var(--ko) }
+  .link { background:none; border:0; color:var(--muted); text-decoration:underline; cursor:pointer; font:inherit; font-size:.82rem; padding:0 }
+  .apikey { display:grid; gap:8px; padding-top:6px; border-top:1px dashed var(--line) }
+  .apikey small { color:var(--muted) }
+  .apikey input { font:inherit; padding:10px 12px; border:1px solid var(--line); border-radius:10px; width:100%; background:var(--bg); color:var(--ink) }
+  .apikey input:focus { outline:2px solid var(--gold); outline-offset:1px }
+  .result { font-size:.88rem; min-height:1.4em; word-break:break-word }
+  .result code { font:.8rem var(--mono); color:var(--ko) }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px }
+  .chips span { font:.78rem var(--mono); padding:3px 10px; border-radius:999px; background:var(--soft); border:1px solid var(--line); color:var(--forest) }
+
+  /* Bar à prompts */
+  .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px }
+  .tab { font:inherit; font-size:.88rem; padding:8px 14px; border-radius:999px; border:1px solid var(--line); background:var(--card); color:var(--muted); cursor:pointer }
+  .tab[aria-selected=true] { background:var(--ink); color:var(--bg); border-color:var(--ink) }
+  .prompts { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:12px }
+  .prompt { text-align:left; font:inherit; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 18px; cursor:pointer; color:var(--ink); display:grid; gap:8px; transition:.18s; min-width:0 }
+  .prompt:hover { border-color:var(--gold); transform:translateY(-1px) }
+  .prompt q { quotes:"« " " »"; font:italic 400 1.06rem/1.4 var(--serif) }
+  .prompt small { color:var(--muted); font-size:.76rem; letter-spacing:.06em; text-transform:uppercase }
+  .prompt .hint { font-size:.74rem; color:var(--gold-ink); justify-self:end }
+
+  pre { background:#111113; color:#e8e4da; padding:16px; border-radius:12px; overflow:auto; font:.8rem/1.5 var(--mono); margin:0; border:1px solid var(--line) }
+  .copy { font:inherit; font-size:.78rem; padding:5px 12px; border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:999px; cursor:pointer }
+  .copy:hover { border-color:var(--gold) }
+  .note { font-size:.84rem; color:var(--muted); margin:10px 0 0 }
+  table { width:100%; border-collapse:collapse; font-size:.84rem; background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden }
+  td { padding:8px 12px; border-top:1px solid var(--line) } tr:first-child td { border-top:0 }
+  td:first-child { font:.8rem var(--mono); white-space:nowrap } td:last-child { color:var(--muted); word-break:break-all }
+  .toast { position:fixed; left:50%; bottom:calc(24px + env(safe-area-inset-bottom, 0px)); transform:translate(-50%, 12px); background:var(--ink); color:var(--bg); padding:10px 18px; border-radius:999px; font-size:.9rem; opacity:0; transition:.25s; pointer-events:none }
+  .toast.show { opacity:1; transform:translate(-50%, 0) }
+  :focus-visible { outline:2px solid var(--gold); outline-offset:2px }
+  @media (prefers-reduced-motion: reduce) { .btn, .prompt, .toast { transition:none } }
+  @media (max-width:560px) { .profile { max-width:44vw } header { padding-top:16px } }
 </style>
 </head>
 <body>
 <main>
-  <h1>Finance MCP</h1>
-  <p class="sub">Connectez vos comptes une fois ; Claude interroge ensuite Salesforce, Sage X3, SharePoint, Dropbox et MyReport avec <strong>vos</strong> droits, en lecture seule.</p>
+  <header>
+    <div class="brand"><b>Charlois</b><span>AI Gateway</span></div>
+    <div class="who">
+      <div class="profile" id="profile">👤 …</div>
+      <button class="theme" id="theme" title="Basculer le thème" aria-label="Basculer le thème">◐</button>
+    </div>
+  </header>
 
-  <div class="grid" id="systems"></div>
+  <div class="demo" id="demo">
+    <div class="row">
+      <label class="sw"><input type="checkbox" id="demo-sw"> Mode démo (passerelle simulée, aucun appel réel)</label>
+      <span id="demo-note" style="color:var(--muted)">Désactivé : la page dialogue avec la passerelle réelle.</span>
+    </div>
+    <div class="row sc"><span>Salesforce :</span><button data-sc="sf:1" aria-pressed="true">connecté</button><button data-sc="sf:0" aria-pressed="false">non connecté</button></div>
+    <div class="row sc"><span>Sage X3 :</span><button data-sc="sage:mock" aria-pressed="true">simulateur</button><button data-sc="sage:key" aria-pressed="false">réel, clé d'API à saisir</button></div>
+    <div class="row sc"><span>MyReport :</span><button data-sc="mr:mock" aria-pressed="true">simulateur</button><button data-sc="mr:key" aria-pressed="false">proxy SSE réel, jeton à saisir</button></div>
+  </div>
 
-  <h2>Diagnostic &amp; Connectivité</h2>
-  <div class="grid" id="diag"></div>
+  <div class="hero">
+    <h1>MCP <em>Charlois</em></h1>
+    <p class="lead">Connectez vos comptes une fois. Claude interroge ensuite Salesforce, Sage X3, SharePoint, Dropbox et MyReport avec <strong>vos</strong> droits, en lecture seule.</p>
+  </div>
 
-  <h2>Votre connecteur Claude <button class="copy" onclick="copy(cfg.textContent)">Copier</button></h2>
-  <pre id="cfg">…</pre>
-  <p class="sub" style="margin-top:8px;font-size:.85rem">Claude.ai et Claude Desktop → Paramètres → Connecteurs → « Ajouter un connecteur personnalisé » avec l'URL ci-dessus. Claude Code → bloc JSON. La clé est personnelle : ne la partagez pas.</p>
+  <section>
+    <p class="eyebrow">Connexions</p>
+    <div class="grid" id="systems"></div>
+  </section>
 
-  <h2>Modèles de questions <span style="font-weight:400;color:var(--muted);font-size:.85rem">(toucher pour copier)</span></h2>
-  <ul class="q" id="questions"></ul>
+  <section>
+    <p class="eyebrow">Diagnostic &amp; connectivité</p>
+    <div class="grid" id="diag"></div>
+  </section>
 
-  <h2>Configuration du conteneur</h2>
-  <table id="config"></table>
+  <section>
+    <p class="eyebrow">Bar à prompts <span class="copy" style="border:0;background:none;color:var(--muted)">toucher une fiche pour copier</span></p>
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <div class="prompts" id="prompts"></div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Votre connecteur Claude <button class="copy" onclick="copy(cfg.textContent)">Copier</button></p>
+    <pre id="cfg">…</pre>
+    <p class="note">Claude.ai et Claude Desktop → Paramètres → Connecteurs → « Ajouter un connecteur personnalisé » avec l'URL ci-dessus. Claude Code → bloc JSON. La clé est personnelle : ne la partagez pas.</p>
+  </section>
+
+  <section id="config-section" hidden>
+    <p class="eyebrow">Configuration du conteneur</p>
+    <table id="config"></table>
+  </section>
 </main>
-<div class="toast" id="toast">Copié</div>
+<div class="toast" id="toast" role="status">Copié !</div>
 
 <script>
-const QUESTIONS = [
-  ["Quel est le chiffre d'affaires facturé des 12 derniers mois, par mois ?", "Sage X3 · SINVOICE"],
-  ["Top 10 des clients par CA sur les 12 derniers mois, avec leur encours.", "Sage X3 · SINVOICE + BPCUSTOMER"],
-  ["Liste des factures fournisseurs échues non réglées, triées par montant.", "Sage X3 · PINVOICE"],
-  ["Pipeline Salesforce : opportunités ouvertes > 50 k€ avec date de clôture ce trimestre.", "Salesforce · Opportunity"],
-  ["Taux de conversion des opportunités créées sur les 12 derniers mois, par commercial.", "Salesforce · Opportunity + User"],
-  ["Pour le client X : commandes Salesforce de l'année vs factures Sage X3 — y a-t-il un écart ?", "Croisé Salesforce + Sage X3"],
-  ["Quels champs sont disponibles sur les écritures comptables (GACCENTRY) ?", "Sage X3 · describe"],
-  ["Retrouve le dernier budget prévisionnel dans le dossier Finance SharePoint et résume ses hypothèses.", "SharePoint · search + read"],
-  ["Liste les fichiers du dossier /Finance/Clôtures de Dropbox modifiés ce mois-ci.", "Dropbox · list_folder"],
-  ["Via MyReport : CA HT et marge brute des 12 derniers mois, puis compare avec les factures Sage X3.", "MyReport · proxy MCP + Sage X3"],
-];
+const DEPARTEMENT = "Département Finance";
+const PROMPTS = {
+  "📁 Onboarding / Formation": [
+    ["Quels systèmes et quels outils puis-je interroger via ce connecteur ? Explique-moi comment formuler une bonne question.", "Tous · outils"],
+    ["Liste les objets Salesforce que je peux interroger et explique-moi les cinq principaux.", "Salesforce · objects"],
+    ["Quels champs sont disponibles sur les écritures comptables (GACCENTRY) ?", "Sage X3 · describe"],
+  ],
+  "📈 Analyse de données": [
+    ["Quel est le chiffre d'affaires facturé des 12 derniers mois, par mois ?", "Sage X3 · SINVOICE"],
+    ["Top 10 des clients par CA sur les 12 derniers mois, avec leur encours.", "Sage X3 · SINVOICE + BPCUSTOMER"],
+    ["Pipeline Salesforce : opportunités ouvertes > 50 k€ avec date de clôture ce trimestre.", "Salesforce · Opportunity"],
+    ["Taux de conversion des opportunités créées sur les 12 derniers mois, par commercial.", "Salesforce · Opportunity + User"],
+  ],
+  "📑 Contrôle de gestion": [
+    ["Liste des factures fournisseurs échues non réglées, triées par montant.", "Sage X3 · PINVOICE"],
+    ["Pour le client X : commandes Salesforce de l'année vs factures Sage X3 — y a-t-il un écart ?", "Croisé Salesforce + Sage X3"],
+    ["Via MyReport : CA HT et marge brute des 12 derniers mois, puis compare avec les factures Sage X3.", "MyReport · proxy MCP + Sage X3"],
+    ["Retrouve le dernier budget prévisionnel dans le dossier Finance SharePoint et résume ses hypothèses.", "SharePoint · search + read"],
+    ["Liste les fichiers du dossier /Finance/Clôtures de Dropbox modifiés ce mois-ci.", "Dropbox · list_folder"],
+  ],
+};
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const toast = (m) => { $("#toast").textContent = m; $("#toast").classList.add("show"); setTimeout(() => $("#toast").classList.remove("show"), 1400); };
-const copy = (t) => navigator.clipboard.writeText(t).then(() => toast("Copié"));
+const toast = (m = "Copié !") => { $("#toast").textContent = m; $("#toast").classList.add("show"); setTimeout(() => $("#toast").classList.remove("show"), 1500); };
+function copy(t) {
+  const fallback = () => { const ta = document.createElement("textarea"); ta.value = t; document.body.append(ta); ta.select(); document.execCommand("copy"); ta.remove(); toast(); };
+  (navigator.clipboard?.writeText(t) ?? Promise.reject()).then(() => toast()).catch(fallback);
+}
 
+// ---- Thème : automatique (système) ou commuté, mémorisé localement ----
+const root = document.documentElement;
+try { const t = localStorage.getItem("theme"); if (t) root.dataset.theme = t; } catch {}
+$("#theme").onclick = () => {
+  const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  root.dataset.theme = dark ? "light" : "dark";
+  try { localStorage.setItem("theme", root.dataset.theme); } catch {}
+};
+
+// ---- Mode démo : bandeau de scénarios, passerelle simulée côté navigateur ----
+const SIM = { on: false, sf: true, sage: "mock", sageKey: false, sp: true, dbx: false, mr: "mock", mrKey: false, key: "k7Qb2xV9pLm4Nt8wRa3sJe6Hc1Yd5Fg0ZuIoKq", email: "prenom.nom@charlois.com" };
+const PUBLIC = "https://mcp.charlois.fr";
+function demoMe() {
+  const sageMock = SIM.sage === "mock", mrMock = SIM.mr === "mock";
+  return { email: SIM.sf ? SIM.email : null, key: SIM.key, mcpUrl: PUBLIC + "/mcp",
+    systems: [
+      { id: "salesforce", label: "Salesforce", mock: false, oauth: true, configured: true, connected: SIM.sf, method: SIM.sf ? "oauth" : null },
+      { id: "sagex3", label: "Sage X3", mock: sageMock, oauth: true, configured: false, connected: !sageMock && SIM.sageKey, method: SIM.sageKey ? "apikey" : null, apiKey: sageMock ? undefined : { mode: "bearer", label: "clé d'API Syracuse personnelle (sans expiration)" } },
+      { id: "sharepoint", label: "SharePoint", mock: false, oauth: true, configured: true, connected: SIM.sp, method: SIM.sp ? "oauth" : null },
+      { id: "dropbox", label: "Dropbox", mock: false, oauth: true, configured: true, connected: SIM.dbx, method: SIM.dbx ? "oauth" : null },
+      { id: "myreport", label: "MyReport", mock: mrMock, oauth: false, configured: false, connected: !mrMock && SIM.mrKey, method: SIM.mrKey ? "apikey" : null, apiKey: mrMock ? undefined : { mode: "bearer", label: "jeton personnel MyReport Server" } },
+    ],
+    config: [["PUBLIC_URL", PUBLIC], ["SF_LOGIN_URL", "https://login.salesforce.com"], ["SF_CLIENT_ID", "3MVG9…Charlois"], ["SF_CLIENT_SECRET", "••••••••"], ["SAGE_URL", sageMock ? null : "https://x3.charlois.local:8124"], ["SAGE_FOLDER", sageMock ? null : "PROD"],
+      ["MS_TENANT_ID", "charlois.onmicrosoft.com"], ["MS_CLIENT_ID", "8f2a…c41e"], ["MS_CLIENT_SECRET", "••••••••"], ["SP_SITE", "charlois.sharepoint.com:/sites/Finance"], ["DROPBOX_APP_KEY", "x9k2…q7"], ["DROPBOX_APP_SECRET", "••••••••"],
+      ["MYREPORT_MCP_URL", mrMock ? null : "https://myreport.charlois.local/mcp/sse"], ["MYREPORT_TOOLS", mrMock ? null : "liste_indicateurs,valeur_indicateur"]].map(([name, value]) => ({ name, value })) };
+}
+async function demoFetch(url, opts = {}) {
+  await new Promise((r) => setTimeout(r, 350));
+  const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { "Content-Type": "application/json" } });
+  const ko = (l) => ({ ok: false, error: `Non connecté à ${l}. Ouvrez le portail et cliquez « Se connecter à ${l} ».` });
+  if (url === "/api/me") return json(demoMe());
+  if (url === "/api/test/salesforce") return json(SIM.sf ? { ok: true, message: "Connecté à https://charlois.my.salesforce.com · API restante : 14 962 / 15 000" } : ko("Salesforce"));
+  if (url === "/api/test/sagex3") return json(SIM.sage === "mock" ? { ok: true, message: "Mode simulé actif · 3 tables en cache mémoire", tables: ["YFAC", "YCLIENT", "ZVENTE"] } : SIM.sageKey ? { ok: true, message: "Connecté à https://x3.charlois.local:8124 (dossier PROD) par clé d'API (bearer)", tables: ["BPCUSTOMER", "SINVOICE", "PINVOICE", "SORDER", "GACCENTRY"] } : ko("Sage X3"));
+  if (url === "/api/test/sharepoint") return json(SIM.sp ? { ok: true, message: `Connecté à Microsoft Graph en tant que ${SIM.email} · site charlois.sharepoint.com:/sites/Finance` } : ko("SharePoint"));
+  if (url === "/api/test/dropbox") return json(SIM.dbx ? { ok: true, message: "Connecté au serveur MCP Dropbox (https://mcp.dropbox.com/mcp) · 8 outils en lecture seule", tables: ["who_am_i", "list_folder", "search", "get_file_metadata", "fetch", "file_preview", "list_shared_links", "get_shared_link_metadata"] } : ko("Dropbox"));
+  if (url === "/api/test/myreport") return json(SIM.mr === "mock" ? { ok: true, message: "Mode simulé actif · 2 outils MyReport fictifs", tables: ["liste_indicateurs", "valeur_indicateur"] } : SIM.mrKey ? { ok: true, message: "Proxy SSE connecté à https://myreport.charlois.local/mcp/sse · 2 / 4 outils autorisés (MYREPORT_TOOLS)", tables: ["liste_indicateurs", "valeur_indicateur", "planifier_export ✕", "purger_cache ✕"] } : ko("MyReport"));
+  if (url.endsWith("/apikey")) { const b = JSON.parse(opts.body || "{}"); if (!String(b.apiKey || "").trim()) return json({ error: "Jeton vide" }, 400); if (url.includes("sagex3")) SIM.sageKey = true; else SIM.mrKey = true; return new Response(null, { status: 204 }); }
+  if (url.startsWith("/api/disconnect/")) { ({ salesforce: () => SIM.sf = false, sagex3: () => SIM.sageKey = false, sharepoint: () => SIM.sp = false, dropbox: () => SIM.dbx = false, myreport: () => SIM.mrKey = false })[url.split("/")[3]]?.(); return new Response(null, { status: 204 }); }
+  return json({ error: "route inconnue" }, 404);
+}
+const api = (url, opts) => SIM.on ? demoFetch(url, opts) : fetch(url, { credentials: "same-origin", ...opts });
+$("#demo-sw").onchange = (e) => { SIM.on = e.target.checked; $("#demo").classList.toggle("on", SIM.on); $("#demo-note").textContent = SIM.on ? "Activé : états et réponses simulés dans le navigateur." : "Désactivé : la page dialogue avec la passerelle réelle."; load(); };
+document.querySelectorAll("[data-sc]").forEach((b) => b.onclick = () => {
+  const [k, v] = b.dataset.sc.split(":");
+  if (k === "sf") SIM.sf = v === "1"; if (k === "sage") { SIM.sage = v; SIM.sageKey = false; } if (k === "mr") { SIM.mr = v; SIM.mrKey = false; }
+  document.querySelectorAll(`[data-sc^="${k}:"]`).forEach((x) => x.setAttribute("aria-pressed", x === b));
+  document.querySelectorAll(".result").forEach((el) => el.innerHTML = ""); load();
+});
+document.addEventListener("click", (e) => { // en démo, un bouton OAuth simule le retour du flux au lieu de naviguer
+  const a = e.target.closest('a[href^="/auth/"]'); if (!a || !SIM.on) return;
+  e.preventDefault(); ({ salesforce: () => SIM.sf = true, sharepoint: () => SIM.sp = true, dropbox: () => SIM.dbx = true })[a.getAttribute("href").slice(6)]?.(); load();
+});
+
+// ---- Rendu ----
 async function load() {
-  const me = await fetch("/api/me", { credentials: "same-origin" }).then((r) => r.json());
+  const me = await api("/api/me").then((r) => r.json());
+  $("#profile").innerHTML = me.email ? `👤 <strong>${esc(me.email)}</strong> — ${DEPARTEMENT}` : `👤 Non identifié — ${DEPARTEMENT}`;
   $("#systems").innerHTML = me.systems.map((s) => `
     <div class="card">
-      ${s.oauth ? `<a class="btn ${s.id}" href="/auth/${s.id}" aria-disabled="${!s.configured || s.mock}">${s.connected ? "✓ Reconnecter" : "Se connecter à"} ${s.label}</a>`
-                : `<div class="btn ${s.id}" aria-disabled="true">${s.label}</div>`}
+      <div class="sys"><i style="--c:var(--${s.id})"></i>${s.label}</div>
+      ${s.oauth ? `<a class="btn" href="/auth/${s.id}" aria-disabled="${!s.configured || s.mock}">${s.connected ? "Reconnecter" : "Se connecter"}</a>` : ""}
       <div class="status">
         <span><i class="dot ${s.connected || s.mock ? "on" : ""}"></i>${s.mock ? "Mode simulé (sans compte)" : s.connected ? `Connecté${s.method === "apikey" ? " (jeton personnel)" : ""}` : s.oauth ? (s.configured ? "Non connecté" : "Non configuré (admin)") : "Jeton personnel requis"}</span>
         ${s.connected ? `<button class="link" onclick="disconnect('${s.id}')">Déconnecter</button>` : ""}
       </div>
       ${s.apiKey && !s.connected ? `
       <form class="apikey" onsubmit="saveApiKey(event, '${s.id}')">
-        <div class="status" style="margin:14px 0 6px">${s.oauth ? "ou " : ""}${s.apiKey.label}</div>
+        <small>${s.oauth ? "ou " : ""}${esc(s.apiKey.label)}</small>
         ${s.apiKey.mode === "basic" ? `<input id="${s.id}-login" placeholder="Identifiant" autocomplete="username" required>` : ""}
         <input id="${s.id}-apikey" type="password" placeholder="Jeton / clé" autocomplete="off" required>
-        <button class="btn test" type="submit">Enregistrer</button>
+        <button class="btn ghost" type="submit">Enregistrer</button>
       </form>` : ""}
     </div>`).join("");
   $("#diag").innerHTML = me.systems.map((s) => `
     <div class="card">
-      <button class="btn test" onclick="test('${s.id}', this)">Tester ${s.mock ? "le simulateur " : ""}${s.label}</button>
+      <button class="btn ghost" onclick="test('${s.id}', this)">Tester ${s.mock ? "le simulateur " : ""}${s.label}</button>
       <div class="result" id="res-${s.id}"></div>
     </div>`).join("");
-  $("#cfg").textContent =
-`URL (claude.ai) : ${me.mcpUrl}?key=${me.key}
-
-{
-  "mcpServers": {
-    "charlois-finance": {
-      "type": "http",
-      "url": "${me.mcpUrl}",
-      "headers": { "Authorization": "Bearer ${me.key}" }
-    }
-  }
-}`;
-  $("#questions").innerHTML = QUESTIONS.map(([q, src], i) => `<li onclick="copy(QUESTIONS[${i}][0])">${esc(q)}<small>${esc(src)}</small></li>`).join("");
-  $("#config").innerHTML = me.config.map((v) => `<tr><td><i class="dot ${v.value ? "on" : ""}"></i>${v.name}</td><td>${v.value ? esc(v.value) : "— vide (défaut ou mode simulé)"}</td></tr>`).join("");
-  if (me.email) $("h1").textContent = `Finance MCP · ${me.email}`;
+  $("#cfg").textContent = `URL (claude.ai) : ${me.mcpUrl}?key=${me.key}\n\n{\n  "mcpServers": {\n    "charlois-finance": {\n      "type": "http",\n      "url": "${me.mcpUrl}",\n      "headers": { "Authorization": "Bearer ${me.key}" }\n    }\n  }\n}`;
+  $("#config-section").hidden = !me.config;
+  if (me.config) $("#config").innerHTML = me.config.map((v) => `<tr><td><i class="dot ${v.value ? "on" : ""}"></i>${v.name}</td><td>${v.value ? esc(v.value) : "— vide (défaut ou mode simulé)"}</td></tr>`).join("");
 }
-
+function renderTabs(active = Object.keys(PROMPTS)[0]) {
+  $("#tabs").innerHTML = Object.keys(PROMPTS).map((t) => `<button class="tab" role="tab" aria-selected="${t === active}" onclick="renderTabs(this.dataset.t)" data-t="${esc(t)}">${esc(t)}</button>`).join("");
+  $("#prompts").innerHTML = PROMPTS[active].map(([q, src], i) => `<button class="prompt" onclick="copy(PROMPTS[this.dataset.t][${i}][0])" data-t="${esc(active)}"><q>${esc(q)}</q><small>${esc(src)}</small><span class="hint">copier ↗</span></button>`).join("");
+}
 async function test(id, btn) {
   const out = $("#res-" + id);
   btn.disabled = true; out.innerHTML = `<i class="dot"></i>Test en cours…`;
   try {
-    const r = await fetch("/api/test/" + id, { credentials: "same-origin" }).then((r) => r.json());
+    const r = await api("/api/test/" + id).then((r) => r.json());
     out.innerHTML = r.ok
       ? `<i class="dot led on"></i><strong>Connecté</strong> — ${esc(r.message)}${r.tables ? `<div class="chips">${r.tables.map((t) => `<span>${esc(t)}</span>`).join("")}</div>` : ""}`
       : `<i class="dot led off"></i><strong>Erreur d'accès</strong><br><code>${esc(r.error)}</code>`;
@@ -130,11 +288,11 @@ async function test(id, btn) {
 async function saveApiKey(e, id) {
   e.preventDefault();
   const body = { apiKey: $(`#${id}-apikey`).value, login: $(`#${id}-login`)?.value };
-  const r = await fetch("/api/" + id + "/apikey", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify(body) });
+  const r = await api("/api/" + id + "/apikey", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!r.ok) return toast("Jeton refusé"); toast("Jeton enregistré"); load();
 }
-async function disconnect(id) { await fetch("/api/disconnect/" + id, { method: "POST", credentials: "same-origin" }); load(); }
-load();
+async function disconnect(id) { await api("/api/disconnect/" + id, { method: "POST" }); load(); }
+renderTabs(); load();
 </script>
 </body>
 </html>
