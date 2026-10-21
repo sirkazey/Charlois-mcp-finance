@@ -4,11 +4,22 @@ import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createHash, createDecipheriv } from "node:crypto";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const HUB_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 export const KEY = "test-key-alice-0123456789";
+export const ENCRYPTION_KEY = "cle-de-test-aes-256-gcm-0123456789abcdef";
+const MASTER = createHash("sha256").update(ENCRYPTION_KEY).digest();
+/** Déchiffre users.json tel que store.js l'écrit ("enc1:iv:tag:données"). */
+export function readStore(file) {
+  const raw = readFileSync(file, "utf8");
+  if (!raw.startsWith("enc1:")) return JSON.parse(raw);
+  const [, iv, tag, data] = raw.split(":").map((p, i) => (i ? Buffer.from(p, "base64") : p));
+  const d = createDecipheriv("aes-256-gcm", MASTER, iv); d.setAuthTag(tag);
+  return JSON.parse(Buffer.concat([d.update(data), d.final()]).toString("utf8"));
+}
 
 export const freePort = () => new Promise((resolve, reject) => {
   const s = createServer();
@@ -45,6 +56,7 @@ export async function startHub({ upstreamUrl, users = {}, env = {} }) {
   const child = spawn(process.execPath, ["server.js"], {
     env: {
       PATH: process.env.PATH, TZ: process.env.TZ, APP_ENV: process.env.APP_ENV, LOG_LEVEL: process.env.LOG_LEVEL,
+      ENCRYPTION_KEY,
       PORT: String(port), PUBLIC_URL: url, DATA_DIR: dataDir,
       SF_LOGIN_URL: upstreamUrl, SF_CLIENT_ID: "sf-client-id", SF_CLIENT_SECRET: "sf-client-secret",
       SF_OBJECTS: "Account,Contact,Opportunity",
@@ -78,7 +90,8 @@ export async function startHub({ upstreamUrl, users = {}, env = {} }) {
   const hub = {
     url, dataDir, port, child,
     logs: () => logs,
-    readUsers: () => JSON.parse(readFileSync(join(dataDir, "users.json"), "utf8")).users,
+    readUsers: () => readStore(join(dataDir, "users.json")).users,
+    rawStore: () => readFileSync(join(dataDir, "users.json"), "utf8"),
     async stop() {
       if (!exited) {
         child.kill("SIGTERM");

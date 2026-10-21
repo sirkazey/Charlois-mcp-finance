@@ -35,7 +35,7 @@ after(async () => { await hub?.stop(); await up?.stop(); });
 
 async function sseClient(key = KEY) {
   const client = new Client({ name: "test-sse", version: "1.0.0" });
-  await client.connect(new SSEClientTransport(new URL(`${hub.url}/sse?key=${key}`)));
+  await client.connect(new SSEClientTransport(new URL(`${hub.url}/sse`), { requestInit: { headers: { Authorization: `Bearer ${key}` } } }));
   return client;
 }
 async function httpClient(key = KEY) {
@@ -129,6 +129,13 @@ test("Lecture seule : une requête non-SELECT est refusée (isError) sans appel 
     }
     assert.equal(up.requests("/services/data").length, 0, "aucun appel Salesforce ne doit partir");
   } finally { await c.close(); }
+});
+
+test("Sécurité : la clé en paramètre d'URL (?key=) est refusée, seul l'en-tête Authorization: Bearer est accepté", async () => {
+  assert.equal((await fetch(`${hub.url}/sse?key=${KEY}`, { headers: { Accept: "text/event-stream" } })).status, 401);
+  assert.equal((await fetch(`${hub.url}/mcp?key=${KEY}`, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" }, body: "{}" })).status, 401);
+  const r = await fetch(`${hub.url}/mcp`, { method: "POST", headers: { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json", Accept: "application/json, text/event-stream" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping" }) });
+  assert.notEqual(r.status, 401);
 });
 
 test("Clé MCP inconnue : 401 sur /sse et /mcp ; session SSE inconnue : 404 sur /messages", async () => {
@@ -320,4 +327,11 @@ test("Refresh : un 401 persistant après refresh remonte en isError", async () =
     assert.match(r.content[0].text, /Salesforce 401/);
     assert.equal(up.requests("/services/oauth2/token").length, 1, "un seul refresh, pas de boucle");
   } finally { await c.close(); }
+});
+
+test("Sécurité : users.json est chiffré sur le disque (AES-256-GCM), jamais en clair, et reste lisible par le hub", async () => {
+  const raw = hub.rawStore(); // écrit par les refreshs de jeton des tests précédents
+  assert.ok(raw.startsWith("enc1:"), "format chiffré");
+  assert.ok(!raw.includes("sf-token") && !raw.includes("alice") && !raw.includes("{"), "aucun jeton ni email en clair");
+  assert.equal(hub.readUsers()[KEY].salesforce.access_token, "sf-token-refreshed", "contenu déchiffrable avec ENCRYPTION_KEY");
 });

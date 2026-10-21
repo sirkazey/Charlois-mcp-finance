@@ -17,7 +17,7 @@ Claude (mobile / desktop / code)
 │ telemetry.js   télémétrie Clevoa anonyme, au démarrage puis à 03:00  │
 │ connectors/    salesforce · sagex3 · sharepoint · dropbox · myreport  │
 │ public/        index.html  (boutons OAuth, jetons, diagnostic)       │
-│ test/          node:test, amont mocké, 45 tests                      │
+│ test/          node:test, amont mocké, 48 tests                      │
 └───┬─────────────┬───────────────┬───────────────┬───────────────┬────┘
     ▼ REST        ▼ REST Syracuse ▼ Graph (GET)   ▼ MCP HTTP      ▼ MCP SSE
  Salesforce    Sage X3 24R1    SharePoint      Dropbox (MCP    MyReport Server
@@ -40,6 +40,9 @@ Aucun compte de service, générique ou global, pour Salesforce ni Sage X3.
 
 * `users.json` ne contient que des jetons **individuels**, obtenus par chaque collaborateur en cliquant sur les
   boutons OAuth du portail, rangés sous sa clé MCP personnelle : `users.<clé>.salesforce` / `users.<clé>.sagex3`.
+  Le fichier est **chiffré AES-256-GCM** (clé maîtresse `ENCRYPTION_KEY`, obligatoire, `openssl rand -hex 32`),
+  déchiffré en mémoire uniquement, écrit avec les droits 600 dans un volume en 700. Perdre la clé rend les jetons
+  illisibles : les collaborateurs se reconnectent, rien d'autre n'est perdu.
 * Chaque appel MCP est authentifié par la clé de l'appelant. Le hub lit **son** jeton dans `users.json`
   (`oauth.js` → `withToken`) et le transmet tel quel en `Authorization: Bearer` à l'API. Salesforce et Sage X3
   appliquent donc le profil de droits de ce collaborateur (objets, champs, enregistrements, dossiers).
@@ -69,10 +72,22 @@ backend refuse d'ailleurs tout champ supplémentaire. Clé vide = télémétrie 
 Le backend qui reçoit ces envois est dans [`clevoa-backend/`](clevoa-backend/) : une fonction AWS Lambda (Node 20)
 derrière API Gateway, décrite par un `serverless.yml` commenté.
 
+## Sécurité de l'accès MCP
+
+* La clé MCP personnelle se transmet **uniquement** dans l'en-tête `Authorization: Bearer <clé>` (Claude Code, Claude
+  Desktop, ChatGPT, Copilot). Le paramètre d'URL `?key=` est refusé : une clé dans l'URL finirait dans les journaux
+  du reverse-proxy. Conséquence : les connecteurs personnalisés de claude.ai web/mobile, qui ne posent pas d'en-tête,
+  ne peuvent pas se connecter tant que le hub n'expose pas un serveur OAuth 2.1 (non implémenté, volontairement).
+* Limitation de débit en mémoire, par adresse IP et par minute : 20 diagnostics, 30 actions portail (jeton,
+  déconnexion), 60 `/api/me`, et 20 échecs d'authentification MCP (force brute sur la clé) → `429`. `TRUST_PROXY`
+  indique le nombre de reverse-proxys pour lire l'IP réelle.
+* Conteneur (pré-prod et prod) : utilisateur `node`, capacités retirées, `no-new-privileges`, système de fichiers en
+  lecture seule hormis `/data` et `/tmp`.
+
 ## Démarrage rapide (Docker Desktop)
 
 ```bash
-cp .env.example .env        # renseigner SF_CLIENT_ID / SF_CLIENT_SECRET ; laisser SAGE_URL vide
+cp .env.example .env        # renseigner ENCRYPTION_KEY (openssl rand -hex 32), SF_CLIENT_ID / SF_CLIENT_SECRET ; laisser SAGE_URL vide
 docker compose up -d --build
 open http://localhost:8080
 ```
@@ -200,7 +215,7 @@ Outils : `salesforce_objects`, `salesforce_describe`, `salesforce_query` · `sag
 
 ```bash
 cd hub && npm install
-PUBLIC_URL=http://localhost:8080 SF_CLIENT_ID=… SF_CLIENT_SECRET=… node server.js   # Sage X3 en mode simulé
-npm test                    # 45 tests node:test (pré-prod)
+ENCRYPTION_KEY=$(openssl rand -hex 32) PUBLIC_URL=http://localhost:8080 SF_CLIENT_ID=… SF_CLIENT_SECRET=… node server.js   # Sage X3 en mode simulé
+npm test                    # 48 tests node:test (pré-prod)
 APP_ENV=production npm test # même suite sous les verrous de production : transports, lecture seule, refresh, cache, OAuth, jetons personnels, portail, simulateurs, Graph, proxys MCP, télémétrie et Lambda Clevoa
 ```

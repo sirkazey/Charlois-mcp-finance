@@ -15,6 +15,14 @@ services:
       MYREPORT_MCP_URL: ${MYREPORT_MCP_URL:-} # vide = simulateur MyReport
       CLEVOA_URL: ${CLEVOA_URL:-}            # ex. URL API Gateway du stage dev de clevoa-backend
       CLEVOA_KEY: ${CLEVOA_KEY:-}
+    user: "node"                               # processus sans privilèges (déjà imposé par l'image, rappelé ici)
+    read_only: true                            # système de fichiers en lecture seule ; seuls /data (volume, droits 700) et /tmp sont inscriptibles
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
 
 volumes:
   mcp-data:

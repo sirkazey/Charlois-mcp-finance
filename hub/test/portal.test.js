@@ -358,3 +358,18 @@ test("Production : le hub refuse de démarrer avec une PUBLIC_URL non https (hor
     assert.match(dev.logs(), /ENV: PRE-PROD .*logs détaillés/);
   } finally { await dev.stop(); }
 });
+
+// ---------------------------------------------------------------- limitation de débit
+test("Rate-limiting : 429 après 20 diagnostics par minute et après 20 échecs d'authentification ; un démarrage sans ENCRYPTION_KEY est refusé", async () => {
+  const lim = await startHub({ upstreamUrl: up.url });
+  try {
+    const c = `mcp_key=${(await fetch(`${lim.url}/api/me`).then((x) => x.json())).key}`;
+    const codes = [];
+    for (let i = 0; i < 21; i++) codes.push((await fetch(`${lim.url}/api/test/sagex3`, { headers: { cookie: c } })).status);
+    assert.equal(codes.filter((x) => x === 200).length, 20); assert.equal(codes[20], 429);
+    const auth = [];
+    for (let i = 0; i < 21; i++) auth.push((await fetch(`${lim.url}/mcp`, { method: "POST", headers: { Authorization: "Bearer mauvaise-cle", "Content-Type": "application/json" }, body: "{}" })).status);
+    assert.equal(auth.filter((x) => x === 401).length, 20); assert.equal(auth[20], 429, "force brute sur la clé bloquée");
+  } finally { await lim.stop(); }
+  await assert.rejects(startHub({ upstreamUrl: up.url, env: { ENCRYPTION_KEY: "" } }), /ENCRYPTION_KEY/);
+});

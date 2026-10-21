@@ -23,16 +23,31 @@ const CONNECTORS = [salesforce, sagex3, sharepoint, dropbox, myreport];
 const byId = Object.fromEntries(CONNECTORS.map((c) => [c.id, c]));
 // Variables visibles dans le portail (les *SECRET* ne sont jamais renvoyées, seulement « défini / vide »).
 const ENV = ["PUBLIC_URL", "SF_LOGIN_URL", "SF_CLIENT_ID", "SF_CLIENT_SECRET", "SAGE_URL", "SAGE_FOLDER", "SAGE_APIKEY_MODE", "SAGE_OAUTH_AUTH_URL", "SAGE_OAUTH_TOKEN_URL", "SAGE_OAUTH_USERINFO_URL", "SAGE_OAUTH_CLIENT_ID", "SAGE_OAUTH_CLIENT_SECRET", "SAGE_OAUTH_SCOPE",
-  "MS_TENANT_ID", "MS_CLIENT_ID", "MS_CLIENT_SECRET", "SP_SITE", "DROPBOX_APP_KEY", "DROPBOX_APP_SECRET", "MYREPORT_MCP_URL", "MYREPORT_AUTH_HEADER", "MYREPORT_TOOLS", "CLEVOA_URL", "CLEVOA_KEY"];
+  "MS_TENANT_ID", "MS_CLIENT_ID", "MS_CLIENT_SECRET", "SP_SITE", "DROPBOX_APP_KEY", "DROPBOX_APP_SECRET", "MYREPORT_MCP_URL", "MYREPORT_AUTH_HEADER", "MYREPORT_TOOLS", "CLEVOA_URL", "CLEVOA_KEY", "ENCRYPTION_KEY"];
+
+// ---------- Limitation de débit (mémoire, par adresse IP) ----------
+// Protège le diagnostic, les jetons et les échecs d'authentification contre la force brute. Fenêtre glissante simple.
+const buckets = new Map(); // "règle:ip" -> { n, reset }
+function hit(rule, ip, max, windowMs = 60_000) {
+  const id = `${rule}:${ip}`, now = Date.now();
+  let b = buckets.get(id);
+  if (!b || b.reset < now) { b = { n: 0, reset: now + windowMs }; buckets.set(id, b); }
+  if (buckets.size > 10_000) for (const [k, v] of buckets) if (v.reset < now) buckets.delete(k); // purge paresseuse
+  return ++b.n > max;
+}
+const limit = (rule, max) => (req, res, next) => hit(rule, req.ip, max) ? res.status(429).json({ error: "Trop de requêtes, réessayez dans une minute." }) : next();
 
 // ---------- Identité ----------
-// Cookie "mcp_key" pour le portail ; en-tête "Authorization: Bearer <key>" ou "?key=" pour les clients MCP.
+// Cookie "mcp_key" pour le portail ; en-tête "Authorization: Bearer <clé>" UNIQUEMENT pour les clients MCP
+// (jamais dans l'URL : les journaux des reverse-proxys conserveraient la clé en clair).
 const cookieKey = (req) => req.headers.cookie?.match(/(?:^|;\s*)mcp_key=([^;]+)/)?.[1];
-const mcpKey = (req) => req.headers.authorization?.replace(/^Bearer\s+/i, "") || req.query.key;
+const mcpKey = (req) => req.headers.authorization?.match(/^Bearer\s+(\S+)$/i)?.[1];
 // CLEVOA_KEY est une clé de licence (pas un secret utilisateur) mais reste masquée comme les autres clés.
 const requireKey = (read) => (req, res, next) => {
+  if (hit("auth-fail", req.ip, 20)) return res.status(429).json({ error: "Trop d'échecs d'authentification, réessayez dans une minute." });
   req.key = read(req);
-  if (!store.get(req.key)) return res.status(401).json({ error: "Clé MCP inconnue : ouvrez le portail pour obtenir la vôtre." });
+  if (!store.get(req.key)) return res.status(401).json({ error: "Clé MCP inconnue ou absente : utilisez l'en-tête Authorization: Bearer <clé> obtenue sur le portail." });
+  buckets.get(`auth-fail:${req.ip}`).n--; // succès : ne compte pas comme un échec
   next();
 };
 const mcpUser = requireKey(mcpKey), portalUser = requireKey(cookieKey);
@@ -65,12 +80,13 @@ function buildServer(key) {
 
 // ---------- HTTP ----------
 const app = express();
+app.set("trust proxy", Number(process.env.TRUST_PROXY ?? 1)); // adresse IP réelle derrière un reverse-proxy (1 saut)
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(new URL("./public", import.meta.url).pathname));
 app.use(oauthRouter(CONNECTORS, cookieKey));
 
 // Portail : état de l'utilisateur (crée la clé au premier passage) + configuration masquée.
-app.get("/api/me", (req, res) => {
+app.get("/api/me", limit("me", 60), (req, res) => {
   let key = cookieKey(req);
   if (!store.get(key)) {
     key = store.create();
@@ -90,15 +106,15 @@ app.get("/api/me", (req, res) => {
     })),
     // Configuration visible en local (Docker Desktop) ou une fois l'utilisateur connecté à un système ; jamais aux anonymes d'un hub public.
     config: !PUBLIC_URL.startsWith("https") || CONNECTORS.some((c) => hasCredential(u[c.id]))
-      ? ENV.map((n) => ({ name: n, value: !process.env[n] ? null : /SECRET|CLEVOA_KEY/.test(n) ? "••••••••" : process.env[n] })) : undefined,
+      ? ENV.map((n) => ({ name: n, value: !process.env[n] ? null : /SECRET|CLEVOA_KEY|ENCRYPTION_KEY/.test(n) ? "••••••••" : process.env[n] })) : undefined,
   });
 });
-app.post("/api/disconnect/:system", portalUser, (req, res) => {
+app.post("/api/disconnect/:system", limit("portal", 30), portalUser, (req, res) => {
   if (!byId[req.params.system]) return res.sendStatus(404);
   store.clearTokens(req.key, req.params.system); res.sendStatus(204);
 });
 // Jeton personnel (clé d'API Syracuse, jeton MyReport…) saisi par l'utilisateur : remplace son entrée pour ce système.
-app.post("/api/:system/apikey", portalUser, (req, res) => {
+app.post("/api/:system/apikey", limit("portal", 30), portalUser, (req, res) => {
   const c = byId[req.params.system];
   if (!c?.apiKey) return res.sendStatus(404);
   const apiKey = String(req.body?.apiKey || "").trim(), login = String(req.body?.login || "").trim();
@@ -108,7 +124,7 @@ app.post("/api/:system/apikey", portalUser, (req, res) => {
   res.sendStatus(204);
 });
 // Diagnostic : un appel minimal au système avec le jeton de l'utilisateur (ou le simulateur).
-app.get("/api/test/:system", portalUser, async (req, res) => {
+app.get("/api/test/:system", limit("diag", 20), portalUser, async (req, res) => {
   const c = byId[req.params.system];
   if (!c) return res.sendStatus(404);
   try { res.json({ ok: true, ...(await withToken(c, req.key, (tok) => c.ping(tok, () => c.schema(tok)))) }); } // structure relue, pas le cache
