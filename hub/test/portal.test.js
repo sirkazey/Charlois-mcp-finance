@@ -40,13 +40,11 @@ test("GET /api/me sans cookie : pose mcp_key et renvoie {key, mcpUrl, systems[2]
   assert.equal(me.key, key);
   assert.equal(me.email, null);
   assert.equal(me.mcpUrl, `${hub.url}/mcp`);
-  assert.equal(me.sseUrl, `${hub.url}/sse`);
   assert.equal(me.systems.length, 5);
   assert.deepEqual(me.systems.map((s) => s.id), ["salesforce", "sagex3", "sharepoint", "dropbox", "myreport"]);
   assert.deepEqual(me.systems.map((s) => s.connected), [false, false, false, false, false]);
   assert.deepEqual(me.systems.map((s) => s.configured), [true, true, true, true, false]);
   assert.deepEqual(me.systems.map((s) => s.oauth), [true, true, true, true, false], "MyReport : jeton personnel, pas d'OAuth");
-  assert.deepEqual(me.systems.map((s) => s.schemaAt), [null, null, null, null, null]);
   assert.deepEqual(me.systems.map((s) => s.mock), [false, false, false, false, false]);
   assert.deepEqual(me.systems[4].apiKey, { mode: "bearer", label: "jeton personnel MyReport Server" });
   // Configuration masquée : valeurs visibles sauf les *SECRET*
@@ -56,7 +54,7 @@ test("GET /api/me sans cookie : pose mcp_key et renvoie {key, mcpUrl, systems[2]
   assert.equal(cfg.SAGE_OAUTH_CLIENT_SECRET, "••••••••");
   assert.equal(cfg.SAGE_FOLDER, "PROD");
   assert.ok(!JSON.stringify(me).includes("sf-client-secret"), "le secret ne doit jamais sortir");
-  assert.ok(hub.readUsers()[key], "la clé est persistée dans users.json");
+  assert.equal(hub.readUsers()[key], undefined, "une clé sans jeton n'est pas écrite sur disque");
 });
 
 test("GET /api/me avec le cookie : même clé, pas de nouveau cookie", async () => {
@@ -251,11 +249,14 @@ test("Clé d'API Syracuse : POST /api/sagex3/apikey remplace OAuth, l'état pass
   assert.match(d.message, /clé d'API \(bearer\)/);
   assert.ok(up.requests("$prototypes").every((q) => q.headers.authorization === "Bearer syr-key-alice"));
 
-  // Une clé invalide : 401 remonté tel quel, aucun refresh OAuth tenté
+  // Une clé révoquée : voyant rouge « Sage X3 401 », aucun refresh OAuth tenté (le diagnostic relit la structure, jamais le cache)
+  up.reset();
   up.failNext("$prototypes", 401);
-  const ko = await fetch(`${hub.url}/api/test/sagex3`, { headers: { cookie: `mcp_key=${(await fetch(`${hub.url}/api/me`).then((x) => x.json())).key}` } }).then((x) => x.json());
-  assert.equal(ko.ok, false);
+  const ko = await fetch(`${hub.url}/api/test/sagex3`, { headers: { cookie } }).then((x) => x.json());
+  assert.equal(ko.ok, false, JSON.stringify(ko)); assert.match(ko.error, /Sage X3 401/);
   assert.equal(up.requests("/oauth/token").length, 0);
+  const again = await fetch(`${hub.url}/api/test/sagex3`, { headers: { cookie } }).then((x) => x.json());
+  assert.equal(again.ok, true); assert.ok(up.requests("$prototypes").length >= 2, "le second clic interroge encore Sage");
 });
 
 test("Clé d'API en mode basic (SAGE_APIKEY_MODE=basic) : Authorization: Basic base64(login:clé)", async () => {

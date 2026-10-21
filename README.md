@@ -26,8 +26,8 @@ Claude (mobile / desktop / code)
 * **Données jamais cachées** : chaque question interroge l'outil en direct. Seule la *structure* (objets / champs)
   est gardée en mémoire, **par utilisateur** (donc selon ses propres droits), et expire chaque nuit.
 * **Lecture seule** : SOQL `SELECT` uniquement ; Sage X3 `$query` / `$details` / `$prototypes` uniquement ;
-  Graph en GET uniquement ; Dropbox limité à une liste blanche d'outils de lecture ; MyReport refuse les outils dont le nom
-  évoque une écriture ; noms d'objets validés (`^\w+$`) ; outils annotés `readOnlyHint`.
+  Graph en GET uniquement, chemins et sites validés ; Dropbox et MyReport limités à une liste blanche d'outils ;
+  noms d'objets validés (`^\w+$`) ; outils annotés `readOnlyHint`.
 * **Jeton passif** : chaque appel amont porte le jeton de l'appelant. Le callback OAuth est lié au navigateur
   qui a lancé le flux (anti login-CSRF).
 * **Un conteneur** : les connecteurs sont des modules, pas des services.
@@ -66,7 +66,8 @@ Sur le portail, la section **Diagnostic & Connectivité** permet de :
 * **Tester Dropbox** : session MCP vers `mcp.dropbox.com` avec votre jeton. Vert avec la liste des outils lecture seule.
 * **Tester MyReport** : session MCP SSE vers `MYREPORT_MCP_URL` avec votre jeton, ou simulateur local si l'URL est vide.
 
-La section **Configuration du conteneur** affiche les variables lues par le hub (les secrets apparaissent masqués).
+La section **Configuration du conteneur** affiche les variables lues par le hub (secrets masqués). Sur un hub public
+(`PUBLIC_URL` en https), elle n'apparaît qu'une fois l'utilisateur connecté à un système.
 
 ## Déploiement Portainer
 
@@ -102,7 +103,7 @@ navigateur, et envoyée telle quelle à chaque appel :
 * `SAGE_APIKEY_MODE=basic` → `Authorization: Basic base64(login:clé)` (authentification Basic classique de Syracuse)
 
 Pas d'expiration, pas de refresh : la connexion reste permanente tant que la clé est valide côté Sage.
-Une clé révoquée produit un voyant rouge « Sage X3 401 » dans le diagnostic.
+Le bouton « Tester Sage X3 » fait un appel réel à chaque clic (jamais le cache) : une clé révoquée produit un voyant rouge « Sage X3 401 ».
 
 > **À vérifier sur votre instance avant mise en production** : le mode d'envoi de la clé d'API attendu par votre
 > Syracuse (`bearer` ou `basic`), l'acceptation du Bearer OAuth par `/api1/x3/erp`,
@@ -135,11 +136,12 @@ avant tout appel, et les scopes OAuth ne les permettraient de toute façon pas. 
 Pas de connecteur métier : le hub est **client MCP SSE** du serveur MCP de votre MyReport Server (`MYREPORT_MCP_URL`).
 Chaque collaborateur saisit dans le portail **son** jeton MyReport, stocké sous sa clé MCP (`myreport.apiKey`) et joint à
 chaque requête, sur le flux SSE comme sur les messages (`Authorization: Bearer <jeton>`, ou l'en-tête `MYREPORT_AUTH_HEADER`).
-MyReport Server applique ses propres droits. Deux outils : `myreport_tools` (outils distants et leurs schémas) et
-`myreport_call` (transfert d'une requête d'analyse). Les noms d'outils évoquant une écriture sont refusés avant tout appel.
+MyReport Server applique ses propres droits. Deux outils : `myreport_tools` (outils distants, leurs schémas, et s'ils sont
+autorisés) et `myreport_call` (transfert d'une requête d'analyse). Seuls les outils listés dans **`MYREPORT_TOOLS`**
+(liste blanche, lecture seule, à composer d'après le bouton « Tester MyReport ») sont transférés ; liste vide = aucun transfert.
 
-`MYREPORT_MCP_URL` vide = **simulateur local** (deux outils fictifs, `liste_indicateurs` et `valeur_indicateur`) pour
-les tests Docker Desktop, sans jeton ni réseau. Le bouton « Tester MyReport » du portail l'indique.
+`MYREPORT_MCP_URL` vide = **simulateur local** (deux outils fictifs, `liste_indicateurs` et `valeur_indicateur`, réponses
+marquées `simule: true`) pour les tests Docker Desktop, sans jeton ni réseau. Le bouton « Tester MyReport » l'indique.
 
 ## Utilisation (collègue)
 

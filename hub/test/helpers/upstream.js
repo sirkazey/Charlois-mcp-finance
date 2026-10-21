@@ -185,7 +185,7 @@ export async function startUpstream() {
 
     // ---- Sage X3 Syracuse ----
     if (path.startsWith("/api1/x3/erp/PROD/")) {
-      if (!bearer) return json(res, 401, { $diagnoses: [{ $severity: "error", $message: "no bearer" }] });
+      if (!/^(Bearer|Basic) \S+$/.test(req.headers.authorization || "")) return json(res, 401, { $diagnoses: [{ $severity: "error", $message: "no bearer" }] });
       const rest = path.slice("/api1/x3/erp/PROD/".length);
       let m = rest.match(/^\$prototypes\('(\w+)\.\$query'\)$/);
       if (m) {

@@ -53,7 +53,7 @@ export async function startHub({ upstreamUrl, users = {}, env = {} }) {
       SAGE_OAUTH_USERINFO_URL: `${upstreamUrl}/oauth/userinfo`,
       SAGE_OAUTH_CLIENT_ID: "sage-client-id", SAGE_OAUTH_CLIENT_SECRET: "sage-client-secret",
       MS_LOGIN_URL: `${upstreamUrl}/ms`, MS_TENANT_ID: "common", MS_CLIENT_ID: "ms-client-id", MS_CLIENT_SECRET: "ms-client-secret", GRAPH_URL: `${upstreamUrl}/v1.0`,
-      MYREPORT_MCP_URL: `${upstreamUrl}/myreport/sse`,
+      MYREPORT_MCP_URL: `${upstreamUrl}/myreport/sse`, MYREPORT_TOOLS: "liste_indicateurs,valeur_indicateur",
       DROPBOX_APP_KEY: "dbx-app-key", DROPBOX_APP_SECRET: "dbx-app-secret", DROPBOX_API_URL: upstreamUrl, DROPBOX_MCP_URL: `${upstreamUrl}/dropbox-mcp`,
       ...env,
     },

@@ -6,7 +6,7 @@ import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { store } from "./store.js";
 import { oauthRouter, withToken, hasCredential, PUBLIC_URL } from "./oauth.js";
-import { cachedSchema, schemaAge } from "./cache.js";
+import { cachedSchema } from "./cache.js";
 import * as salesforce from "./connectors/salesforce.js";
 import * as sagex3 from "./connectors/sagex3.js";
 import * as sharepoint from "./connectors/sharepoint.js";
@@ -17,8 +17,8 @@ const PORT = process.env.PORT || 8080;
 const CONNECTORS = [salesforce, sagex3, sharepoint, dropbox, myreport];
 const byId = Object.fromEntries(CONNECTORS.map((c) => [c.id, c]));
 // Variables visibles dans le portail (les *SECRET* ne sont jamais renvoyées, seulement « défini / vide »).
-const ENV = ["PUBLIC_URL", "SF_LOGIN_URL", "SF_CLIENT_ID", "SF_CLIENT_SECRET", "SAGE_URL", "SAGE_FOLDER", "SAGE_APIKEY_MODE", "SAGE_OAUTH_AUTH_URL", "SAGE_OAUTH_TOKEN_URL", "SAGE_OAUTH_CLIENT_ID", "SAGE_OAUTH_CLIENT_SECRET", "SAGE_OAUTH_SCOPE",
-  "MS_TENANT_ID", "MS_CLIENT_ID", "MS_CLIENT_SECRET", "SP_SITE", "DROPBOX_APP_KEY", "DROPBOX_APP_SECRET", "DROPBOX_MCP_URL", "MYREPORT_MCP_URL", "MYREPORT_AUTH_HEADER"];
+const ENV = ["PUBLIC_URL", "SF_LOGIN_URL", "SF_CLIENT_ID", "SF_CLIENT_SECRET", "SAGE_URL", "SAGE_FOLDER", "SAGE_APIKEY_MODE", "SAGE_OAUTH_AUTH_URL", "SAGE_OAUTH_TOKEN_URL", "SAGE_OAUTH_USERINFO_URL", "SAGE_OAUTH_CLIENT_ID", "SAGE_OAUTH_CLIENT_SECRET", "SAGE_OAUTH_SCOPE",
+  "MS_TENANT_ID", "MS_CLIENT_ID", "MS_CLIENT_SECRET", "SP_SITE", "DROPBOX_APP_KEY", "DROPBOX_APP_SECRET", "MYREPORT_MCP_URL", "MYREPORT_AUTH_HEADER", "MYREPORT_TOOLS"];
 
 // ---------- Identité ----------
 // Cookie "mcp_key" pour le portail ; en-tête "Authorization: Bearer <key>" ou "?key=" pour les clients MCP.
@@ -71,13 +71,14 @@ app.get("/api/me", (req, res) => {
     email: u.email || null,
     key,
     mcpUrl: `${PUBLIC_URL}/mcp`,
-    sseUrl: `${PUBLIC_URL}/sse`,
     systems: CONNECTORS.map((c) => ({
-      id: c.id, label: c.label, mock: !!c.mock, oauth: !!c.oauth, configured: !!c.oauth?.clientId, schemaAt: schemaAge(key, c.id),
+      id: c.id, label: c.label, mock: !!c.mock, oauth: !!c.oauth, configured: !!c.oauth?.clientId,
       connected: hasCredential(u[c.id]), method: u[c.id]?.apiKey ? "apikey" : u[c.id]?.access_token ? "oauth" : null,
       apiKey: c.apiKey && !c.mock ? c.apiKey : undefined, // le portail propose la saisie d'un jeton personnel
     })),
-    config: ENV.map((n) => ({ name: n, value: !process.env[n] ? null : n.includes("SECRET") ? "••••••••" : process.env[n] })),
+    // Configuration visible en local (Docker Desktop) ou une fois l'utilisateur connecté à un système ; jamais aux anonymes d'un hub public.
+    config: !PUBLIC_URL.startsWith("https") || CONNECTORS.some((c) => hasCredential(u[c.id]))
+      ? ENV.map((n) => ({ name: n, value: !process.env[n] ? null : n.includes("SECRET") ? "••••••••" : process.env[n] })) : undefined,
   });
 });
 app.post("/api/disconnect/:system", portalUser, (req, res) => {
@@ -98,7 +99,7 @@ app.post("/api/:system/apikey", portalUser, (req, res) => {
 app.get("/api/test/:system", portalUser, async (req, res) => {
   const c = byId[req.params.system];
   if (!c) return res.sendStatus(404);
-  try { res.json({ ok: true, ...(await call(c, req.key, (tok, schema) => c.ping(tok, schema))) }); }
+  try { res.json({ ok: true, ...(await withToken(c, req.key, (tok) => c.ping(tok, () => c.schema(tok)))) }); } // structure relue, pas le cache
   catch (e) { res.json({ ok: false, error: e.message.slice(0, 300) }); }
 });
 

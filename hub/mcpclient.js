@@ -12,7 +12,7 @@ export async function withMcp({ url, headers, sse = false, label = "MCP" }, fn) 
     await client.connect(transport);
     return await fn(client);
   } catch (e) {
-    throw Object.assign(new Error(`${label} : ${e.message}`), { status: e.code === 401 || /\b401\b|Unauthorized/i.test(e.message) ? 401 : e.code });
+    throw Object.assign(new Error(`${label} : ${e.message}`), { status: e.code }); // StreamableHTTPError / SseError portent le statut HTTP
   } finally {
     await client.close().catch(() => {});
   }

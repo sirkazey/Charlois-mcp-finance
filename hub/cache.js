@@ -15,5 +15,3 @@ export async function cachedSchema(key, system, load) {
   mem.set(id, { at: new Date(), data });
   return data;
 }
-
-export const schemaAge = (key, system) => mem.get(`${key}:${system}`)?.at ?? null;

@@ -78,6 +78,7 @@ export async function schema(tok) {
 
 /** Test de connectivité (portail) : liste des tables via la structure. */
 export async function ping(tok, schema) {
+  if (!mock) await get(tok, `$prototypes('${REPRESENTATIONS[0]}.$query')`); // appel réel : une clé révoquée donne un voyant rouge
   const { representations } = await schema();
   const how = tok.apiKey ? ` par clé d'API (${apiKeyMode})` : " par OAuth";
   return { message: mock ? `Mode simulé actif · ${representations.length} tables en cache mémoire` : `Connecté à ${BASE} (dossier ${FOLDER})${how}`, tables: representations };

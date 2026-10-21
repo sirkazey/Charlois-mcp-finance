@@ -2,7 +2,7 @@
 // expiré à la coupure nocturne (03:00), vérifié avec l'horloge simulée de node:test.
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
-import { cachedSchema, schemaAge } from "../cache.js";
+import { cachedSchema } from "../cache.js";
 
 const at = (t, iso) => t.mock.timers.setTime(Date.parse(iso));
 
@@ -11,11 +11,9 @@ test("cachedSchema : charge au premier appel, sert le cache ensuite, isolé par 
   at(t, "2026-03-10T10:00:00");
   const load = mock.fn(async () => ({ objects: ["A"] }));
 
-  assert.equal(schemaAge("alice", "sf"), null);
   assert.deepEqual(await cachedSchema("alice", "sf", load), { objects: ["A"] });
   assert.deepEqual(await cachedSchema("alice", "sf", load), { objects: ["A"] });
   assert.equal(load.mock.callCount(), 1, "second appel servi depuis le cache");
-  assert.equal(schemaAge("alice", "sf").getTime(), Date.parse("2026-03-10T10:00:00"));
 
   await cachedSchema("bob", "sf", load);
   await cachedSchema("alice", "sage", load);

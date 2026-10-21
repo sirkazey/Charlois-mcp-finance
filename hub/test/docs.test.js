@@ -82,7 +82,7 @@ test("Dropbox : un 401 du serveur MCP déclenche le refresh_token Dropbox puis u
 test("MyReport : proxy MCP SSE avec le jeton personnel de l'utilisateur sur le GET et les POST ; outils d'écriture refusés avant tout appel", async () => {
   up.reset();
   const tools = text(await c.callTool({ name: "myreport_tools", arguments: {} }));
-  assert.deepEqual(tools.map((t) => t.name), ["liste_indicateurs", "valeur_indicateur"], "delete_rapport filtré");
+  assert.deepEqual(tools.map((t) => [t.name, t.autorise]), [["liste_indicateurs", true], ["valeur_indicateur", true], ["delete_rapport", false]], "liste blanche MYREPORT_TOOLS");
   const calls = up.requests("/myreport/");
   assert.ok(calls.some((r) => r.method === "GET" && r.path === "/myreport/sse") && calls.some((r) => r.method === "POST"));
   assert.ok(calls.every((r) => r.headers.authorization === "Bearer mr-token-alice"), "jeton sur le flux SSE et sur chaque message");
@@ -92,8 +92,14 @@ test("MyReport : proxy MCP SSE avec le jeton personnel de l'utilisateur sur le G
 
   up.reset();
   const del = await c.callTool({ name: "myreport_call", arguments: { tool: "delete_rapport", arguments: { id: "1" } } });
-  assert.equal(del.isError, true); assert.match(del.content[0].text, /lecture seule/);
-  assert.equal(up.requests("/myreport/").length, 0, "rien n'est transféré pour un outil d'écriture");
+  assert.equal(del.isError, true); assert.match(del.content[0].text, /liste blanche MYREPORT_TOOLS/);
+  assert.equal(up.requests("/myreport/").length, 0, "rien n'est transféré pour un outil hors liste blanche");
+  const hubNoList = await startHub({ upstreamUrl: up.url, users: { [KEY]: connectedUser(up.url) }, env: { MYREPORT_TOOLS: "" } });
+  try {
+    const r = await fetch(`${hubNoList.url}/mcp`, { method: "POST", headers: { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "myreport_call", arguments: { tool: "liste_indicateurs" } } }) }).then((x) => x.text());
+    assert.match(r, /liste blanche MYREPORT_TOOLS/, "sans liste blanche, aucun transfert");
+  } finally { await hubNoList.stop(); }
 
   const ko = await c.callTool({ name: "myreport_call", arguments: { tool: "valeur_indicateur", arguments: {} } });
   assert.equal(ko.isError, true, "erreur distante (argument manquant) remontée telle quelle");
@@ -111,7 +117,7 @@ test("MyReport : sans MYREPORT_MCP_URL, simulateur local (tests Docker Desktop) 
     const c2 = new Client({ name: "t", version: "1" });
     await c2.connect(new StreamableHTTPClientTransport(new URL(`${sim.url}/mcp`), { requestInit: { headers: { Authorization: `Bearer ${k}` } } }));
     const v = text(await c2.callTool({ name: "myreport_call", arguments: { tool: "valeur_indicateur", arguments: { code: "TRESO" } } }));
-    assert.equal(v.valeur, 904500);
+    assert.deepEqual([v.valeur, v.simule], [904500, true], "réponse simulée marquée");
     await c2.close();
     assert.equal(up.requests("/myreport/").length, 0);
   } finally { await sim.stop(); }

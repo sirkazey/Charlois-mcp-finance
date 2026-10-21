@@ -64,7 +64,7 @@ export function oauthRouter(connectors, getKey) {
     if (req.query.error) return res.status(400).send(`Refus OAuth : ${req.query.error_description || req.query.error}`);
     try {
       const tokens = await postToken(c.oauth, { grant_type: "authorization_code", code: req.query.code, redirect_uri: redirectUri(c.id) });
-      const email = await c.identity?.(tokens).catch(() => null);
+      const email = c.identity ? await c.identity(tokens).catch(() => null) : null;
       store.setTokens(p.key, c.id, tokens, email);
       res.redirect("/");
     } catch (e) {

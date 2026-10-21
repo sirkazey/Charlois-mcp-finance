@@ -40,7 +40,9 @@ export async function ping(tok) {
   return { message: `Connecté à Microsoft Graph en tant que ${u.displayName} (${u.mail || u.userPrincipalName})${SITE ? ` · site ${SITE}` : " · OneDrive"}` };
 }
 
-const siteArg = z.string().optional().describe("Site SharePoint (id Graph ou hostname:/sites/Nom) ; défaut : SP_SITE, sinon OneDrive");
+const siteArg = z.string().regex(/^(?!.*\.\.)[\w.,:/-]+$/).optional().describe("Site SharePoint (id Graph ou hostname:/sites/Nom) ; défaut : SP_SITE, sinon OneDrive");
+const pathArg = z.string().regex(/^(?!.*\.\.)[^#?]*$/).default("").describe("Chemin du dossier depuis la racine du lecteur");
+const encPath = (p) => p.replace(/^\/+|\/+$/g, "").split("/").map(encodeURIComponent).join("/");
 
 export const tools = [
   {
@@ -52,10 +54,10 @@ export const tools = [
   {
     name: "sharepoint_list",
     description: "Contenu d'un dossier SharePoint/OneDrive, ex. path='Finance/2025'.",
-    input: { path: z.string().default("").describe("Chemin du dossier depuis la racine du lecteur"), site: siteArg },
+    input: { path: pathArg, site: siteArg },
     run: async (tok, { path, site }) => {
-      const p = path.replace(/^\/+|\/+$/g, "");
-      return (await get(tok, `${drive(site)}/root${p ? `:/${encodeURI(p)}:` : ""}/children`, { $top: 200 })).value.map(item);
+      const p = encPath(path);
+      return (await get(tok, `${drive(site)}/root${p ? `:/${p}:` : ""}/children`, { $top: 200 })).value.map(item);
     },
   },
   {

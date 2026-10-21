@@ -1,5 +1,5 @@
 // Persistance minimale : un fichier JSON dans le volume /data.
-// users[key] = { email, salesforce: {tokens}, sagex3: {tokens} }
+// users[key] = { email, salesforce: {tokens}, sagex3: {tokens}, sharepoint, dropbox, myreport }
 // La "key" est le secret que l'utilisateur met dans son client MCP.
 import { readFileSync, writeFileSync, mkdirSync, renameSync } from "node:fs";
 import { randomBytes } from "node:crypto";
@@ -21,8 +21,7 @@ export const store = {
   get: (key) => (typeof key === "string" && Object.hasOwn(db.users, key) && db.users[key]) || null,
   create() {
     const key = randomBytes(24).toString("base64url");
-    db.users[key] = { createdAt: new Date().toISOString() };
-    save();
+    db.users[key] = { createdAt: new Date().toISOString() }; // écrit sur disque au premier jeton seulement
     return key;
   },
   setTokens(key, system, tokens, email) {
