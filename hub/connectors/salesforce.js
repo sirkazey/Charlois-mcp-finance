@@ -14,7 +14,8 @@ export const oauth = {
   tokenUrl: `${LOGIN}/services/oauth2/token`,
   clientId: process.env.SF_CLIENT_ID,
   clientSecret: process.env.SF_CLIENT_SECRET,
-  scope: "openid api refresh_token", // openid : nécessaire pour /userinfo (email)
+  // refresh_token + offline_access : jeton de rafraîchissement (la Connected App doit l'autoriser : « Refresh token is valid until revoked »).
+  scope: "openid api refresh_token offline_access",
 };
 
 /** GET REST authentifié sur l'instance de l'utilisateur. */

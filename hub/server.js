@@ -5,7 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { store } from "./store.js";
-import { oauthRouter, withToken, PUBLIC_URL } from "./oauth.js";
+import { oauthRouter, withToken, hasCredential, PUBLIC_URL } from "./oauth.js";
 import { cachedSchema, schemaAge } from "./cache.js";
 import * as salesforce from "./connectors/salesforce.js";
 import * as sagex3 from "./connectors/sagex3.js";
@@ -14,7 +14,7 @@ const PORT = process.env.PORT || 8080;
 const CONNECTORS = [salesforce, sagex3];
 const byId = Object.fromEntries(CONNECTORS.map((c) => [c.id, c]));
 // Variables visibles dans le portail (les *SECRET* ne sont jamais renvoyées, seulement « défini / vide »).
-const ENV = ["PUBLIC_URL", "SF_LOGIN_URL", "SF_CLIENT_ID", "SF_CLIENT_SECRET", "SAGE_URL", "SAGE_FOLDER", "SAGE_OAUTH_AUTH_URL", "SAGE_OAUTH_TOKEN_URL", "SAGE_OAUTH_CLIENT_ID", "SAGE_OAUTH_CLIENT_SECRET", "SAGE_OAUTH_SCOPE"];
+const ENV = ["PUBLIC_URL", "SF_LOGIN_URL", "SF_CLIENT_ID", "SF_CLIENT_SECRET", "SAGE_URL", "SAGE_FOLDER", "SAGE_APIKEY_MODE", "SAGE_OAUTH_AUTH_URL", "SAGE_OAUTH_TOKEN_URL", "SAGE_OAUTH_CLIENT_ID", "SAGE_OAUTH_CLIENT_SECRET", "SAGE_OAUTH_SCOPE"];
 
 // ---------- Identité ----------
 // Cookie "mcp_key" pour le portail ; en-tête "Authorization: Bearer <key>" ou "?key=" pour les clients MCP.
@@ -68,13 +68,25 @@ app.get("/api/me", (req, res) => {
     key,
     mcpUrl: `${PUBLIC_URL}/mcp`,
     sseUrl: `${PUBLIC_URL}/sse`,
-    systems: CONNECTORS.map((c) => ({ id: c.id, label: c.label, mock: !!c.mock, connected: !!u[c.id]?.access_token, configured: !!c.oauth.clientId, schemaAt: schemaAge(key, c.id) })),
+    systems: CONNECTORS.map((c) => ({
+      id: c.id, label: c.label, mock: !!c.mock, configured: !!c.oauth.clientId, schemaAt: schemaAge(key, c.id),
+      connected: hasCredential(u[c.id]), method: u[c.id]?.apiKey ? "apikey" : u[c.id]?.access_token ? "oauth" : null,
+      apiKey: c.id === "sagex3" && !c.mock ? { mode: c.apiKeyMode } : undefined, // le portail propose la saisie d'une clé
+    })),
     config: ENV.map((n) => ({ name: n, value: !process.env[n] ? null : n.includes("SECRET") ? "••••••••" : process.env[n] })),
   });
 });
 app.post("/api/disconnect/:system", portalUser, (req, res) => {
   if (!byId[req.params.system]) return res.sendStatus(404);
   store.clearTokens(req.key, req.params.system); res.sendStatus(204);
+});
+// Clé d'API Syracuse personnelle (alternative à OAuth pour Sage X3) : remplace l'entrée sagex3 de l'utilisateur.
+app.post("/api/sagex3/apikey", portalUser, (req, res) => {
+  const apiKey = String(req.body?.apiKey || "").trim(), login = String(req.body?.login || "").trim();
+  if (!apiKey) return res.status(400).json({ error: "Clé d'API vide" });
+  store.clearTokens(req.key, "sagex3");
+  store.setTokens(req.key, "sagex3", { apiKey, ...(login ? { login } : {}) });
+  res.sendStatus(204);
 });
 // Diagnostic : un appel minimal au système avec le jeton de l'utilisateur (ou le simulateur).
 app.get("/api/test/:system", portalUser, async (req, res) => {

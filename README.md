@@ -14,7 +14,7 @@ Claude (mobile / desktop / code)
 │                expirée chaque nuit à 03:00                           │
 │ connectors/    salesforce.js · sagex3.js  (REST natif, Bearer user)  │
 │ public/        index.html  (boutons OAuth, diagnostic, questions)    │
-│ test/          node:test, amont mocké, 31 tests                      │
+│ test/          node:test, amont mocké, 34 tests                      │
 └──────────┬────────────────────────────────────────┬──────────────────┘
            ▼ /services/data/v62.0/query…             ▼ /api1/x3/erp/<dossier>/<repr>?representation=…$query
       Salesforce REST                           Sage X3 24R1 REST (Syracuse) — ou simulateur intégré
@@ -71,8 +71,14 @@ La section **Configuration du conteneur** affiche les variables lues par le hub 
 
 ## Côté Salesforce
 
-Connected App OAuth : scopes **`openid`**, **`api`**, **`refresh_token`**, callback `<PUBLIC_URL>/auth/salesforce/callback`.
+Connected App OAuth : scopes **`openid`**, **`api`**, **`refresh_token`**, **`offline_access`**,
+callback `<PUBLIC_URL>/auth/salesforce/callback`. Dans la Connected App, régler *Refresh Token Policy* sur
+**« Refresh token is valid until revoked »**, sinon le jeton de rafraîchissement expire et l'utilisateur doit se reconnecter.
 Reporter *Consumer Key / Secret* dans `SF_CLIENT_ID` / `SF_CLIENT_SECRET`. Sandbox : `SF_LOGIN_URL=https://test.salesforce.com`.
+
+Renouvellement transparent : quand Salesforce répond 401 (session expirée), le hub échange le `refresh_token` contre
+un nouvel `access_token`, le persiste dans `users.json` et rejoue l'appel. L'utilisateur ne voit rien.
+Il ne se reconnecte que si le refresh token est révoqué (admin, changement de mot de passe, politique d'expiration).
 
 ## Côté Sage X3 24R1
 
@@ -81,7 +87,19 @@ Pré-requis : un **serveur OAuth2** (ex. Entra ID) déclaré dans *Administratio
 les utilisateurs X3 rattachés à ce serveur, et `SAGE_OAUTH_SCOPE` demandant un jeton **pour Syracuse**
 (avec Entra : `openid offline_access api://<app-id-syracuse>/.default`, pas un jeton Graph).
 
-> **À vérifier sur votre instance avant mise en production** : l'acceptation du Bearer par `/api1/x3/erp`,
+### Alternative sans OAuth : clé d'API Syracuse personnelle
+
+Sur le portail, sous le bouton Sage X3, chaque collaborateur peut saisir **sa** clé d'API (et son identifiant X3 en mode
+`basic`). Elle est stockée dans `users.json` sous sa clé MCP (`sagex3.apiKey`, `sagex3.login`), jamais renvoyée au
+navigateur, et envoyée telle quelle à chaque appel :
+* `SAGE_APIKEY_MODE=bearer` (défaut) → `Authorization: Bearer <clé>`
+* `SAGE_APIKEY_MODE=basic` → `Authorization: Basic base64(login:clé)` (authentification Basic classique de Syracuse)
+
+Pas d'expiration, pas de refresh : la connexion reste permanente tant que la clé est valide côté Sage.
+Une clé révoquée produit un voyant rouge « Sage X3 401 » dans le diagnostic.
+
+> **À vérifier sur votre instance avant mise en production** : le mode d'envoi de la clé d'API attendu par votre
+> Syracuse (`bearer` ou `basic`), l'acceptation du Bearer OAuth par `/api1/x3/erp`,
 > le scope exact, et l'URL des prototypes (`$prototypes('<REP>.$query')`) dépendent de la configuration Syracuse.
 > Test : `curl -H "Authorization: Bearer …" "$SAGE_URL/api1/x3/erp/PROD/BPCUSTOMER?representation=BPCUSTOMER.\$query&count=1"`.
 
@@ -98,5 +116,5 @@ Outils : `salesforce_objects`, `salesforce_describe`, `salesforce_query` · `sag
 ```bash
 cd hub && npm install
 PUBLIC_URL=http://localhost:8080 SF_CLIENT_ID=… SF_CLIENT_SECRET=… node server.js   # Sage X3 en mode simulé
-npm test    # 31 tests node:test : SSE + Streamable HTTP, lecture seule, refresh de jeton, cache, OAuth, portail, simulateur
+npm test    # 34 tests node:test : SSE + Streamable HTTP, lecture seule, refresh de jeton, cache, OAuth, portail, simulateur
 ```

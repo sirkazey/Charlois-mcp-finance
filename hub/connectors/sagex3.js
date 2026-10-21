@@ -3,6 +3,8 @@
 // utilisateurs rattachés à ce serveur, afin que Syracuse accepte "Authorization: Bearer <access_token>".
 // Lecture seule : seules les opérations $query / $details / $prototypes sont appelées, toujours en GET.
 // MODE SIMULÉ : sans SAGE_URL, le connecteur répond avec 3 fausses tables (YFAC, YCLIENT, ZVENTE) sans jeton.
+// CLÉ D'API : alternative à OAuth, saisie par l'utilisateur dans le portail (users.json : sagex3.apiKey, sagex3.login).
+// Envoyée selon SAGE_APIKEY_MODE : "bearer" (Authorization: Bearer <clé>) ou "basic" (Authorization: Basic login:clé).
 import { z } from "zod";
 
 const BASE = (process.env.SAGE_URL || "").replace(/\/$/, "");
@@ -13,6 +15,12 @@ const name = z.string().regex(/^\w+$/, "nom de représentation invalide"); // bl
 export const id = "sagex3";
 export const label = "Sage X3";
 export const mock = !BASE;
+export const apiKeyMode = process.env.SAGE_APIKEY_MODE === "basic" ? "basic" : "bearer";
+
+/** En-tête Authorization construit depuis l'entrée users.json de l'utilisateur. */
+const authHeader = (tok) => tok.apiKey
+  ? (apiKeyMode === "basic" ? `Basic ${Buffer.from(`${tok.login || ""}:${tok.apiKey}`).toString("base64")}` : `Bearer ${tok.apiKey}`)
+  : `Bearer ${tok.access_token}`;
 export const oauth = {
   authUrl: process.env.SAGE_OAUTH_AUTH_URL,
   tokenUrl: process.env.SAGE_OAUTH_TOKEN_URL,
@@ -43,7 +51,7 @@ async function get(tok, path, params = {}) {
   if (mock) return mockGet(path);
   const u = new URL(`${BASE}/api1/x3/erp/${FOLDER}/${path}`);
   u.search = new URLSearchParams(params);
-  const r = await fetch(u, { headers: { Authorization: `Bearer ${tok.access_token}`, Accept: "application/json" } });
+  const r = await fetch(u, { headers: { Authorization: authHeader(tok), Accept: "application/json" } });
   if (!r.ok) throw Object.assign(new Error(`Sage X3 ${r.status}: ${await r.text()}`), { status: r.status });
   return r.json();
 }
@@ -70,7 +78,8 @@ export async function schema(tok) {
 /** Test de connectivité (portail) : liste des tables via la structure. */
 export async function ping(tok, schema) {
   const { representations } = await schema();
-  return { message: mock ? `Mode simulé actif · ${representations.length} tables en cache mémoire` : `Connecté à ${BASE} (dossier ${FOLDER})`, tables: representations };
+  const how = tok.apiKey ? ` par clé d'API (${apiKeyMode})` : " par OAuth";
+  return { message: mock ? `Mode simulé actif · ${representations.length} tables en cache mémoire` : `Connecté à ${BASE} (dossier ${FOLDER})${how}`, tables: representations };
 }
 
 /** Retire les métadonnées Syracuse ($uuid, $etag, $url…) pour alléger la réponse. */

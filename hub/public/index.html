@@ -19,6 +19,7 @@
   .status { margin-top:12px; font-size:.9rem; color:var(--muted); display:flex; justify-content:space-between; align-items:center }
   .dot { display:inline-block; width:10px; height:10px; border-radius:50%; background:#d1d5db; margin-right:6px; vertical-align:middle } .dot.on { background:var(--ok) } .dot.off { background:var(--ko) }
   .led { width:16px; height:16px; box-shadow:0 0 0 3px #fff inset } .led.on { box-shadow:0 0 10px var(--ok) } .led.off { box-shadow:0 0 10px var(--ko) }
+  .apikey { display:grid; gap:8px } .apikey input { font:inherit; padding:10px 12px; border:1px solid var(--line); border-radius:10px; width:100% }
   .link { background:none; border:0; color:var(--muted); text-decoration:underline; cursor:pointer; font-size:.85rem; padding:0 }
   .result { margin-top:12px; font-size:.9rem; min-height:1.5em; word-break:break-word } .result code { font-size:.8rem; color:var(--ko) }
   .chips span { display:inline-block; background:#ecfdf5; color:var(--sage-ink); border:1px solid #a7f3d0; border-radius:999px; padding:2px 10px; margin:6px 6px 0 0; font-size:.85rem; font-family:ui-monospace,monospace }
@@ -86,9 +87,16 @@ async function load() {
         ${s.connected ? "✓ Reconnecter" : "Se connecter à"} ${s.label}
       </a>
       <div class="status">
-        <span><i class="dot ${s.connected || s.mock ? "on" : ""}"></i>${s.mock ? "Mode simulé (sans compte)" : s.connected ? "Connecté" : s.configured ? "Non connecté" : "Non configuré (admin)"}</span>
+        <span><i class="dot ${s.connected || s.mock ? "on" : ""}"></i>${s.mock ? "Mode simulé (sans compte)" : s.connected ? `Connecté${s.method === "apikey" ? " (clé d'API)" : ""}` : s.configured ? "Non connecté" : "Non configuré (admin)"}</span>
         ${s.connected ? `<button class="link" onclick="disconnect('${s.id}')">Déconnecter</button>` : ""}
       </div>
+      ${s.apiKey && !s.connected ? `
+      <form class="apikey" onsubmit="saveApiKey(event)">
+        <div class="status" style="margin:14px 0 6px">ou une clé d'API Syracuse personnelle (sans expiration)</div>
+        ${s.apiKey.mode === "basic" ? `<input id="sage-login" placeholder="Identifiant X3" autocomplete="username" required>` : ""}
+        <input id="sage-apikey" type="password" placeholder="Clé d'API" autocomplete="off" required>
+        <button class="btn test" type="submit">Enregistrer la clé</button>
+      </form>` : ""}
     </div>`).join("");
   const sage = me.systems.find((s) => s.id === "sagex3");
   $("#btn-sagex3").textContent = sage?.mock ? "Tester le simulateur Sage X3" : "Tester la connexion Sage X3";
@@ -121,6 +129,12 @@ async function test(id, btn) {
     out.innerHTML = `<i class="dot led off"></i><strong>Passerelle injoignable</strong><br><code>${esc(e.message)}</code>`;
   }
   btn.disabled = false;
+}
+async function saveApiKey(e) {
+  e.preventDefault();
+  const body = { apiKey: $("#sage-apikey").value, login: $("#sage-login")?.value };
+  const r = await fetch("/api/sagex3/apikey", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify(body) });
+  if (!r.ok) return toast("Clé refusée"); toast("Clé enregistrée"); load();
 }
 async function disconnect(id) { await fetch("/api/disconnect/" + id, { method: "POST", credentials: "same-origin" }); load(); }
 load();

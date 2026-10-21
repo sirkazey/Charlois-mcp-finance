@@ -13,6 +13,7 @@ import { join } from "node:path";
 const TOOLS = ["salesforce_objects", "salesforce_describe", "salesforce_query", "sagex3_representations", "sagex3_describe", "sagex3_query", "sagex3_get"];
 const KEY_NO_REFRESH = "test-key-bob-no-refresh-token";
 const KEY_CAROL = "test-key-carol-0123456789";
+const KEY_DAN = "test-key-dan-apikey-0123456789";
 
 let up, hub;
 
@@ -23,6 +24,7 @@ before(async () => {
     users: {
       [KEY]: connectedUser(up.url),
       [KEY_NO_REFRESH]: { createdAt: "2026-01-01T00:00:00.000Z", sagex3: { access_token: "sage-token-bob" } },
+      [KEY_DAN]: { createdAt: "2026-01-01T00:00:00.000Z", sagex3: { apiKey: "syr-key-dan" } },
       [KEY_CAROL]: { createdAt: "2026-01-01T00:00:00.000Z", email: "carol@example.com",
         salesforce: { access_token: "sf-token-carol", instance_url: up.url }, sagex3: { access_token: "sage-token-carol" } },
     },
@@ -236,6 +238,20 @@ test("Cloisonnement : chaque appel amont porte le jeton personnel de l'appelant,
     const raw = JSON.parse(readFileSync(join(hub.dataDir, "users.json"), "utf8"));
     assert.deepEqual(Object.keys(raw), ["users"], "aucun jeton global hors de users.{clé}");
   } finally { await alice.close(); await carol.close(); }
+});
+
+test("Clé d'API Syracuse : les outils MCP l'envoient en Bearer, et un 401 ne déclenche aucun refresh OAuth", async () => {
+  up.reset();
+  const c = await sseClient(KEY_DAN);
+  try {
+    const rows = text(await c.callTool({ name: "sagex3_query", arguments: { representation: "BPCUSTOMER" } }));
+    assert.equal(rows.length, 2);
+    assert.equal(up.requests("/api1/x3/erp/PROD/BPCUSTOMER")[0].headers.authorization, "Bearer syr-key-dan");
+    up.failNext("/api1/x3/erp/PROD/BPCUSTOMER", 401);
+    const r = await c.callTool({ name: "sagex3_query", arguments: { representation: "BPCUSTOMER" } });
+    assert.equal(r.isError, true);
+    assert.equal(up.requests("/oauth/token").length, 0);
+  } finally { await c.close(); }
 });
 
 // ---------------------------------------------------------------- 3. refresh de jeton

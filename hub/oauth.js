@@ -19,11 +19,16 @@ async function postToken(c, params) {
   return body;
 }
 
-/** Exécute fn(tokens) avec le jeton de l'utilisateur `key` ; sur 401 tente un refresh_token puis réessaie une fois. */
+/** Vrai si l'entrée users.json contient de quoi s'authentifier (jeton OAuth ou clé d'API personnelle). */
+export const hasCredential = (t) => !!(t?.access_token || t?.apiKey);
+
+/** Exécute fn(tokens) avec le jeton de l'utilisateur `key`.
+ *  Sur 401 avec un refresh_token : renouvelle l'access_token en arrière-plan, le persiste, puis réessaie une fois.
+ *  Transparent pour l'utilisateur : il ne se reconnecte que si le refresh_token lui-même est révoqué. */
 export async function withToken(connector, key, fn) {
   if (connector.mock) return fn({ access_token: "simulé" });
   const tokens = store.get(key)?.[connector.id];
-  if (!tokens?.access_token) throw new Error(`Non connecté à ${connector.label}. Ouvrez le portail et cliquez « Se connecter à ${connector.label} ».`);
+  if (!hasCredential(tokens)) throw new Error(`Non connecté à ${connector.label}. Ouvrez le portail et cliquez « Se connecter à ${connector.label} ».`);
   try {
     return await fn(tokens);
   } catch (e) {

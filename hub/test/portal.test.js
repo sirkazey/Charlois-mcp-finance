@@ -82,7 +82,7 @@ test("GET /auth/salesforce : 302 vers SF_LOGIN_URL/services/oauth2/authorize ave
   assert.equal(loc.searchParams.get("response_type"), "code");
   assert.equal(loc.searchParams.get("client_id"), "sf-client-id");
   assert.equal(loc.searchParams.get("redirect_uri"), `${hub.url}/auth/salesforce/callback`);
-  assert.equal(loc.searchParams.get("scope"), "openid api refresh_token");
+  assert.equal(loc.searchParams.get("scope"), "openid api refresh_token offline_access");
   state = loc.searchParams.get("state");
   assert.match(state, /^[0-9a-f]{32}$/);
 
@@ -194,6 +194,48 @@ test("GET /api/test/:system : voyant vert avec le jeton de l'utilisateur, rouge 
   assert.equal((await fetch(`${hub.url}/api/test/nope`, { headers: { cookie } })).status, 404);
 });
 
+test("Clé d'API Syracuse : POST /api/sagex3/apikey remplace OAuth, l'état passe à connecté (apikey), la clé part en Bearer", async () => {
+  assert.equal((await fetch(`${hub.url}/api/sagex3/apikey`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })).status, 401, "sans cookie");
+  assert.equal((await fetch(`${hub.url}/api/sagex3/apikey`, { method: "POST", headers: { cookie, "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: "  " }) })).status, 400, "clé vide");
+
+  const r = await fetch(`${hub.url}/api/sagex3/apikey`, { method: "POST", headers: { cookie, "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: "syr-key-alice", login: "ALICE" }) });
+  assert.equal(r.status, 204);
+  const u = hub.readUsers()[key];
+  assert.deepEqual(Object.keys(u.sagex3).sort(), ["apiKey", "login", "updatedAt"], "la clé remplace les jetons OAuth précédents");
+  assert.equal(u.sagex3.apiKey, "syr-key-alice");
+  assert.equal(u.salesforce.access_token, "sf-token-abc123", "Salesforce intact");
+
+  const me = await fetch(`${hub.url}/api/me`, { headers: { cookie } }).then((x) => x.json());
+  assert.deepEqual([me.systems[1].connected, me.systems[1].method, me.systems[1].apiKey], [true, "apikey", { mode: "bearer" }]);
+  assert.ok(!JSON.stringify(me).includes("syr-key-alice"), "la clé n'est jamais renvoyée au navigateur");
+
+  up.reset();
+  const d = await fetch(`${hub.url}/api/test/sagex3`, { headers: { cookie } }).then((x) => x.json());
+  assert.equal(d.ok, true, JSON.stringify(d));
+  assert.match(d.message, /clé d'API \(bearer\)/);
+  assert.ok(up.requests("$prototypes").every((q) => q.headers.authorization === "Bearer syr-key-alice"));
+
+  // Une clé invalide : 401 remonté tel quel, aucun refresh OAuth tenté
+  up.failNext("$prototypes", 401);
+  const ko = await fetch(`${hub.url}/api/test/sagex3`, { headers: { cookie: `mcp_key=${(await fetch(`${hub.url}/api/me`).then((x) => x.json())).key}` } }).then((x) => x.json());
+  assert.equal(ko.ok, false);
+  assert.equal(up.requests("/oauth/token").length, 0);
+});
+
+test("Clé d'API en mode basic (SAGE_APIKEY_MODE=basic) : Authorization: Basic base64(login:clé)", async () => {
+  const basic = await startHub({ upstreamUrl: up.url, env: { SAGE_APIKEY_MODE: "basic" } });
+  try {
+    const c = `mcp_key=${(await fetch(`${basic.url}/api/me`).then((x) => x.json())).key}`;
+    const me = await fetch(`${basic.url}/api/me`, { headers: { cookie: c } }).then((x) => x.json());
+    assert.deepEqual(me.systems[1].apiKey, { mode: "basic" });
+    await fetch(`${basic.url}/api/sagex3/apikey`, { method: "POST", headers: { cookie: c, "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: "k-bob", login: "BOB" }) });
+    up.reset();
+    const d = await fetch(`${basic.url}/api/test/sagex3`, { headers: { cookie: c } }).then((x) => x.json());
+    assert.equal(d.ok, true, JSON.stringify(d));
+    assert.equal(up.requests("$prototypes")[0].headers.authorization, `Basic ${Buffer.from("BOB:k-bob").toString("base64")}`);
+  } finally { await basic.stop(); }
+});
+
 test("POST /api/disconnect/salesforce retire les jetons Salesforce (et seulement eux)", async () => {
   assert.equal((await fetch(`${hub.url}/api/disconnect/salesforce`, { method: "POST" })).status, 401, "sans cookie");
   assert.equal((await fetch(`${hub.url}/api/disconnect/nope`, { method: "POST", headers: { cookie } })).status, 404);
@@ -201,7 +243,7 @@ test("POST /api/disconnect/salesforce retire les jetons Salesforce (et seulement
   assert.equal(r.status, 204);
   const u = hub.readUsers()[key];
   assert.equal(u.salesforce, undefined);
-  assert.equal(u.sagex3.access_token, "sage-token-xyz");
+  assert.equal(u.sagex3.apiKey, "syr-key-alice");
   assert.equal(u.email, "alice@example.com");
   const me = await fetch(`${hub.url}/api/me`, { headers: { cookie } }).then((x) => x.json());
   assert.deepEqual(me.systems.map((s) => s.connected), [false, true]);
@@ -227,8 +269,9 @@ test("index.html : chaque URL appelée (fetch / href) correspond à une route du
   for (const u of urls) {
     const path = u.split("?")[0];
     assert.ok(routes.some((r) => r.re.test(path)), `aucune route déclarée pour ${u}`);
-    const method = /disconnect/.test(path) ? "POST" : "GET";
-    const r = await fetch(`${hub.url}${u}`, { method, headers: { cookie }, ...noFollow });
+    const method = /disconnect|apikey/.test(path) ? "POST" : "GET";
+    const body = /apikey/.test(path) ? { headers: { cookie, "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: "k" }) } : { headers: { cookie } };
+    const r = await fetch(`${hub.url}${u}`, { method, ...body, ...noFollow });
     assert.ok(r.status < 400, `${method} ${u} → ${r.status}`);
   }
 });
