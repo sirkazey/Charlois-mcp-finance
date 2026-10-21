@@ -44,7 +44,7 @@ export async function startHub({ upstreamUrl, users = {}, env = {} }) {
 
   const child = spawn(process.execPath, ["server.js"], {
     env: {
-      PATH: process.env.PATH, TZ: process.env.TZ,
+      PATH: process.env.PATH, TZ: process.env.TZ, APP_ENV: process.env.APP_ENV, LOG_LEVEL: process.env.LOG_LEVEL,
       PORT: String(port), PUBLIC_URL: url, DATA_DIR: dataDir,
       SF_LOGIN_URL: upstreamUrl, SF_CLIENT_ID: "sf-client-id", SF_CLIENT_SECRET: "sf-client-secret",
       SF_OBJECTS: "Account,Contact,Opportunity",

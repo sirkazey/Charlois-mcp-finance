@@ -1,6 +1,6 @@
-# Stack Portainer / Docker Desktop : un seul service, les connecteurs sont des modules du hub.
-# Portainer : Stacks > Add stack > Repository (ce dépôt) ; variables saisies dans l'UI.
-# Docker Desktop : copier .env.example en .env puis `docker compose up -d --build`.
+# BASE COMMUNE (et usage Docker Desktop) : un seul service, les connecteurs sont des modules du hub.
+# Portainer : utiliser docker-compose.dev.yml (pré-prod, branche dev) ou docker-compose.prod.yml (prod, branche main),
+# qui étendent ce fichier. Docker Desktop : copier .env.example en .env puis `docker compose up -d --build`.
 services:
   mcp-hub:
     build: ./hub
@@ -8,7 +8,9 @@ services:
     ports:
       - "${HUB_PORT:-8080}:8080"
     environment:
-      TZ: ${TZ:-Europe/Paris}                 # heure de la coupure nocturne du cache de structure (03:00)
+      APP_ENV: ${APP_ENV:-preprod}            # preprod (défaut) ou production : badge ENV du portail et verrous
+      LOG_LEVEL: ${LOG_LEVEL:-info}           # debug = trace des appels d'outils
+      TZ: ${TZ:-Europe/Paris}                 # heure de la coupure nocturne du cache de structure et de la télémétrie (03:00)
       PUBLIC_URL: ${PUBLIC_URL:?URL publique du hub, ex. http://localhost:8080 ou https://mcp.charlois.fr}
       # Salesforce — Connected App OAuth, callback = $PUBLIC_URL/auth/salesforce/callback
       SF_LOGIN_URL: ${SF_LOGIN_URL}

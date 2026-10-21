@@ -1,19 +1,19 @@
 // Télémétrie Clevoa : un HTTPS POST au démarrage puis chaque jour à 03:00, 100 % anonyme.
-// Payload : version du hub, état de configuration des connecteurs (booléens), compteur brut de requêtes MCP du jour.
+// Payload : version du hub, environnement, état de configuration des connecteurs (booléens), compteur brut de requêtes MCP du jour.
 // Jamais de donnée utilisateur, de jeton, de requête ni de résultat. Désactivée si CLEVOA_KEY est vide.
-import { readFileSync } from "node:fs";
+import { VERSION, APP_ENV } from "./version.js";
+export { VERSION };
 
 const URL_ = process.env.CLEVOA_URL || "https://clevoa.fr/api/v1/telemetry";
 const KEY = process.env.CLEVOA_KEY || "";
 const HOUR = 3;
-export const VERSION = JSON.parse(readFileSync(new URL("./package.json", import.meta.url))).version;
-
 let requests = 0;
 export const count = () => { requests++; };
 
 /** Construit le payload anonyme à partir des connecteurs (configuré = vrai système joignable, simulateur = faux). */
 export const payload = (connectors) => ({
   version: VERSION,
+  env: APP_ENV,
   date: new Date().toISOString().slice(0, 10),
   connectors: Object.fromEntries(connectors.map((c) => [c.id, !c.mock && !!(c.oauth?.clientId || c.apiKey)])),
   requests,

@@ -13,10 +13,11 @@ Claude (mobile / desktop / code)
 │ cache.js       structure des tables en mémoire, par utilisateur,     │
 │                expirée chaque nuit à 03:00                           │
 │ mcpclient.js   client MCP partagé par les connecteurs proxy          │
+│ version.js     VERSION stricte + APP_ENV (PRODUCTION / PRE-PROD)     │
 │ telemetry.js   télémétrie Clevoa anonyme, au démarrage puis à 03:00  │
 │ connectors/    salesforce · sagex3 · sharepoint · dropbox · myreport  │
 │ public/        index.html  (boutons OAuth, jetons, diagnostic)       │
-│ test/          node:test, amont mocké, 44 tests                      │
+│ test/          node:test, amont mocké, 45 tests                      │
 └───┬─────────────┬───────────────┬───────────────┬───────────────┬────┘
     ▼ REST        ▼ REST Syracuse ▼ Graph (GET)   ▼ MCP HTTP      ▼ MCP SSE
  Salesforce    Sage X3 24R1    SharePoint      Dropbox (MCP    MyReport Server
@@ -57,7 +58,7 @@ Si `CLEVOA_KEY` est renseignée, le hub envoie au démarrage puis chaque jour à
 (défaut `https://clevoa.fr/api/v1/telemetry`) avec l'en-tête `X-Clevoa-Key`. Payload, et rien d'autre :
 
 ```json
-{ "version": "1.0.0", "date": "2026-10-22", "connectors": { "salesforce": true, "sagex3": false, "sharepoint": true, "dropbox": true, "myreport": false }, "requests": 137 }
+{ "version": "1.0.0", "env": "PRODUCTION", "date": "2026-10-22", "connectors": { "salesforce": true, "sagex3": false, "sharepoint": true, "dropbox": true, "myreport": false }, "requests": 137 }
 ```
 
 `connectors` = vrai système configuré (un simulateur compte `false`) ; `requests` = nombre brut d'appels d'outils MCP
@@ -87,12 +88,37 @@ Sur le portail, la section **Diagnostic & Connectivité** permet de :
 La section **Configuration du conteneur** affiche les variables lues par le hub (secrets masqués). Sur un hub public
 (`PUBLIC_URL` en https), elle n'apparaît qu'une fois l'utilisateur connecté à un système.
 
-## Déploiement Portainer
+## Déploiement à distance : deux environnements étanches (Portainer Git auto-update)
 
-1. **Stacks → Add stack → Repository**, URL de ce dépôt, compose path `docker-compose.yml`.
-2. Renseigner les variables de `.env.example` dans l'UI. `PUBLIC_URL` est obligatoire.
-3. Mettre le port 8080 derrière votre reverse-proxy TLS : Salesforce n'accepte les callbacks `http` que sur `localhost`.
-4. Le volume `mcp-data` conserve `users.json` (jetons par utilisateur).
+| Environnement | Branche Git | Fichier compose           | Conteneur         | Particularités |
+|---------------|-------------|---------------------------|-------------------|----------------|
+| Pré-prod      | `dev`       | `docker-compose.dev.yml`  | `mcp-hub-preprod` | `LOG_LEVEL=debug`, simulateurs Sage X3 et MyReport si les URL sont vides, télémétrie vers l'URL Clevoa de votre choix (vide = désactivée) |
+| Production    | `main`      | `docker-compose.prod.yml` | `mcp-hub-prod`    | `APP_ENV=production` : badge « ENV: PRODUCTION », mode démo masqué, `PUBLIC_URL` https obligatoire (sinon refus de démarrer), `CLEVOA_KEY` obligatoire, télémétrie figée sur `https://clevoa.fr`, conteneur sans privilèges, système de fichiers en lecture seule, journaux plafonnés |
+
+Les deux fichiers **étendent** `docker-compose.yml` (base commune, aussi utilisée telle quelle sur Docker Desktop) :
+une seule définition du service, seules les différences sont écrites. Chaque stack a son propre volume `mcp-data`
+(nom préfixé par Portainer avec le nom de la stack), donc ses propres `users.json` : les jetons de pré-prod ne sont
+jamais visibles en prod, et inversement.
+
+**Mise en place dans Portainer** (une fois par environnement) :
+
+1. **Stacks → Add stack → Repository** : URL de ce dépôt, *Repository reference* = `refs/heads/dev` (pré-prod) ou
+   `refs/heads/main` (prod), *Compose path* = le fichier du tableau ci-dessus.
+2. **GitOps updates** : activer, mode *Polling* (ex. 5 min) ou *Webhook* (coller l'URL du webhook dans GitHub →
+   Settings → Webhooks, événement *push*). À chaque commit sur la branche, Portainer reconstruit l'image et redéploie.
+3. Variables d'environnement : celles de `.env.example`. `PUBLIC_URL` est obligatoire partout ; `CLEVOA_KEY` l'est en prod.
+4. Port 8080 derrière votre reverse-proxy TLS, un sous-domaine par environnement (`mcp-preprod.` / `mcp.`).
+
+**Cycle de livraison** : développer et committer sur `dev` → la stack de pré-prod se met à jour → vérifier le portail
+(badge « ENV: PRE-PROD », diagnostic) et la suite `npm test` → fusionner `dev` dans `main` (`git merge --ff-only dev`)
+→ la stack de production se met à jour. Ne jamais committer directement sur `main`.
+
+**Version** : `hub/version.js` porte la version stricte (`VERSION = "1.0.0"`), affichée dans les logs de démarrage,
+dans l'en-tête et le pied de page du portail, dans `/api/me` et dans chaque envoi de télémétrie. L'incrémenter à chaque
+fusion dans `main` (et aligner `hub/package.json`).
+
+Pour une stack locale ou de test, `docker compose -f docker-compose.dev.yml config` et `... prod.yml config` affichent la
+configuration résolue sans rien déployer.
 
 ## Côté Salesforce
 
@@ -175,5 +201,6 @@ Outils : `salesforce_objects`, `salesforce_describe`, `salesforce_query` · `sag
 ```bash
 cd hub && npm install
 PUBLIC_URL=http://localhost:8080 SF_CLIENT_ID=… SF_CLIENT_SECRET=… node server.js   # Sage X3 en mode simulé
-npm test    # 44 tests node:test : transports, lecture seule, refresh, cache, OAuth, jetons personnels, portail, simulateurs, Graph, proxys MCP, télémétrie et Lambda Clevoa
+npm test                    # 45 tests node:test (pré-prod)
+APP_ENV=production npm test # même suite sous les verrous de production : transports, lecture seule, refresh, cache, OAuth, jetons personnels, portail, simulateurs, Graph, proxys MCP, télémétrie et Lambda Clevoa
 ```

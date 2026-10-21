@@ -10,7 +10,7 @@ const reply = (statusCode, body) => ({ statusCode, headers: { "Content-Type": "a
 /** Valide le payload anonyme : version, connecteurs (booléens), compteur de requêtes. Refuse tout champ inattendu. */
 function validate(p) {
   if (!p || typeof p !== "object") return "payload JSON attendu";
-  const allowed = ["version", "date", "connectors", "requests"];
+  const allowed = ["version", "env", "date", "connectors", "requests"];
   const extra = Object.keys(p).filter((k) => !allowed.includes(k));
   if (extra.length) return `champs non autorisés : ${extra.join(", ")}`; // garde-fou anonymat : rien d'autre ne doit arriver ici
   if (typeof p.version !== "string") return "version manquante";
@@ -21,7 +21,7 @@ function validate(p) {
 
 /** Enregistre les statistiques de volume (simulation : journal CloudWatch + tableau mémoire). */
 function record(key, p) {
-  const entry = { receivedAt: new Date().toISOString(), client: key.slice(0, 4) + "…", version: p.version, date: p.date, requests: p.requests, connectors: Object.values(p.connectors).filter(Boolean).length };
+  const entry = { receivedAt: new Date().toISOString(), client: key.slice(0, 4) + "…", version: p.version, env: p.env, date: p.date, requests: p.requests, connectors: Object.values(p.connectors).filter(Boolean).length };
   stats.push(entry);
   console.log("[clevoa] stat", JSON.stringify(entry));
   return entry;

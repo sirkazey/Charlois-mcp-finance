@@ -20,14 +20,15 @@ test("Module : payload 100 % anonyme (version, date, booléens par connecteur, c
   const fetchMock = mock.method(globalThis, "fetch", async (url, init) => { calls.push({ url, init, body: JSON.parse(init.body) }); return new Response(JSON.stringify({ status: "active" }), { status: 200 }); });
   try {
     tm.count(); tm.count(); tm.count();
-    assert.deepEqual(tm.payload(CONNECTORS), { version: tm.VERSION, date: "2026-10-21", connectors: { salesforce: true, sagex3: false, sharepoint: false, dropbox: true, myreport: true }, requests: 3 });
+    const env = process.env.APP_ENV === "production" ? "PRODUCTION" : "PRE-PROD";
+    assert.deepEqual(tm.payload(CONNECTORS), { version: tm.VERSION, env, date: "2026-10-21", connectors: { salesforce: true, sagex3: false, sharepoint: false, dropbox: true, myreport: true }, requests: 3 });
 
     tm.start(CONNECTORS);
     await new Promise((r) => setImmediate(r));
     assert.equal(calls.length, 1, "envoi immédiat au démarrage");
     assert.equal(calls[0].url, "https://clevoa.test/api/v1/telemetry");
     assert.equal(calls[0].init.headers["X-Clevoa-Key"], "k-unit");
-    assert.deepEqual(Object.keys(calls[0].body).sort(), ["connectors", "date", "requests", "version"], "aucun autre champ");
+    assert.deepEqual(Object.keys(calls[0].body).sort(), ["connectors", "date", "env", "requests", "version"], "aucun autre champ");
     assert.ok(!JSON.stringify(calls[0].body).match(/token|email|key|@/i), "rien d'identifiant");
     assert.equal(calls[0].body.requests, 3);
 
@@ -77,7 +78,8 @@ test("Hub → Clevoa : POST au démarrage avec la clé et un payload sans aucune
   assert.equal(t.length, 1, "un envoi au démarrage");
   assert.equal(t[0].headers["x-clevoa-key"], "clevoa-key-test");
   const body = JSON.parse(t[0].body);
-  assert.deepEqual(Object.keys(body).sort(), ["connectors", "date", "requests", "version"]);
+  assert.deepEqual(Object.keys(body).sort(), ["connectors", "date", "env", "requests", "version"]);
+  assert.match(body.version, /^\d+\.\d+\.\d+$/);
   assert.deepEqual(body.connectors, { salesforce: true, sagex3: true, sharepoint: true, dropbox: true, myreport: true });
   assert.equal(body.requests, 0);
   assert.ok(!t[0].body.includes("alice") && !t[0].body.includes("token"), "ni email ni jeton");

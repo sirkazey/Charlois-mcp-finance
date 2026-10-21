@@ -1,0 +1,29 @@
+# PRODUCTION — Stack Portainer alimentée par la branche `main` (Git auto-update, après validation des tests).
+# Étend docker-compose.yml (base commune) avec les verrous maximaux : télémétrie figée sur l'URL Clevoa de production,
+# conteneur sans privilèges, système de fichiers en lecture seule (seul /data est inscriptible), journalisation plafonnée.
+# Portainer : compose path = docker-compose.prod.yml. Le hub refuse de démarrer si PUBLIC_URL n'est pas en https.
+services:
+  mcp-hub:
+    extends:
+      file: docker-compose.yml
+      service: mcp-hub
+    container_name: mcp-hub-prod
+    environment:
+      APP_ENV: production                    # badge « ENV: PRODUCTION », mode démo désactivé, https obligatoire
+      LOG_LEVEL: info
+      PUBLIC_URL: ${PUBLIC_URL:?URL https publique de production, ex. https://mcp.charlois.fr}
+      CLEVOA_URL: https://clevoa.fr/api/v1/telemetry
+      CLEVOA_KEY: ${CLEVOA_KEY:?clé de licence Clevoa requise en production}
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+volumes:
+  mcp-data:

@@ -22,6 +22,7 @@ test("GET / sert le portail HTML", async () => {
   assert.match(r.headers.get("content-type"), /text\/html/);
   const html = await r.text();
   assert.match(html, /Charlois AI Gateway/);
+  assert.match(html, /ENV: <b/, "badge d'environnement rendu depuis /api/me");
   assert.match(html, /api\("\/api\/me"\)/);
 });
 
@@ -37,6 +38,8 @@ test("GET /api/me sans cookie : pose mcp_key et renvoie {key, mcpUrl, systems[5]
   cookie = `mcp_key=${key}`;
 
   const me = await r.json();
+  assert.match(me.version, /^\d+\.\d+\.\d+$/, "version stricte");
+  assert.equal(me.env, process.env.APP_ENV === "production" ? "PRODUCTION" : "PRE-PROD");
   assert.equal(me.key, key);
   assert.equal(me.email, null);
   assert.equal(me.mcpUrl, `${hub.url}/mcp`);
@@ -322,7 +325,7 @@ test("Mode simulé Sage X3 : sans compte ni jeton, le diagnostic est vert et lis
     const c = `mcp_key=${(await fetch(`${sim.url}/api/me`).then((x) => x.json())).key}`;
     const me = await fetch(`${sim.url}/api/me`, { headers: { cookie: c } }).then((x) => x.json());
     assert.equal(me.systems[1].mock, true);
-    assert.match(sim.logs(), /mode simulé/);
+    assert.match(sim.logs(), /Sage X3 simulé/);
 
     const d = await fetch(`${sim.url}/api/test/sagex3`, { headers: { cookie: c } }).then((x) => x.json());
     assert.equal(d.ok, true, JSON.stringify(d));
@@ -339,4 +342,19 @@ test("Mode simulé Sage X3 : sans compte ni jeton, le diagnostic est vert et lis
     assert.equal(nope.isError, true, "table inconnue du simulateur");
     assert.equal(up.requests("/api1/").length, 0, "aucun appel amont en mode simulé");
   } finally { await sim.stop(); }
+});
+
+// ---------------------------------------------------------------- environnements
+test("Production : le hub refuse de démarrer avec une PUBLIC_URL non https (hors localhost) ; les logs annoncent version et environnement", async () => {
+  await assert.rejects(startHub({ upstreamUrl: up.url, env: { APP_ENV: "production", PUBLIC_URL: "http://hub.example.com" } }), /PUBLIC_URL doit être en https/);
+  const prod = await startHub({ upstreamUrl: up.url, env: { APP_ENV: "production", LOG_LEVEL: "info" } }); // PUBLIC_URL http://127.0.0.1 : test local toléré
+  try {
+    assert.match(prod.logs(), /Hub MCP v\d+\.\d+\.\d+ · ENV: PRODUCTION/);
+    const me = await fetch(`${prod.url}/api/me`).then((x) => x.json());
+    assert.equal(me.env, "PRODUCTION");
+  } finally { await prod.stop(); }
+  const dev = await startHub({ upstreamUrl: up.url, env: { APP_ENV: "preprod", LOG_LEVEL: "debug" } });
+  try {
+    assert.match(dev.logs(), /ENV: PRE-PROD .*logs détaillés/);
+  } finally { await dev.stop(); }
 });

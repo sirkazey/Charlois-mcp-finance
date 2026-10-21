@@ -31,6 +31,8 @@
   .brand { display:flex; flex-direction:column; line-height:1.1 }
   .brand b { font:600 13px var(--sans); letter-spacing:.32em; text-transform:uppercase }
   .brand span { font:italic 400 15px var(--serif); color:var(--gold-ink); letter-spacing:.04em }
+  .env { font:500 10px var(--sans); letter-spacing:.2em; text-transform:uppercase; color:var(--muted); margin-top:6px }
+  .env b { font-weight:600; color:var(--forest) } .env b.prod { color:var(--gold-ink) }
   .who { display:flex; align-items:center; gap:10px; min-width:0 }
   .profile { font-size:.84rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:52vw }
   .profile strong { color:var(--ink); font-weight:500 }
@@ -106,7 +108,7 @@
 <body>
 <main>
   <header>
-    <div class="brand"><b>Charlois</b><span>AI Gateway</span></div>
+    <div class="brand"><b>Charlois</b><span>AI Gateway</span><span class="env" id="env">v… · ENV: …</span></div>
     <div class="who">
       <div class="profile" id="profile">👤 …</div>
       <button class="theme" id="theme" title="Basculer le thème" aria-label="Basculer le thème">◐</button>
@@ -155,7 +157,7 @@
     <table id="config"></table>
   </section>
 
-  <footer>Propulsé par <b>Clevoa</b> — Licence Active</footer>
+  <footer>Propulsé par <b>Clevoa</b> — Licence Active · <span id="env-foot"></span></footer>
 </main>
 <div class="toast" id="toast" role="status">Copié !</div>
 
@@ -246,6 +248,9 @@ async function load() {
   const n = ++seq; let me;
   try { me = await api("/api/me").then((r) => r.json()); } catch { $("#profile").textContent = "👤 Passerelle injoignable"; return; }
   if (n !== seq) return; // une réponse plus récente a pris le relais
+  $("#env").innerHTML = `v${esc(me.version)} · ENV: <b class="${me.env === "PRODUCTION" ? "prod" : ""}">${esc(me.env)}</b>`;
+  if (me.env === "PRODUCTION") $("#demo").hidden = true; // verrou prod : pas de mode démo sur l'instance de production
+  $("#env-foot").textContent = `MCP Charlois v${me.version} · ${me.env}`;
   $("#profile").innerHTML = me.email ? `👤 <strong>${esc(me.email)}</strong> — ${DEPARTEMENT}` : `👤 Non identifié — ${DEPARTEMENT}`;
   $("#systems").innerHTML = me.systems.map((s) => `
     <div class="card">

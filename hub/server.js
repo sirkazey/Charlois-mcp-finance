@@ -13,8 +13,12 @@ import * as sharepoint from "./connectors/sharepoint.js";
 import * as dropbox from "./connectors/dropbox.js";
 import * as myreport from "./connectors/myreport.js";
 import * as telemetry from "./telemetry.js";
+import { VERSION, APP_ENV, IS_PROD } from "./version.js";
 
 const PORT = process.env.PORT || 8080;
+const debug = process.env.LOG_LEVEL === "debug" ? (...a) => console.log("[debug]", ...a) : () => {};
+// Verrou production : l'URL publique doit être en https (cookie Secure, callbacks OAuth), sauf test local.
+if (IS_PROD && !/^https:|^http:\/\/(localhost|127\.0\.0\.1)(:|$)/.test(PUBLIC_URL)) { console.error(`[prod] PUBLIC_URL doit être en https : ${PUBLIC_URL}`); process.exit(1); }
 const CONNECTORS = [salesforce, sagex3, sharepoint, dropbox, myreport];
 const byId = Object.fromEntries(CONNECTORS.map((c) => [c.id, c]));
 // Variables visibles dans le portail (les *SECRET* ne sont jamais renvoyées, seulement « défini / vide »).
@@ -45,10 +49,13 @@ function buildServer(key) {
   for (const c of CONNECTORS) for (const t of c.tools) {
     server.registerTool(t.name, { description: t.description, inputSchema: t.input, annotations: { readOnlyHint: true } }, async (args) => {
       telemetry.count();
+      const t0 = Date.now();
       try {
         const out = await call(c, key, (tok, schema) => t.run(tok, args, schema));
+        debug(`${t.name} ok ${Date.now() - t0} ms`); // jamais les arguments ni les résultats
         return { content: [{ type: "text", text: typeof out === "string" ? out : JSON.stringify(out) }] };
       } catch (e) {
+        debug(`${t.name} erreur ${Date.now() - t0} ms : ${e.message.slice(0, 120)}`);
         return { isError: true, content: [{ type: "text", text: e.message }] };
       }
     });
@@ -71,6 +78,8 @@ app.get("/api/me", (req, res) => {
   }
   const u = store.get(key);
   res.json({
+    version: VERSION,
+    env: APP_ENV,
     email: u.email || null,
     key,
     mcpUrl: `${PUBLIC_URL}/mcp`,
@@ -133,6 +142,6 @@ app.all("/mcp", (_req, res) => res.status(405).json({ error: "Utilisez POST (mod
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
 app.listen(PORT, () => {
-  console.log(`Hub MCP ${telemetry.VERSION} sur ${PUBLIC_URL} (port ${PORT})${sagex3.mock ? " · Sage X3 en mode simulé" : ""}`);
+  console.log(`Hub MCP v${VERSION} · ENV: ${APP_ENV} · ${PUBLIC_URL} (port ${PORT})${sagex3.mock ? " · Sage X3 simulé" : ""}${myreport.mock ? " · MyReport simulé" : ""}${process.env.LOG_LEVEL === "debug" ? " · logs détaillés" : ""}`);
   telemetry.start(CONNECTORS);
 });
