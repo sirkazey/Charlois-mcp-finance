@@ -1,0 +1,16 @@
+{
+  "name": "charlois-mcp-hub",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Hub MCP lecture seule : Salesforce + Sage X3 24R1, jeton OAuth de l'utilisateur transmis tel quel.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": { "node": ">=22" },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "express": "^5.2.1",
+    "zod": "^4.0.0"
+  }
+}

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Charlois · Finance MCP</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1b1f24; --muted:#6b7280; --line:#e5e7eb; --ok:#16a34a; --sf:#00a1e0; --sage:#00dc82; --sage-ink:#064e3b; }
+  * { box-sizing:border-box }
+  body { margin:0; font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink) }
+  main { max-width:720px; margin:0 auto; padding:32px 16px 64px }
+  h1 { font-size:1.6rem; margin:0 0 4px } .sub { color:var(--muted); margin:0 0 28px }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px } @media (max-width:560px){ .grid{ grid-template-columns:1fr } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px }
+  .btn { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; padding:16px; border:0; border-radius:12px; font-size:1.05rem; font-weight:600; color:#fff; cursor:pointer; text-decoration:none }
+  .btn.sf { background:var(--sf) } .btn.sage { background:var(--sage); color:var(--sage-ink) } .btn[aria-disabled=true] { opacity:.45; pointer-events:none }
+  .status { margin-top:12px; font-size:.9rem; color:var(--muted); display:flex; justify-content:space-between; align-items:center }
+  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; background:#d1d5db; margin-right:6px } .dot.on { background:var(--ok) }
+  .link { background:none; border:0; color:var(--muted); text-decoration:underline; cursor:pointer; font-size:.85rem; padding:0 }
+  h2 { font-size:1.05rem; margin:28px 0 10px }
+  pre { background:#0f172a; color:#e2e8f0; padding:14px; border-radius:10px; overflow:auto; font-size:.82rem; margin:0 }
+  .copy { float:right; font-size:.8rem; padding:4px 10px; border:1px solid var(--line); background:#fff; border-radius:8px; cursor:pointer }
+  ul.q { list-style:none; padding:0; margin:0; display:grid; gap:8px }
+  ul.q li { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; cursor:pointer } ul.q li:hover { border-color:#9ca3af }
+  ul.q li small { display:block; color:var(--muted); font-size:.78rem; margin-top:2px }
+  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:10px 16px; border-radius:10px; opacity:0; transition:.2s } .toast.show { opacity:1 }
+</style>
+</head>
+<body>
+<main>
+  <h1>Finance MCP</h1>
+  <p class="sub">Connectez vos comptes une fois ; Claude interroge ensuite Salesforce et Sage X3 avec <strong>vos</strong> droits, en lecture seule.</p>
+
+  <div class="grid" id="systems"></div>
+
+  <h2>Votre connecteur Claude <button class="copy" onclick="copy(cfg.textContent)">Copier</button></h2>
+  <pre id="cfg">…</pre>
+  <p class="sub" style="margin-top:8px;font-size:.85rem">Claude.ai (mobile/web) → Paramètres → Connecteurs → « Ajouter un connecteur personnalisé » avec l'URL ci-dessus. Claude Desktop/Code : utilisez le bloc JSON. La clé est personnelle : ne la partagez pas.</p>
+
+  <h2>Modèles de questions <span style="font-weight:400;color:var(--muted);font-size:.85rem">(toucher pour copier)</span></h2>
+  <ul class="q" id="questions"></ul>
+</main>
+<div class="toast" id="toast">Copié</div>
+
+<script>
+const QUESTIONS = [
+  ["Quel est le chiffre d'affaires facturé des 12 derniers mois, par mois ?", "Sage X3 · SINVOICE"],
+  ["Top 10 des clients par CA sur les 12 derniers mois, avec leur encours.", "Sage X3 · SINVOICE + BPCUSTOMER"],
+  ["Liste des factures fournisseurs échues non réglées, triées par montant.", "Sage X3 · PINVOICE"],
+  ["Pipeline Salesforce : opportunités ouvertes > 50 k€ avec date de clôture ce trimestre.", "Salesforce · Opportunity"],
+  ["Taux de conversion des opportunités créées sur les 12 derniers mois, par commercial.", "Salesforce · Opportunity + User"],
+  ["Pour le client X : commandes Salesforce de l'année vs factures Sage X3 — y a-t-il un écart ?", "Croisé Salesforce + Sage X3"],
+  ["Quels champs sont disponibles sur les écritures comptables (GACCENTRY) ?", "Sage X3 · describe"],
+];
+const $ = (s) => document.querySelector(s);
+const toast = (m) => { $("#toast").textContent = m; $("#toast").classList.add("show"); setTimeout(() => $("#toast").classList.remove("show"), 1400); };
+const copy = (t) => navigator.clipboard.writeText(t).then(() => toast("Copié"));
+
+async function load() {
+  const me = await fetch("/api/me", { credentials: "same-origin" }).then((r) => r.json());
+  $("#systems").innerHTML = me.systems.map((s) => `
+    <div class="card">
+      <a class="btn ${s.id === "salesforce" ? "sf" : "sage"}" href="/auth/${s.id}" aria-disabled="${!s.configured}">
+        ${s.connected ? "✓ Reconnecter" : "Se connecter à"} ${s.label}
+      </a>
+      <div class="status">
+        <span><i class="dot ${s.connected ? "on" : ""}"></i>${s.connected ? "Connecté" : s.configured ? "Non connecté" : "Non configuré (admin)"}</span>
+        ${s.connected ? `<button class="link" onclick="disconnect('${s.id}')">Déconnecter</button>` : ""}
+      </div>
+      ${s.schemaAt ? `<div class="status" style="margin-top:4px">Schéma mis à jour le ${new Date(s.schemaAt).toLocaleString("fr-FR")}</div>` : ""}
+    </div>`).join("");
+  $("#cfg").textContent =
+`URL (claude.ai) : ${me.mcpUrl}?key=${me.key}
+
+{
+  "mcpServers": {
+    "charlois-finance": {
+      "type": "http",
+      "url": "${me.mcpUrl}",
+      "headers": { "Authorization": "Bearer ${me.key}" }
+    }
+  }
+}`;
+  $("#questions").innerHTML = QUESTIONS.map(([q, src]) => `<li onclick="copy(${JSON.stringify(q)})">${q}<small>${src}</small></li>`).join("");
+  if (me.email) document.querySelector("h1").textContent = `Finance MCP · ${me.email}`;
+}
+async function disconnect(id) { await fetch("/api/disconnect/" + id, { method: "POST" }); load(); }
+load();
+</script>
+</body>
+</html>
