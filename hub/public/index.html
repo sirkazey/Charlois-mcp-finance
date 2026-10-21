@@ -10,10 +10,11 @@
   :root {
     --bg:#f7f5f0; --card:#ffffff; --ink:#141414; --muted:#6f6c66; --line:#e4dfd4; --soft:#efebe3;
     --gold:#b08d57; --gold-ink:#8a6a3a; --forest:#1f4d3a; --ok:#2e7d4f; --ko:#b3261e;
+    color-scheme:light;
     --serif:"Cormorant Garamond","Garamond","Didot","Baskerville","Palatino Linotype",Georgia,serif;
     --sans:"Helvetica Neue",Helvetica,Inter,"Segoe UI",system-ui,sans-serif;
     --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-    --sf:#00a1e0; --sagex3:#00b86b; --sharepoint:#0f6cbd; --dropbox:#0061ff; --myreport:#e4572e;
+    --salesforce:#00a1e0; --sagex3:#00b86b; --sharepoint:#0f6cbd; --dropbox:#0061ff; --myreport:#e4572e;
   }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
     --bg:#0d0d0e; --card:#161618; --ink:#ece9e2; --muted:#9b978f; --line:#2a2a2e; --soft:#1d1d20; --gold:#c9a76a; --gold-ink:#d9b97e; --forest:#3f8a68; --ok:#4caf79; --ko:#e0574d; color-scheme:dark } }
@@ -23,7 +24,6 @@
   * { box-sizing:border-box }
   html, body { margin:0; background:var(--bg); color:var(--ink) }
   body { font:300 16px/1.6 var(--sans); -webkit-font-smoothing:antialiased }
-  a { color:inherit }
   main { max-width:880px; margin:0 auto; padding-block:0 72px; padding-left:max(20px, env(safe-area-inset-left, 0px)); padding-right:max(20px, env(safe-area-inset-right, 0px)) }
 
   /* En-tête */
@@ -55,7 +55,7 @@
   section { padding:28px 0 6px }
   .eyebrow { display:flex; align-items:center; gap:14px; margin:0 0 18px; font:500 11px var(--sans); letter-spacing:.3em; text-transform:uppercase; color:var(--gold-ink) }
   .eyebrow::after { content:""; flex:1; height:1px; background:var(--line) }
-  .eyebrow .copy { letter-spacing:0; text-transform:none; margin-left:auto }
+  .eyebrow .copy { letter-spacing:0; text-transform:none }
   .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:14px }
   .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; min-width:0; display:flex; flex-direction:column; gap:10px }
   .sys { display:flex; align-items:center; gap:10px; font:500 15px var(--sans) }
@@ -71,7 +71,6 @@
   .apikey { display:grid; gap:8px; padding-top:6px; border-top:1px dashed var(--line) }
   .apikey small { color:var(--muted) }
   .apikey input { font:inherit; padding:10px 12px; border:1px solid var(--line); border-radius:10px; width:100%; background:var(--bg); color:var(--ink) }
-  .apikey input:focus { outline:2px solid var(--gold); outline-offset:1px }
   .result { font-size:.88rem; min-height:1.4em; word-break:break-word }
   .result code { font:.8rem var(--mono); color:var(--ko) }
   .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px }
@@ -80,7 +79,7 @@
   /* Bar à prompts */
   .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px }
   .tab { font:inherit; font-size:.88rem; padding:8px 14px; border-radius:999px; border:1px solid var(--line); background:var(--card); color:var(--muted); cursor:pointer }
-  .tab[aria-selected=true] { background:var(--ink); color:var(--bg); border-color:var(--ink) }
+  .tab[aria-pressed=true] { background:var(--ink); color:var(--bg); border-color:var(--ink) }
   .prompts { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:12px }
   .prompt { text-align:left; font:inherit; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 18px; cursor:pointer; color:var(--ink); display:grid; gap:8px; transition:.18s; min-width:0 }
   .prompt:hover { border-color:var(--gold); transform:translateY(-1px) }
@@ -138,13 +137,13 @@
   </section>
 
   <section>
-    <p class="eyebrow">Bar à prompts <span class="copy" style="border:0;background:none;color:var(--muted)">toucher une fiche pour copier</span></p>
-    <div class="tabs" id="tabs" role="tablist"></div>
+    <p class="eyebrow">Bar à prompts</p>
+    <div class="tabs" id="tabs"></div>
     <div class="prompts" id="prompts"></div>
   </section>
 
   <section>
-    <p class="eyebrow">Votre connecteur Claude <button class="copy" onclick="copy(cfg.textContent)">Copier</button></p>
+    <p class="eyebrow">Votre connecteur Claude <button class="copy" onclick="copy(document.getElementById('cfg').textContent)">Copier</button></p>
     <pre id="cfg">…</pre>
     <p class="note">Claude.ai et Claude Desktop → Paramètres → Connecteurs → « Ajouter un connecteur personnalisé » avec l'URL ci-dessus. Claude Code → bloc JSON. La clé est personnelle : ne la partagez pas.</p>
   </section>
@@ -179,10 +178,10 @@ const PROMPTS = {
   ],
 };
 const $ = (s) => document.querySelector(s);
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const toast = (m = "Copié !") => { $("#toast").textContent = m; $("#toast").classList.add("show"); setTimeout(() => $("#toast").classList.remove("show"), 1500); };
 function copy(t) {
-  const fallback = () => { const ta = document.createElement("textarea"); ta.value = t; document.body.append(ta); ta.select(); document.execCommand("copy"); ta.remove(); toast(); };
+  const fallback = () => { const ta = document.createElement("textarea"); ta.value = t; document.body.append(ta); ta.select(); const ok = document.execCommand("copy"); ta.remove(); toast(ok ? "Copié !" : "Copie impossible"); };
   (navigator.clipboard?.writeText(t) ?? Promise.reject()).then(() => toast()).catch(fallback);
 }
 
@@ -197,7 +196,7 @@ $("#theme").onclick = () => {
 
 // ---- Mode démo : bandeau de scénarios, passerelle simulée côté navigateur ----
 const SIM = { on: false, sf: true, sage: "mock", sageKey: false, sp: true, dbx: false, mr: "mock", mrKey: false, key: "k7Qb2xV9pLm4Nt8wRa3sJe6Hc1Yd5Fg0ZuIoKq", email: "prenom.nom@charlois.com" };
-const PUBLIC = "https://mcp.charlois.fr";
+const PUBLIC = location.origin;
 function demoMe() {
   const sageMock = SIM.sage === "mock", mrMock = SIM.mr === "mock";
   return { email: SIM.sf ? SIM.email : null, key: SIM.key, mcpUrl: PUBLIC + "/mcp",
@@ -210,7 +209,8 @@ function demoMe() {
     ],
     config: [["PUBLIC_URL", PUBLIC], ["SF_LOGIN_URL", "https://login.salesforce.com"], ["SF_CLIENT_ID", "3MVG9…Charlois"], ["SF_CLIENT_SECRET", "••••••••"], ["SAGE_URL", sageMock ? null : "https://x3.charlois.local:8124"], ["SAGE_FOLDER", sageMock ? null : "PROD"],
       ["MS_TENANT_ID", "charlois.onmicrosoft.com"], ["MS_CLIENT_ID", "8f2a…c41e"], ["MS_CLIENT_SECRET", "••••••••"], ["SP_SITE", "charlois.sharepoint.com:/sites/Finance"], ["DROPBOX_APP_KEY", "x9k2…q7"], ["DROPBOX_APP_SECRET", "••••••••"],
-      ["MYREPORT_MCP_URL", mrMock ? null : "https://myreport.charlois.local/mcp/sse"], ["MYREPORT_TOOLS", mrMock ? null : "liste_indicateurs,valeur_indicateur"]].map(([name, value]) => ({ name, value })) };
+      ["SAGE_APIKEY_MODE", null], ["SAGE_OAUTH_AUTH_URL", null], ["SAGE_OAUTH_TOKEN_URL", null], ["SAGE_OAUTH_USERINFO_URL", null], ["SAGE_OAUTH_CLIENT_ID", null], ["SAGE_OAUTH_CLIENT_SECRET", null], ["SAGE_OAUTH_SCOPE", null],
+      ["MYREPORT_MCP_URL", mrMock ? null : "https://myreport.charlois.local/mcp/sse"], ["MYREPORT_AUTH_HEADER", null], ["MYREPORT_TOOLS", mrMock ? null : "liste_indicateurs,valeur_indicateur"]].map(([name, value]) => ({ name, value })) };
 }
 async function demoFetch(url, opts = {}) {
   await new Promise((r) => setTimeout(r, 350));
@@ -226,50 +226,51 @@ async function demoFetch(url, opts = {}) {
   if (url.startsWith("/api/disconnect/")) { ({ salesforce: () => SIM.sf = false, sagex3: () => SIM.sageKey = false, sharepoint: () => SIM.sp = false, dropbox: () => SIM.dbx = false, myreport: () => SIM.mrKey = false })[url.split("/")[3]]?.(); return new Response(null, { status: 204 }); }
   return json({ error: "route inconnue" }, 404);
 }
-const api = (url, opts) => SIM.on ? demoFetch(url, opts) : fetch(url, { credentials: "same-origin", ...opts });
+const api = (url, opts) => SIM.on ? demoFetch(url, opts) : fetch(url, opts);
 $("#demo-sw").onchange = (e) => { SIM.on = e.target.checked; $("#demo").classList.toggle("on", SIM.on); $("#demo-note").textContent = SIM.on ? "Activé : états et réponses simulés dans le navigateur." : "Désactivé : la page dialogue avec la passerelle réelle."; load(); };
 document.querySelectorAll("[data-sc]").forEach((b) => b.onclick = () => {
   const [k, v] = b.dataset.sc.split(":");
   if (k === "sf") SIM.sf = v === "1"; if (k === "sage") { SIM.sage = v; SIM.sageKey = false; } if (k === "mr") { SIM.mr = v; SIM.mrKey = false; }
   document.querySelectorAll(`[data-sc^="${k}:"]`).forEach((x) => x.setAttribute("aria-pressed", x === b));
-  document.querySelectorAll(".result").forEach((el) => el.innerHTML = ""); load();
+  load();
 });
-document.addEventListener("click", (e) => { // en démo, un bouton OAuth simule le retour du flux au lieu de naviguer
-  const a = e.target.closest('a[href^="/auth/"]'); if (!a || !SIM.on) return;
-  e.preventDefault(); ({ salesforce: () => SIM.sf = true, sharepoint: () => SIM.sp = true, dropbox: () => SIM.dbx = true })[a.getAttribute("href").slice(6)]?.(); load();
-});
+function demoAuth(id) { ({ salesforce: () => SIM.sf = true, sharepoint: () => SIM.sp = true, dropbox: () => SIM.dbx = true })[id]?.(); load(); } // simule le retour OAuth
 
 // ---- Rendu ----
+let seq = 0;
 async function load() {
-  const me = await api("/api/me").then((r) => r.json());
+  const n = ++seq; let me;
+  try { me = await api("/api/me").then((r) => r.json()); } catch { $("#profile").textContent = "👤 Passerelle injoignable"; return; }
+  if (n !== seq) return; // une réponse plus récente a pris le relais
   $("#profile").innerHTML = me.email ? `👤 <strong>${esc(me.email)}</strong> — ${DEPARTEMENT}` : `👤 Non identifié — ${DEPARTEMENT}`;
   $("#systems").innerHTML = me.systems.map((s) => `
     <div class="card">
-      <div class="sys"><i style="--c:var(--${s.id})"></i>${s.label}</div>
-      ${s.oauth ? `<a class="btn" href="/auth/${s.id}" aria-disabled="${!s.configured || s.mock}">${s.connected ? "Reconnecter" : "Se connecter"}</a>` : ""}
+      <div class="sys"><i style="--c:var(--${esc(s.id)})"></i>${esc(s.label)}</div>
+      ${!s.oauth ? "" : SIM.on ? `<button type="button" class="btn" onclick="demoAuth('${esc(s.id)}')">${s.connected ? "Reconnecter" : "Se connecter"}</button>`
+        : s.configured && !s.mock ? `<a class="btn" href="/auth/${esc(s.id)}">${s.connected ? "Reconnecter" : "Se connecter"}</a>` : `<span class="btn" aria-disabled="true">Se connecter</span>`}
       <div class="status">
         <span><i class="dot ${s.connected || s.mock ? "on" : ""}"></i>${s.mock ? "Mode simulé (sans compte)" : s.connected ? `Connecté${s.method === "apikey" ? " (jeton personnel)" : ""}` : s.oauth ? (s.configured ? "Non connecté" : "Non configuré (admin)") : "Jeton personnel requis"}</span>
-        ${s.connected ? `<button class="link" onclick="disconnect('${s.id}')">Déconnecter</button>` : ""}
+        ${s.connected ? `<button class="link" onclick="disconnect('${esc(s.id)}')">Déconnecter</button>` : ""}
       </div>
       ${s.apiKey && !s.connected ? `
-      <form class="apikey" onsubmit="saveApiKey(event, '${s.id}')">
+      <form class="apikey" onsubmit="saveApiKey(event, '${esc(s.id)}')">
         <small>${s.oauth ? "ou " : ""}${esc(s.apiKey.label)}</small>
-        ${s.apiKey.mode === "basic" ? `<input id="${s.id}-login" placeholder="Identifiant" autocomplete="username" required>` : ""}
-        <input id="${s.id}-apikey" type="password" placeholder="Jeton / clé" autocomplete="off" required>
+        ${s.apiKey.mode === "basic" ? `<input id="${esc(s.id)}-login" placeholder="Identifiant" autocomplete="username" required>` : ""}
+        <input id="${esc(s.id)}-apikey" type="password" placeholder="Jeton / clé" autocomplete="off" required>
         <button class="btn ghost" type="submit">Enregistrer</button>
       </form>` : ""}
     </div>`).join("");
   $("#diag").innerHTML = me.systems.map((s) => `
     <div class="card">
-      <button class="btn ghost" onclick="test('${s.id}', this)">Tester ${s.mock ? "le simulateur " : ""}${s.label}</button>
-      <div class="result" id="res-${s.id}"></div>
+      <button class="btn ghost" onclick="test('${esc(s.id)}', this)">Tester ${s.mock ? "le simulateur " : ""}${esc(s.label)}</button>
+      <div class="result" id="res-${esc(s.id)}"></div>
     </div>`).join("");
   $("#cfg").textContent = `URL (claude.ai) : ${me.mcpUrl}?key=${me.key}\n\n{\n  "mcpServers": {\n    "charlois-finance": {\n      "type": "http",\n      "url": "${me.mcpUrl}",\n      "headers": { "Authorization": "Bearer ${me.key}" }\n    }\n  }\n}`;
   $("#config-section").hidden = !me.config;
-  if (me.config) $("#config").innerHTML = me.config.map((v) => `<tr><td><i class="dot ${v.value ? "on" : ""}"></i>${v.name}</td><td>${v.value ? esc(v.value) : "— vide (défaut ou mode simulé)"}</td></tr>`).join("");
+  if (me.config) $("#config").innerHTML = me.config.map((v) => `<tr><td><i class="dot ${v.value ? "on" : ""}"></i>${esc(v.name)}</td><td>${v.value ? esc(v.value) : "— vide (défaut ou mode simulé)"}</td></tr>`).join("");
 }
 function renderTabs(active = Object.keys(PROMPTS)[0]) {
-  $("#tabs").innerHTML = Object.keys(PROMPTS).map((t) => `<button class="tab" role="tab" aria-selected="${t === active}" onclick="renderTabs(this.dataset.t)" data-t="${esc(t)}">${esc(t)}</button>`).join("");
+  $("#tabs").innerHTML = Object.keys(PROMPTS).map((t) => `<button class="tab" aria-pressed="${t === active}" onclick="renderTabs(this.dataset.t)" data-t="${esc(t)}">${esc(t)}</button>`).join("");
   $("#prompts").innerHTML = PROMPTS[active].map(([q, src], i) => `<button class="prompt" onclick="copy(PROMPTS[this.dataset.t][${i}][0])" data-t="${esc(active)}"><q>${esc(q)}</q><small>${esc(src)}</small><span class="hint">copier ↗</span></button>`).join("");
 }
 async function test(id, btn) {

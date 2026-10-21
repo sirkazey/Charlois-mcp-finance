@@ -25,7 +25,7 @@ test("GET / sert le portail HTML", async () => {
   assert.match(html, /api\("\/api\/me"\)/);
 });
 
-test("GET /api/me sans cookie : pose mcp_key et renvoie {key, mcpUrl, systems[2]}", async () => {
+test("GET /api/me sans cookie : pose mcp_key et renvoie {key, mcpUrl, systems[5]}", async () => {
   const r = await fetch(`${hub.url}/api/me`);
   assert.equal(r.status, 200);
   const setCookie = r.headers.get("set-cookie");
@@ -296,7 +296,8 @@ test("index.html : chaque URL appelée (fetch / href) correspond à une route du
   for (const m of html.matchAll(/href="([^"]+)"/g)) {
     const u = m[1];
     if (/^https?:/.test(u)) continue;
-    if (/\$\{s\.id\}/.test(u)) ["sagex3", "sharepoint"].forEach((s) => urls.add(u.replace("${s.id}", s))); else urls.add(u); // href OAuth : systèmes avec OAuth
+    const dyn = /\$\{(?:esc\()?s\.id\)?\}/; // ${s.id} ou ${esc(s.id)}
+    if (dyn.test(u)) ["sagex3", "sharepoint"].forEach((s) => urls.add(u.replace(dyn, s))); else urls.add(u); // href OAuth : systèmes avec OAuth
   }
   assert.ok(urls.has("/api/me") && urls.has("/api/disconnect/sagex3") && urls.has("/auth/sagex3") && urls.has("/api/test/sagex3") && urls.has("/api/myreport/apikey"), [...urls].join(", "));
 
