@@ -1,11 +1,17 @@
-# Charlois · Finance MCP
+# Charlois AI Gateway · MCP Charlois
 
-Passerelle MCP **ultra-légère, lecture seule**, qui donne à Claude accès à Salesforce, Sage X3 24R1, SharePoint, Dropbox
-et MyReport **avec les droits de chaque utilisateur** : le hub transmet le jeton personnel, il n'a aucun compte technique.
+La passerelle IA des outils du Groupe Charlois : un hub MCP **ultra-léger et en lecture seule** par lequel les assistants
+IA (Claude Code, Claude Desktop, ChatGPT, Copilot) interrogent le CRM (Salesforce), l'ERP (Sage X3 24R1), les documents
+(SharePoint / OneDrive, Dropbox) et le reporting (MyReport) **avec les droits de chaque collaborateur** : le hub
+transmet son jeton personnel, il n'a aucun compte technique. Le portail web « Charlois AI Gateway » sert de guichet
+unique : connexion aux outils, diagnostic, bar à prompts, configuration du connecteur.
+
+Né pour la Finance, le hub est générique : tout outil disposant d'une API REST ou d'un serveur MCP s'ajoute comme un
+module de 50 à 90 lignes dans `hub/connectors/`.
 
 ```
-Claude (mobile / desktop / code)
-        │  MCP : SSE (/sse) ou Streamable HTTP (/mcp) + clé perso
+Assistant IA (Claude Code, Claude Desktop, ChatGPT, Copilot)
+        │  MCP : SSE (/sse) ou Streamable HTTP (/mcp) + Authorization: Bearer <clé perso>
         ▼
 ┌─────────────────── mcp-hub (1 conteneur, Node 22) ───────────────────┐
 │ server.js      identité (clé) · outils MCP · portail · diagnostic    │
@@ -16,7 +22,7 @@ Claude (mobile / desktop / code)
 │ version.js     VERSION stricte + APP_ENV (PRODUCTION / PRE-PROD)     │
 │ telemetry.js   télémétrie Clevoa anonyme, au démarrage puis à 03:00  │
 │ connectors/    salesforce · sagex3 · sharepoint · dropbox · myreport  │
-│ public/        index.html  (boutons OAuth, jetons, diagnostic)       │
+│ public/        index.html  portail Charlois AI Gateway               │
 │ test/          node:test, amont mocké, 48 tests                      │
 └───┬─────────────┬───────────────┬───────────────┬───────────────┬────┘
     ▼ REST        ▼ REST Syracuse ▼ Graph (GET)   ▼ MCP HTTP      ▼ MCP SSE
@@ -36,7 +42,7 @@ Claude (mobile / desktop / code)
 
 ## Cloisonnement des identités (règle non négociable)
 
-Aucun compte de service, générique ou global, pour Salesforce ni Sage X3.
+Aucun compte de service, générique ou global, pour aucun des outils connectés.
 
 * `users.json` ne contient que des jetons **individuels**, obtenus par chaque collaborateur en cliquant sur les
   boutons OAuth du portail, rangés sous sa clé MCP personnelle : `users.<clé>.salesforce` / `users.<clé>.sagex3`.
@@ -44,13 +50,15 @@ Aucun compte de service, générique ou global, pour Salesforce ni Sage X3.
   déchiffré en mémoire uniquement, écrit avec les droits 600 dans un volume en 700. Perdre la clé rend les jetons
   illisibles : les collaborateurs se reconnectent, rien d'autre n'est perdu.
 * Chaque appel MCP est authentifié par la clé de l'appelant. Le hub lit **son** jeton dans `users.json`
-  (`oauth.js` → `withToken`) et le transmet tel quel en `Authorization: Bearer` à l'API. Salesforce et Sage X3
-  appliquent donc le profil de droits de ce collaborateur (objets, champs, enregistrements, dossiers).
+  (`oauth.js` → `withToken`) et le transmet tel quel en `Authorization: Bearer` à l'outil. Salesforce, Sage X3,
+  Graph, Dropbox et MyReport appliquent donc le profil de droits de ce collaborateur (objets, champs,
+  enregistrements, dossiers, rapports).
 * Le cache de structure est par utilisateur : la liste des objets et des champs reflète ses propres droits.
 * Aucun jeton n'est lu depuis l'environnement. Les seules variables d'environnement d'authentification sont
   les identifiants de l'application OAuth (client id / secret), qui servent à l'échange de code et au refresh,
   jamais à requêter les API.
-* Seule exception : le **simulateur Sage X3** (sans `SAGE_URL`), qui ne contacte aucun système et n'a pas de jeton.
+* Seules exceptions : les **simulateurs** Sage X3 (sans `SAGE_URL`) et MyReport (sans `MYREPORT_MCP_URL`), qui ne
+  contactent aucun système et n'ont pas de jeton.
 
 Le test `Cloisonnement` de `hub/test/mcp.test.js` vérifie que deux utilisateurs interrogeant les mêmes outils
 n'émettent que leurs propres jetons et que `users.json` ne contient rien hors de `users.<clé>`.
@@ -202,11 +210,17 @@ autorisés) et `myreport_call` (transfert d'une requête d'analyse). Seuls les o
 `MYREPORT_MCP_URL` vide = **simulateur local** (deux outils fictifs, `liste_indicateurs` et `valeur_indicateur`, réponses
 marquées `simule: true`) pour les tests Docker Desktop, sans jeton ni réseau. Le bouton « Tester MyReport » l'indique.
 
-## Utilisation (collègue)
+## Utilisation (collaborateur)
 
-1. Ouvrir le portail → **Se connecter à Salesforce** (et Sage X3 si configuré).
-2. Copier l'URL ou le bloc JSON affiché dans Claude (connecteur personnalisé / `mcpServers`).
-3. Poser une question : *« CA facturé des 12 derniers mois par client »*.
+1. Ouvrir le portail Charlois AI Gateway → **Se connecter** aux outils dont vous disposez (Salesforce, SharePoint,
+   Dropbox par OAuth ; Sage X3 et MyReport par OAuth ou jeton personnel).
+2. Vérifier chaque connexion dans **Diagnostic & connectivité** (voyant vert).
+3. Copier le bloc JSON « Votre connecteur Claude » dans la configuration de votre assistant (`mcpServers`, en-tête
+   `Authorization: Bearer`).
+4. Poser une question, ou partir d'une fiche du **Bar à prompts** (onglets Onboarding, Analyse de données,
+   Contrôle de gestion) : *« CA facturé des 12 derniers mois par client »*.
+
+Le serveur MCP s'annonce aux assistants sous le nom `charlois-finance` (clé du bloc `mcpServers`).
 
 Outils : `salesforce_objects`, `salesforce_describe`, `salesforce_query` · `sagex3_representations`, `sagex3_describe`, `sagex3_query`, `sagex3_get`
 · `sharepoint_sites`, `sharepoint_list`, `sharepoint_search`, `sharepoint_read` · `dropbox_tools`, `dropbox_call` · `myreport_tools`, `myreport_call`.
