@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Hub MCP lecture seule : Salesforce + Sage X3 24R1, jeton OAuth de l'utilisateur transmis tel quel.",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
   },
   "engines": { "node": ">=22" },
   "dependencies": {

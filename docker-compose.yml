@@ -1,33 +1,30 @@
-# Stack Portainer : un seul service. Les connecteurs sont des modules du hub (pas de réseau interne inutile).
-# Déployer via Portainer > Stacks > "Repository" en pointant ce dépôt ; renseigner les variables dans l'UI.
+# Stack Portainer / Docker Desktop : un seul service, les connecteurs sont des modules du hub.
+# Portainer : Stacks > Add stack > Repository (ce dépôt) ; variables saisies dans l'UI.
+# Docker Desktop : copier .env.example en .env puis `docker compose up -d --build`.
 services:
   mcp-hub:
     build: ./hub
-    image: charlois/mcp-hub:latest
     restart: unless-stopped
     ports:
       - "${HUB_PORT:-8080}:8080"
     environment:
-      TZ: ${TZ:-Europe/Paris}
-      PUBLIC_URL: ${PUBLIC_URL:?URL publique https du hub, ex. https://mcp.charlois.fr}
-      CACHE_REFRESH_HOUR: ${CACHE_REFRESH_HOUR:-3}
-      # Salesforce (Connected App, callback = $PUBLIC_URL/auth/salesforce/callback)
-      SF_LOGIN_URL: ${SF_LOGIN_URL:-https://login.salesforce.com}
+      TZ: ${TZ:-Europe/Paris}                 # heure de la coupure nocturne du cache de structure (03:00)
+      PUBLIC_URL: ${PUBLIC_URL:?URL publique du hub, ex. http://localhost:8080 ou https://mcp.charlois.fr}
+      # Salesforce — Connected App OAuth, callback = $PUBLIC_URL/auth/salesforce/callback
+      SF_LOGIN_URL: ${SF_LOGIN_URL}
       SF_CLIENT_ID: ${SF_CLIENT_ID}
       SF_CLIENT_SECRET: ${SF_CLIENT_SECRET}
-      SF_OBJECTS: ${SF_OBJECTS:-Account,Contact,Lead,Opportunity,Order,Case,Product2,Pricebook2}
-      # Sage X3 24R1 (REST Syracuse + serveur OAuth2 déclaré dans Syracuse, callback = $PUBLIC_URL/auth/sagex3/callback)
+      # Sage X3 24R1 — vide = mode simulé (YFAC, YCLIENT, ZVENTE). Callback = $PUBLIC_URL/auth/sagex3/callback
       SAGE_URL: ${SAGE_URL}
-      SAGE_FOLDER: ${SAGE_FOLDER:-PROD}
-      SAGE_REPRESENTATIONS: ${SAGE_REPRESENTATIONS:-BPCUSTOMER,BPSUPPLIER,SINVOICE,PINVOICE,SORDER,PORDER,GACCENTRY,ITMMASTER}
+      SAGE_FOLDER: ${SAGE_FOLDER}
       SAGE_OAUTH_AUTH_URL: ${SAGE_OAUTH_AUTH_URL}
       SAGE_OAUTH_TOKEN_URL: ${SAGE_OAUTH_TOKEN_URL}
       SAGE_OAUTH_USERINFO_URL: ${SAGE_OAUTH_USERINFO_URL}
       SAGE_OAUTH_CLIENT_ID: ${SAGE_OAUTH_CLIENT_ID}
       SAGE_OAUTH_CLIENT_SECRET: ${SAGE_OAUTH_CLIENT_SECRET}
-      SAGE_OAUTH_SCOPE: ${SAGE_OAUTH_SCOPE:-openid email offline_access}
+      SAGE_OAUTH_SCOPE: ${SAGE_OAUTH_SCOPE}
     volumes:
-      - mcp-data:/data   # users.json (jetons) + schema.json (cache nocturne)
+      - mcp-data:/data   # users.json : jetons OAuth par utilisateur
 
 volumes:
   mcp-data:
