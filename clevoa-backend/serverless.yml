@@ -1,0 +1,31 @@
+# serverless.yml — description du déploiement pour le Serverless Framework (npm i -g serverless, puis `serverless deploy`).
+# Ce fichier décrit à AWS : le service, le compte/la région, la fonction Lambda et l'URL publique qui la déclenche.
+service: clevoa-backend          # nom de la pile CloudFormation créée par AWS (clevoa-backend-dev par défaut)
+frameworkVersion: "4"            # version majeure du Serverless Framework attendue
+
+provider:
+  name: aws                      # cloud cible
+  runtime: nodejs20.x            # version de Node exécutée par Lambda
+  region: eu-west-3              # Paris ; données hébergées en France
+  stage: ${opt:stage, "dev"}     # `serverless deploy --stage prod` pour la production
+  memorySize: 128                # suffisant : aucune dépendance, quelques millisecondes par appel
+  timeout: 5                     # secondes avant qu'AWS n'interrompe la fonction
+  architecture: arm64            # Graviton : moins cher que x86 à performance égale
+  environment:
+    CLEVOA_KEYS: ${env:CLEVOA_KEYS, ""}   # clés clients autorisées, séparées par des virgules (vide = toute clé non vide)
+  httpApi:
+    cors: false                  # appelé par des serveurs (hubs), pas par des navigateurs
+
+functions:
+  telemetry:
+    handler: handler.telemetry   # fichier handler.js, export `telemetry`
+    description: Réception de la télémétrie anonyme quotidienne des hubs MCP Charlois
+    events:
+      - httpApi:                 # API Gateway v2 (HTTP API) : moins cher et plus simple que REST API
+          method: POST
+          path: /api/v1/telemetry
+
+package:
+  patterns:                      # n'embarquer que le code utile dans le zip envoyé à Lambda
+    - "!**"
+    - handler.js

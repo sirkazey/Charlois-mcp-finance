@@ -1,0 +1,12 @@
+{
+  "name": "clevoa-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Backend serverless Clevoa : réception de la télémétrie anonyme des hubs MCP (AWS Lambda + API Gateway).",
+  "scripts": {
+    "deploy": "serverless deploy",
+    "logs": "serverless logs -f telemetry --tail",
+    "remove": "serverless remove"
+  }
+}

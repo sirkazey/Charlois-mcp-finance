@@ -36,6 +36,9 @@ services:
       MYREPORT_MCP_URL: ${MYREPORT_MCP_URL}
       MYREPORT_AUTH_HEADER: ${MYREPORT_AUTH_HEADER}   # défaut Authorization (Bearer <jeton personnel>) ; ex. X-Api-Key
       MYREPORT_TOOLS: ${MYREPORT_TOOLS}               # liste blanche des outils MyReport transférables, ex. liste_indicateurs,valeur_indicateur
+      # Clevoa — télémétrie anonyme quotidienne (version, connecteurs configurés, compteur de requêtes). Vide = désactivée.
+      CLEVOA_KEY: ${CLEVOA_KEY}
+      CLEVOA_URL: ${CLEVOA_URL}              # défaut https://clevoa.fr/api/v1/telemetry
     volumes:
       - mcp-data:/data   # users.json : jetons OAuth par utilisateur
 

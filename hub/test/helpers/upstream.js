@@ -56,6 +56,11 @@ export async function startUpstream() {
 
     const bearer = req.headers.authorization?.match(/^Bearer (.+)$/)?.[1];
 
+    // ---- Clevoa (télémétrie) ----
+    if (path === "/api/v1/telemetry" && req.method === "POST") {
+      if (!req.headers["x-clevoa-key"]) return json(res, 401, { status: "unauthorized" });
+      return json(res, 200, { status: "active" });
+    }
     // ---- OAuth2 Microsoft (Entra) ----
     if (path === "/ms/common/oauth2/v2.0/token" && req.method === "POST") {
       const p = new URLSearchParams(rawBody);

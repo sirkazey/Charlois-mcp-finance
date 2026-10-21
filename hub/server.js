@@ -12,18 +12,20 @@ import * as sagex3 from "./connectors/sagex3.js";
 import * as sharepoint from "./connectors/sharepoint.js";
 import * as dropbox from "./connectors/dropbox.js";
 import * as myreport from "./connectors/myreport.js";
+import * as telemetry from "./telemetry.js";
 
 const PORT = process.env.PORT || 8080;
 const CONNECTORS = [salesforce, sagex3, sharepoint, dropbox, myreport];
 const byId = Object.fromEntries(CONNECTORS.map((c) => [c.id, c]));
 // Variables visibles dans le portail (les *SECRET* ne sont jamais renvoyées, seulement « défini / vide »).
 const ENV = ["PUBLIC_URL", "SF_LOGIN_URL", "SF_CLIENT_ID", "SF_CLIENT_SECRET", "SAGE_URL", "SAGE_FOLDER", "SAGE_APIKEY_MODE", "SAGE_OAUTH_AUTH_URL", "SAGE_OAUTH_TOKEN_URL", "SAGE_OAUTH_USERINFO_URL", "SAGE_OAUTH_CLIENT_ID", "SAGE_OAUTH_CLIENT_SECRET", "SAGE_OAUTH_SCOPE",
-  "MS_TENANT_ID", "MS_CLIENT_ID", "MS_CLIENT_SECRET", "SP_SITE", "DROPBOX_APP_KEY", "DROPBOX_APP_SECRET", "MYREPORT_MCP_URL", "MYREPORT_AUTH_HEADER", "MYREPORT_TOOLS"];
+  "MS_TENANT_ID", "MS_CLIENT_ID", "MS_CLIENT_SECRET", "SP_SITE", "DROPBOX_APP_KEY", "DROPBOX_APP_SECRET", "MYREPORT_MCP_URL", "MYREPORT_AUTH_HEADER", "MYREPORT_TOOLS", "CLEVOA_URL", "CLEVOA_KEY"];
 
 // ---------- Identité ----------
 // Cookie "mcp_key" pour le portail ; en-tête "Authorization: Bearer <key>" ou "?key=" pour les clients MCP.
 const cookieKey = (req) => req.headers.cookie?.match(/(?:^|;\s*)mcp_key=([^;]+)/)?.[1];
 const mcpKey = (req) => req.headers.authorization?.replace(/^Bearer\s+/i, "") || req.query.key;
+// CLEVOA_KEY est une clé de licence (pas un secret utilisateur) mais reste masquée comme les autres clés.
 const requireKey = (read) => (req, res, next) => {
   req.key = read(req);
   if (!store.get(req.key)) return res.status(401).json({ error: "Clé MCP inconnue : ouvrez le portail pour obtenir la vôtre." });
@@ -42,6 +44,7 @@ function buildServer(key) {
   );
   for (const c of CONNECTORS) for (const t of c.tools) {
     server.registerTool(t.name, { description: t.description, inputSchema: t.input, annotations: { readOnlyHint: true } }, async (args) => {
+      telemetry.count();
       try {
         const out = await call(c, key, (tok, schema) => t.run(tok, args, schema));
         return { content: [{ type: "text", text: typeof out === "string" ? out : JSON.stringify(out) }] };
@@ -78,7 +81,7 @@ app.get("/api/me", (req, res) => {
     })),
     // Configuration visible en local (Docker Desktop) ou une fois l'utilisateur connecté à un système ; jamais aux anonymes d'un hub public.
     config: !PUBLIC_URL.startsWith("https") || CONNECTORS.some((c) => hasCredential(u[c.id]))
-      ? ENV.map((n) => ({ name: n, value: !process.env[n] ? null : n.includes("SECRET") ? "••••••••" : process.env[n] })) : undefined,
+      ? ENV.map((n) => ({ name: n, value: !process.env[n] ? null : /SECRET|CLEVOA_KEY/.test(n) ? "••••••••" : process.env[n] })) : undefined,
   });
 });
 app.post("/api/disconnect/:system", portalUser, (req, res) => {
@@ -129,4 +132,7 @@ app.all("/mcp", (_req, res) => res.status(405).json({ error: "Utilisez POST (mod
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
-app.listen(PORT, () => console.log(`Hub MCP sur ${PUBLIC_URL} (port ${PORT})${sagex3.mock ? " · Sage X3 en mode simulé" : ""}`));
+app.listen(PORT, () => {
+  console.log(`Hub MCP ${telemetry.VERSION} sur ${PUBLIC_URL} (port ${PORT})${sagex3.mock ? " · Sage X3 en mode simulé" : ""}`);
+  telemetry.start(CONNECTORS);
+});
