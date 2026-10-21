@@ -97,7 +97,7 @@ Tout ce qui est marqué **DSI Charlois** demande un accès administrateur aux ou
 
 | # | Action | Qui | Pourquoi |
 |---|--------|-----|----------|
-| B1 | Deux sous-domaines avec certificat TLS sur le reverse-proxy existant (Traefik, Nginx Proxy Manager, IIS…) : `mcp-preprod.charlois.fr` → port 8080 de la stack pré-prod, `mcp.charlois.fr` → stack prod. Transmettre `X-Forwarded-For` | DSI | Salesforce, Entra et Dropbox refusent un callback OAuth en `http` ; le hub prod refuse de démarrer sans https ; la limitation de débit a besoin de l'IP réelle |
+| B1 | Deux noms d'hôte **internes** (réseau Charlois ou VPN, le hub n'est pas exposé sur internet) avec certificat TLS de l'autorité interne sur le reverse-proxy existant : `mcp-preprod.charlois.local` → port 8080 de la stack pré-prod, `mcp.charlois.local` → stack prod. Transmettre `X-Forwarded-For`. Autoriser la sortie du hub vers Salesforce, Microsoft Graph, Dropbox et Clevoa | DSI | Salesforce, Entra et Dropbox refusent un callback OAuth en `http` (le callback passe par le navigateur du collaborateur, un nom interne convient) ; le hub prod refuse de démarrer sans https ; la limitation de débit a besoin de l'IP réelle |
 | B2 | Portainer : stack « mcp-preprod » depuis le dépôt, référence `refs/heads/dev`, compose `docker-compose.dev.yml`, GitOps activé (polling 5 min ou webhook GitHub), variables de `.env.example` | DSI | C'est le déploiement continu : chaque commit sur `dev` met la pré-prod à jour |
 | B3 | Même chose pour « mcp-prod » : `refs/heads/main`, `docker-compose.prod.yml`, `CLEVOA_KEY` obligatoire | DSI | Idem pour la prod, après validation en pré-prod |
 | B4 | Premier déploiement en pré-prod et vérification des logs de démarrage (`Hub MCP v1.0.0 · ENV: PRE-PROD`) | DSI + Clevoa | Le build de l'image (utilisateur `node`, système de fichiers en lecture seule) n'a jamais été exécuté : c'est le premier vrai test |
@@ -127,13 +127,13 @@ Tant qu'un outil n'est pas configuré, son bouton reste grisé et Sage X3 / MyRe
 
 | # | Action |
 |---|--------|
-| E1 | Choisir l'assistant autorisé (Claude Code, Claude Desktop, ChatGPT, Copilot) : tous se configurent avec le bloc JSON du portail. **Claude.ai web/mobile n'est pas supporté** (pas d'en-tête possible) : à annoncer clairement |
+| E1 | Choisir l'assistant autorisé (Claude Code, Claude Desktop, ChatGPT, Copilot), installé sur un poste du réseau ou en VPN : tous se configurent avec le bloc JSON du portail. **Claude.ai web/mobile n'est pas supporté** (hub interne, pas d'en-tête possible) : à annoncer clairement |
 | E2 | Informer les collaborateurs : le hub ne lit que ce qu'ils ont déjà le droit de voir, leurs jetons sont chiffrés et individuels, une télémétrie anonyme (compteurs) part vers Clevoa. Mettre à jour le registre des traitements si la DSI le tient |
 | E3 | Onboarding en trois gestes sur le portail : se connecter aux outils, vérifier les voyants du diagnostic, copier le bloc JSON dans son assistant |
 
 ## 3. Catalogue des évolutions possibles (optionnel, roadmap Clevoa)
 
-Quatre évolutions à forte valeur commerciale. Pour chacune, la règle qui l'empêche de devenir une usine à gaz.
+Trois évolutions à forte valeur commerciale, et une écartée. Pour chacune, la règle qui l'empêche de devenir une usine à gaz.
 
 ### 3.1 Santé des connecteurs et alertes proactives sur le portail
 
@@ -153,8 +153,10 @@ Quatre évolutions à forte valeur commerciale. Pour chacune, la règle qui l'em
 
 **Pour rester simple** : dans `clevoa-backend`, remplacer la simulation par un `PutItem` DynamoDB (une table, une ligne par envoi) et servir une page HTML statique depuis S3 qui lit les trente derniers jours. Une Lambda, une table, une page ; pas de framework, pas d'authentification complexe (un lien signé suffit).
 
-### 3.4 Accès depuis claude.ai web et mobile (serveur OAuth sur le hub)
+### Écarté : accès depuis claude.ai web et mobile
 
-**Valeur** : les connecteurs personnalisés de claude.ai, utilisés depuis un téléphone, redeviennent possibles ; c'est l'usage le plus demandé par les directions.
-
-**Pour rester simple** : implémenter uniquement le strict minimum du flux OAuth 2.1 côté hub avec les briques du SDK MCP officiel : le « mot de passe » échangé est la clé MCP personnelle déjà existante, sans comptes, sans rôles, sans consentement configurable, sans base. Si la mise en œuvre dépasse 150 lignes, c'est le signal d'arrêter.
+Le hub a vocation à rester sur le réseau interne de Charlois (ou derrière le VPN), car il détient les jetons des
+collaborateurs et joint des outils non exposés sur internet comme Sage X3. Les connecteurs personnalisés de claude.ai
+web et mobile, qui partent des serveurs d'Anthropic, ne pourront donc jamais l'atteindre. Les assistants installés sur
+les postes du réseau (Claude Desktop, Claude Code, ChatGPT, Copilot) couvrent le besoin. Décision actée, pas de
+développement OAuth 2.1.
