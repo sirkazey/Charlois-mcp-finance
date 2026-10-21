@@ -2,8 +2,33 @@
 // Il enregistre chaque requête reçue (méthode, chemin, query, en-têtes, corps) pour que les tests
 // vérifient notamment que l'en-tête Authorization transmis est bien le jeton de l'utilisateur.
 import { createServer } from "node:http";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { z } from "zod";
+
+/** Serveur MCP Dropbox simulé : 2 outils lecture + 1 outil d'écriture (qui ne doit jamais être atteignable via le hub). */
+function dropboxMcp() {
+  const srv = new McpServer({ name: "dropbox-mock", version: "1.0.0" });
+  srv.registerTool("who_am_i", { description: "Compte courant", inputSchema: {} }, async () => ({ content: [{ type: "text", text: "Alice Martin <alice@dropbox.example> (team Charlois)" }] }));
+  srv.registerTool("list_folder", { description: "Liste un dossier", inputSchema: { path: z.string() } }, async ({ path }) =>
+    path === "/Secret" ? { isError: true, content: [{ type: "text", text: "path/not_found: accès refusé" }] }
+      : { content: [{ type: "text", text: JSON.stringify([{ name: "Budget 2026.xlsx", path: `${path}/Budget 2026.xlsx` }, { name: "Clôtures", path: `${path}/Clôtures`, folder: true }]) }] });
+  srv.registerTool("delete", { description: "Supprime (écriture)", inputSchema: { path: z.string() } }, async () => ({ content: [{ type: "text", text: "deleted" }] }));
+  return srv;
+}
 
 export const SF_V = "v62.0";
+
+/** Serveur MCP MyReport simulé (SSE) : 1 outil de lecture + 1 outil d'écriture que le hub doit refuser. */
+function myreportMcp() {
+  const srv = new McpServer({ name: "myreport-mock", version: "1.0.0" });
+  srv.registerTool("liste_indicateurs", { description: "Indicateurs", inputSchema: {} }, async () => ({ content: [{ type: "text", text: JSON.stringify([{ code: "CA_HT" }]) }] }));
+  srv.registerTool("valeur_indicateur", { description: "Valeur", inputSchema: { code: z.string() } }, async ({ code }) => ({ content: [{ type: "text", text: JSON.stringify({ code, valeur: 42 }) }] }));
+  srv.registerTool("delete_rapport", { description: "Écriture", inputSchema: { id: z.string() } }, async () => ({ content: [{ type: "text", text: "deleted" }] }));
+  return srv;
+}
+const sseSessions = new Map();
 
 export async function startUpstream() {
   const state = {
@@ -30,6 +55,61 @@ export async function startUpstream() {
     }
 
     const bearer = req.headers.authorization?.match(/^Bearer (.+)$/)?.[1];
+
+    // ---- OAuth2 Microsoft (Entra) ----
+    if (path === "/ms/common/oauth2/v2.0/token" && req.method === "POST") {
+      const p = new URLSearchParams(rawBody);
+      if (p.get("grant_type") === "refresh_token") return json(res, 200, { access_token: "ms-token-refreshed", token_type: "Bearer" });
+      return json(res, 200, { access_token: `ms-token-${p.get("code")}`, refresh_token: `ms-refresh-${p.get("code")}`, token_type: "Bearer" });
+    }
+    // ---- OAuth2 Dropbox ----
+    if (path === "/oauth2/token" && req.method === "POST") {
+      const p = new URLSearchParams(rawBody);
+      if (p.get("grant_type") === "refresh_token") return json(res, 200, { access_token: "dbx-token-refreshed", token_type: "bearer" });
+      return json(res, 200, { access_token: `dbx-token-${p.get("code")}`, refresh_token: `dbx-refresh-${p.get("code")}`, token_type: "bearer" });
+    }
+    // ---- Microsoft Graph (délégué : droits de l'utilisateur) ----
+    if (path.startsWith("/v1.0/")) {
+      if (!bearer?.startsWith("ms-token-")) return json(res, 401, { error: { code: "InvalidAuthenticationToken" } });
+      const it = (id, name, folder) => ({ id, name, size: folder ? undefined : 1234, lastModifiedDateTime: "2026-10-01T08:00:00Z", webUrl: `https://sp.example/${name}`, ...(folder ? { folder: {} } : { file: {} }) });
+      if (path === "/v1.0/me") return json(res, 200, { displayName: "Alice Martin", mail: "alice@example.com", userPrincipalName: "alice@example.com" });
+      if (path === "/v1.0/sites") return json(res, 200, { value: [{ id: "site-finance", displayName: "Finance", webUrl: "https://sp.example/sites/Finance" }] });
+      let m = path.match(/^\/v1.0\/(?:me\/drive|sites\/[^/]+\/drive)\/root(?::\/(.+):)?\/children$/);
+      if (m) {
+        if (m[1] === "Secret") return json(res, 403, { error: { code: "accessDenied", message: "Access denied" } });
+        return json(res, 200, { value: [it("01A", "Budget 2026.xlsx", false), it("01B", "Clôtures", true), it("01C", "notes.txt", false)] });
+      }
+      if (/\/root\/search\(q='/.test(path)) return json(res, 200, { value: [it("01A", "Budget 2026.xlsx", false)] });
+      m = path.match(/^\/v1.0\/(?:me\/drive|sites\/[^/]+\/drive)\/items\/(\w+)(\/content)?$/);
+      if (m && !m[2]) return json(res, 200, m[1] === "01B" ? it("01B", "Clôtures", true) : it(m[1], m[1] === "01A" ? "Budget 2026.xlsx" : "notes.txt", false));
+      if (m) { res.writeHead(302, { Location: `${base}/dl/${m[1]}` }); return res.end(); }
+      return json(res, 404, { error: { code: "itemNotFound" } });
+    }
+    if (path.startsWith("/dl/")) { // URL de téléchargement pré-authentifiée (pas d'en-tête Authorization attendu)
+      if (path === "/dl/01A") { res.writeHead(200, { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }); return res.end("PK..."); }
+      res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" }); return res.end("Hypothèses budget : croissance 4 %, EBITDA 12 %.");
+    }
+    // ---- Serveur MCP MyReport simulé (SSE) : GET /myreport/sse puis POST /myreport/messages?sessionId= ----
+    if (path === "/myreport/sse" || path === "/myreport/messages") {
+      if (!bearer?.startsWith("mr-token-")) return json(res, 401, { error: "invalid_token" });
+      if (req.method === "GET") {
+        const transport = new SSEServerTransport("/myreport/messages", res);
+        sseSessions.set(transport.sessionId, transport);
+        res.on("close", () => sseSessions.delete(transport.sessionId));
+        return myreportMcp().connect(transport);
+      }
+      const t = sseSessions.get(query.sessionId);
+      if (!t) return json(res, 404, { error: "session inconnue" });
+      return t.handlePostMessage(req, res, JSON.parse(rawBody));
+    }
+    // ---- Serveur MCP Dropbox simulé (Streamable HTTP, sans état) ----
+    if (path === "/dropbox-mcp") {
+      if (!bearer?.startsWith("dbx-token-")) return json(res, 401, { error: "invalid_token" });
+      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+      const srv = dropboxMcp();
+      res.on("close", () => { transport.close(); srv.close(); });
+      return srv.connect(transport).then(() => transport.handleRequest(req, res, rawBody ? JSON.parse(rawBody) : undefined));
+    }
 
     // ---- OAuth2 Salesforce ----
     if (path === "/services/oauth2/token" && req.method === "POST") {

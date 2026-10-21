@@ -14,7 +14,8 @@
   .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px } @media (max-width:560px){ .grid{ grid-template-columns:1fr } }
   .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px }
   .btn { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; padding:16px; border:0; border-radius:12px; font-size:1.05rem; font-weight:600; color:#fff; cursor:pointer; text-decoration:none; font-family:inherit }
-  .btn.sf { background:var(--sf) } .btn.sage { background:var(--sage); color:var(--sage-ink) } .btn[aria-disabled=true] { opacity:.45; pointer-events:none }
+  .btn.salesforce { background:var(--sf) } .btn.sagex3 { background:var(--sage); color:var(--sage-ink) } .btn.sharepoint { background:#0f6cbd } .btn.dropbox { background:#0061ff } .btn.myreport { background:#e4572e }
+  .btn[aria-disabled=true] { opacity:.45; pointer-events:none }
   .btn.test { background:var(--ink); padding:12px; font-size:.95rem }
   .status { margin-top:12px; font-size:.9rem; color:var(--muted); display:flex; justify-content:space-between; align-items:center }
   .dot { display:inline-block; width:10px; height:10px; border-radius:50%; background:#d1d5db; margin-right:6px; vertical-align:middle } .dot.on { background:var(--ok) } .dot.off { background:var(--ko) }
@@ -36,21 +37,12 @@
 <body>
 <main>
   <h1>Finance MCP</h1>
-  <p class="sub">Connectez vos comptes une fois ; Claude interroge ensuite Salesforce et Sage X3 avec <strong>vos</strong> droits, en lecture seule.</p>
+  <p class="sub">Connectez vos comptes une fois ; Claude interroge ensuite Salesforce, Sage X3, SharePoint, Dropbox et MyReport avec <strong>vos</strong> droits, en lecture seule.</p>
 
   <div class="grid" id="systems"></div>
 
   <h2>Diagnostic &amp; Connectivité</h2>
-  <div class="grid">
-    <div class="card">
-      <button class="btn test" onclick="test('salesforce', this)">Tester la connexion Salesforce</button>
-      <div class="result" id="res-salesforce"></div>
-    </div>
-    <div class="card">
-      <button class="btn test" onclick="test('sagex3', this)" id="btn-sagex3">Tester le simulateur Sage X3</button>
-      <div class="result" id="res-sagex3"></div>
-    </div>
-  </div>
+  <div class="grid" id="diag"></div>
 
   <h2>Votre connecteur Claude <button class="copy" onclick="copy(cfg.textContent)">Copier</button></h2>
   <pre id="cfg">…</pre>
@@ -73,6 +65,9 @@ const QUESTIONS = [
   ["Taux de conversion des opportunités créées sur les 12 derniers mois, par commercial.", "Salesforce · Opportunity + User"],
   ["Pour le client X : commandes Salesforce de l'année vs factures Sage X3 — y a-t-il un écart ?", "Croisé Salesforce + Sage X3"],
   ["Quels champs sont disponibles sur les écritures comptables (GACCENTRY) ?", "Sage X3 · describe"],
+  ["Retrouve le dernier budget prévisionnel dans le dossier Finance SharePoint et résume ses hypothèses.", "SharePoint · search + read"],
+  ["Liste les fichiers du dossier /Finance/Clôtures de Dropbox modifiés ce mois-ci.", "Dropbox · list_folder"],
+  ["Via MyReport : CA HT et marge brute des 12 derniers mois, puis compare avec les factures Sage X3.", "MyReport · proxy MCP + Sage X3"],
 ];
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -83,23 +78,25 @@ async function load() {
   const me = await fetch("/api/me", { credentials: "same-origin" }).then((r) => r.json());
   $("#systems").innerHTML = me.systems.map((s) => `
     <div class="card">
-      <a class="btn ${s.id === "salesforce" ? "sf" : "sage"}" href="/auth/${s.id}" aria-disabled="${!s.configured || s.mock}">
-        ${s.connected ? "✓ Reconnecter" : "Se connecter à"} ${s.label}
-      </a>
+      ${s.oauth ? `<a class="btn ${s.id}" href="/auth/${s.id}" aria-disabled="${!s.configured || s.mock}">${s.connected ? "✓ Reconnecter" : "Se connecter à"} ${s.label}</a>`
+                : `<div class="btn ${s.id}" aria-disabled="true">${s.label}</div>`}
       <div class="status">
-        <span><i class="dot ${s.connected || s.mock ? "on" : ""}"></i>${s.mock ? "Mode simulé (sans compte)" : s.connected ? `Connecté${s.method === "apikey" ? " (clé d'API)" : ""}` : s.configured ? "Non connecté" : "Non configuré (admin)"}</span>
+        <span><i class="dot ${s.connected || s.mock ? "on" : ""}"></i>${s.mock ? "Mode simulé (sans compte)" : s.connected ? `Connecté${s.method === "apikey" ? " (jeton personnel)" : ""}` : s.oauth ? (s.configured ? "Non connecté" : "Non configuré (admin)") : "Jeton personnel requis"}</span>
         ${s.connected ? `<button class="link" onclick="disconnect('${s.id}')">Déconnecter</button>` : ""}
       </div>
       ${s.apiKey && !s.connected ? `
-      <form class="apikey" onsubmit="saveApiKey(event)">
-        <div class="status" style="margin:14px 0 6px">ou une clé d'API Syracuse personnelle (sans expiration)</div>
-        ${s.apiKey.mode === "basic" ? `<input id="sage-login" placeholder="Identifiant X3" autocomplete="username" required>` : ""}
-        <input id="sage-apikey" type="password" placeholder="Clé d'API" autocomplete="off" required>
-        <button class="btn test" type="submit">Enregistrer la clé</button>
+      <form class="apikey" onsubmit="saveApiKey(event, '${s.id}')">
+        <div class="status" style="margin:14px 0 6px">${s.oauth ? "ou " : ""}${s.apiKey.label}</div>
+        ${s.apiKey.mode === "basic" ? `<input id="${s.id}-login" placeholder="Identifiant" autocomplete="username" required>` : ""}
+        <input id="${s.id}-apikey" type="password" placeholder="Jeton / clé" autocomplete="off" required>
+        <button class="btn test" type="submit">Enregistrer</button>
       </form>` : ""}
     </div>`).join("");
-  const sage = me.systems.find((s) => s.id === "sagex3");
-  $("#btn-sagex3").textContent = sage?.mock ? "Tester le simulateur Sage X3" : "Tester la connexion Sage X3";
+  $("#diag").innerHTML = me.systems.map((s) => `
+    <div class="card">
+      <button class="btn test" onclick="test('${s.id}', this)">Tester ${s.mock ? "le simulateur " : ""}${s.label}</button>
+      <div class="result" id="res-${s.id}"></div>
+    </div>`).join("");
   $("#cfg").textContent =
 `URL (claude.ai) : ${me.mcpUrl}?key=${me.key}
 
@@ -130,11 +127,11 @@ async function test(id, btn) {
   }
   btn.disabled = false;
 }
-async function saveApiKey(e) {
+async function saveApiKey(e, id) {
   e.preventDefault();
-  const body = { apiKey: $("#sage-apikey").value, login: $("#sage-login")?.value };
-  const r = await fetch("/api/sagex3/apikey", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify(body) });
-  if (!r.ok) return toast("Clé refusée"); toast("Clé enregistrée"); load();
+  const body = { apiKey: $(`#${id}-apikey`).value, login: $(`#${id}-login`)?.value };
+  const r = await fetch("/api/" + id + "/apikey", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify(body) });
+  if (!r.ok) return toast("Jeton refusé"); toast("Jeton enregistré"); load();
 }
 async function disconnect(id) { await fetch("/api/disconnect/" + id, { method: "POST", credentials: "same-origin" }); load(); }
 load();

@@ -9,12 +9,16 @@ import { oauthRouter, withToken, hasCredential, PUBLIC_URL } from "./oauth.js";
 import { cachedSchema, schemaAge } from "./cache.js";
 import * as salesforce from "./connectors/salesforce.js";
 import * as sagex3 from "./connectors/sagex3.js";
+import * as sharepoint from "./connectors/sharepoint.js";
+import * as dropbox from "./connectors/dropbox.js";
+import * as myreport from "./connectors/myreport.js";
 
 const PORT = process.env.PORT || 8080;
-const CONNECTORS = [salesforce, sagex3];
+const CONNECTORS = [salesforce, sagex3, sharepoint, dropbox, myreport];
 const byId = Object.fromEntries(CONNECTORS.map((c) => [c.id, c]));
 // Variables visibles dans le portail (les *SECRET* ne sont jamais renvoyées, seulement « défini / vide »).
-const ENV = ["PUBLIC_URL", "SF_LOGIN_URL", "SF_CLIENT_ID", "SF_CLIENT_SECRET", "SAGE_URL", "SAGE_FOLDER", "SAGE_APIKEY_MODE", "SAGE_OAUTH_AUTH_URL", "SAGE_OAUTH_TOKEN_URL", "SAGE_OAUTH_CLIENT_ID", "SAGE_OAUTH_CLIENT_SECRET", "SAGE_OAUTH_SCOPE"];
+const ENV = ["PUBLIC_URL", "SF_LOGIN_URL", "SF_CLIENT_ID", "SF_CLIENT_SECRET", "SAGE_URL", "SAGE_FOLDER", "SAGE_APIKEY_MODE", "SAGE_OAUTH_AUTH_URL", "SAGE_OAUTH_TOKEN_URL", "SAGE_OAUTH_CLIENT_ID", "SAGE_OAUTH_CLIENT_SECRET", "SAGE_OAUTH_SCOPE",
+  "MS_TENANT_ID", "MS_CLIENT_ID", "MS_CLIENT_SECRET", "SP_SITE", "DROPBOX_APP_KEY", "DROPBOX_APP_SECRET", "DROPBOX_MCP_URL", "MYREPORT_MCP_URL", "MYREPORT_AUTH_HEADER"];
 
 // ---------- Identité ----------
 // Cookie "mcp_key" pour le portail ; en-tête "Authorization: Bearer <key>" ou "?key=" pour les clients MCP.
@@ -34,13 +38,13 @@ const call = (c, key, fn) => withToken(c, key, (tok) => fn(tok, () => cachedSche
 function buildServer(key) {
   const server = new McpServer(
     { name: "charlois-finance", version: "1.0.0" },
-    { instructions: "Outils en LECTURE SEULE sur Salesforce et Sage X3 avec les droits de l'utilisateur connecté. Commence par *_describe pour connaître les champs, puis interroge en direct. Les montants sont dans la devise de l'ERP." },
+    { instructions: "Outils en LECTURE SEULE sur Salesforce, Sage X3, SharePoint, Dropbox et MyReport avec les droits de l'utilisateur connecté. ERP/CRM : commence par *_describe pour connaître les champs, puis interroge en direct ; les montants sont dans la devise de l'ERP. Documents : sharepoint_search / sharepoint_read, dropbox_tools puis dropbox_call. Analyses financières MyReport : myreport_tools puis myreport_call." },
   );
   for (const c of CONNECTORS) for (const t of c.tools) {
     server.registerTool(t.name, { description: t.description, inputSchema: t.input, annotations: { readOnlyHint: true } }, async (args) => {
       try {
         const out = await call(c, key, (tok, schema) => t.run(tok, args, schema));
-        return { content: [{ type: "text", text: JSON.stringify(out) }] };
+        return { content: [{ type: "text", text: typeof out === "string" ? out : JSON.stringify(out) }] };
       } catch (e) {
         return { isError: true, content: [{ type: "text", text: e.message }] };
       }
@@ -69,9 +73,9 @@ app.get("/api/me", (req, res) => {
     mcpUrl: `${PUBLIC_URL}/mcp`,
     sseUrl: `${PUBLIC_URL}/sse`,
     systems: CONNECTORS.map((c) => ({
-      id: c.id, label: c.label, mock: !!c.mock, configured: !!c.oauth.clientId, schemaAt: schemaAge(key, c.id),
+      id: c.id, label: c.label, mock: !!c.mock, oauth: !!c.oauth, configured: !!c.oauth?.clientId, schemaAt: schemaAge(key, c.id),
       connected: hasCredential(u[c.id]), method: u[c.id]?.apiKey ? "apikey" : u[c.id]?.access_token ? "oauth" : null,
-      apiKey: c.id === "sagex3" && !c.mock ? { mode: c.apiKeyMode } : undefined, // le portail propose la saisie d'une clé
+      apiKey: c.apiKey && !c.mock ? c.apiKey : undefined, // le portail propose la saisie d'un jeton personnel
     })),
     config: ENV.map((n) => ({ name: n, value: !process.env[n] ? null : n.includes("SECRET") ? "••••••••" : process.env[n] })),
   });
@@ -80,12 +84,14 @@ app.post("/api/disconnect/:system", portalUser, (req, res) => {
   if (!byId[req.params.system]) return res.sendStatus(404);
   store.clearTokens(req.key, req.params.system); res.sendStatus(204);
 });
-// Clé d'API Syracuse personnelle (alternative à OAuth pour Sage X3) : remplace l'entrée sagex3 de l'utilisateur.
-app.post("/api/sagex3/apikey", portalUser, (req, res) => {
+// Jeton personnel (clé d'API Syracuse, jeton MyReport…) saisi par l'utilisateur : remplace son entrée pour ce système.
+app.post("/api/:system/apikey", portalUser, (req, res) => {
+  const c = byId[req.params.system];
+  if (!c?.apiKey) return res.sendStatus(404);
   const apiKey = String(req.body?.apiKey || "").trim(), login = String(req.body?.login || "").trim();
-  if (!apiKey) return res.status(400).json({ error: "Clé d'API vide" });
-  store.clearTokens(req.key, "sagex3");
-  store.setTokens(req.key, "sagex3", { apiKey, ...(login ? { login } : {}) });
+  if (!apiKey) return res.status(400).json({ error: "Jeton vide" });
+  store.clearTokens(req.key, c.id);
+  store.setTokens(req.key, c.id, { apiKey, ...(login ? { login } : {}) });
   res.sendStatus(204);
 });
 // Diagnostic : un appel minimal au système avec le jeton de l'utilisateur (ou le simulateur).

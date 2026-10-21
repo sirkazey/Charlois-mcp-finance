@@ -28,7 +28,7 @@ export const store = {
   setTokens(key, system, tokens, email) {
     const u = store.get(key); if (!u) return;
     u[system] = { ...u[system], ...tokens, updatedAt: new Date().toISOString() };
-    if (email) u.email = email;
+    if (email && !u.email) u.email = email; // la première identité OAuth fait foi
     save();
   },
   clearTokens(key, system) {

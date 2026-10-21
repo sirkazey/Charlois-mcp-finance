@@ -22,6 +22,9 @@ export const connectedUser = (upstreamUrl, extra = {}) => ({
   email: "alice@example.com",
   salesforce: { access_token: "sf-token-alice", refresh_token: "sf-refresh-alice", instance_url: upstreamUrl, token_type: "Bearer" },
   sagex3: { access_token: "sage-token-alice", refresh_token: "sage-refresh-alice", token_type: "Bearer" },
+  sharepoint: { access_token: "ms-token-alice", refresh_token: "ms-refresh-alice" },
+  dropbox: { access_token: "dbx-token-alice", refresh_token: "dbx-refresh-alice" },
+  myreport: { apiKey: "mr-token-alice" },
   ...extra,
 });
 
@@ -49,6 +52,9 @@ export async function startHub({ upstreamUrl, users = {}, env = {} }) {
       SAGE_OAUTH_AUTH_URL: `${upstreamUrl}/oauth/authorize`, SAGE_OAUTH_TOKEN_URL: `${upstreamUrl}/oauth/token`,
       SAGE_OAUTH_USERINFO_URL: `${upstreamUrl}/oauth/userinfo`,
       SAGE_OAUTH_CLIENT_ID: "sage-client-id", SAGE_OAUTH_CLIENT_SECRET: "sage-client-secret",
+      MS_LOGIN_URL: `${upstreamUrl}/ms`, MS_TENANT_ID: "common", MS_CLIENT_ID: "ms-client-id", MS_CLIENT_SECRET: "ms-client-secret", GRAPH_URL: `${upstreamUrl}/v1.0`,
+      MYREPORT_MCP_URL: `${upstreamUrl}/myreport/sse`,
+      DROPBOX_APP_KEY: "dbx-app-key", DROPBOX_APP_SECRET: "dbx-app-secret", DROPBOX_API_URL: upstreamUrl, DROPBOX_MCP_URL: `${upstreamUrl}/dropbox-mcp`,
       ...env,
     },
     stdio: ["ignore", "pipe", "pipe"],

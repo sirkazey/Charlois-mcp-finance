@@ -46,13 +46,13 @@ export function oauthRouter(connectors, getKey) {
 
   r.get("/auth/:system", (req, res) => {
     const c = byId[req.params.system]; const key = getKey(req);
-    if (!c || !store.get(key)) return res.status(400).send("Système inconnu ou session absente");
+    if (!c?.oauth || !store.get(key)) return res.status(400).send("Système inconnu ou session absente");
     if (!c.oauth.clientId) return res.status(500).send(`${c.label} : OAuth non configuré (variables d'environnement)`);
     for (const [s, p] of pending) if (p.exp < Date.now()) pending.delete(s); // purge des flux abandonnés
     const state = randomBytes(16).toString("hex");
     pending.set(state, { key, system: c.id, exp: Date.now() + 10 * 60_000 });
     const u = new URL(c.oauth.authUrl);
-    u.search = new URLSearchParams({ response_type: "code", client_id: c.oauth.clientId, redirect_uri: redirectUri(c.id), scope: c.oauth.scope, state });
+    u.search = new URLSearchParams({ response_type: "code", client_id: c.oauth.clientId, redirect_uri: redirectUri(c.id), scope: c.oauth.scope, state, ...c.oauth.extraAuthParams });
     res.redirect(u);
   });
 
@@ -60,7 +60,7 @@ export function oauthRouter(connectors, getKey) {
     const p = pending.get(req.query.state); pending.delete(req.query.state);
     const c = byId[req.params.system];
     // p.key === getKey(req) : le navigateur qui revient doit être celui qui a lancé le flux (anti login-CSRF).
-    if (!p || !c || p.system !== c.id || p.exp < Date.now() || p.key !== getKey(req)) return res.status(400).send("State OAuth invalide ou expiré");
+    if (!p || !c?.oauth || p.system !== c.id || p.exp < Date.now() || p.key !== getKey(req)) return res.status(400).send("State OAuth invalide ou expiré");
     if (req.query.error) return res.status(400).send(`Refus OAuth : ${req.query.error_description || req.query.error}`);
     try {
       const tokens = await postToken(c.oauth, { grant_type: "authorization_code", code: req.query.code, redirect_uri: redirectUri(c.id) });

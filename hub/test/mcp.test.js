@@ -10,7 +10,8 @@ import { startHub, connectedUser, KEY } from "./helpers/hub.js";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const TOOLS = ["salesforce_objects", "salesforce_describe", "salesforce_query", "sagex3_representations", "sagex3_describe", "sagex3_query", "sagex3_get"];
+const TOOLS = ["salesforce_objects", "salesforce_describe", "salesforce_query", "sagex3_representations", "sagex3_describe", "sagex3_query", "sagex3_get",
+  "sharepoint_sites", "sharepoint_list", "sharepoint_search", "sharepoint_read", "dropbox_tools", "dropbox_call", "myreport_tools", "myreport_call"];
 const KEY_NO_REFRESH = "test-key-bob-no-refresh-token";
 const KEY_CAROL = "test-key-carol-0123456789";
 const KEY_DAN = "test-key-dan-apikey-0123456789";
@@ -45,7 +46,7 @@ async function httpClient(key = KEY) {
 const text = (r) => JSON.parse(r.content[0].text);
 
 // ---------------------------------------------------------------- 1. flux SSE / Streamable HTTP
-test("SSE : listTools expose les 7 outils en lecture seule", async () => {
+test("SSE : listTools expose les 15 outils en lecture seule", async () => {
   const c = await sseClient();
   try {
     const { tools } = await c.listTools();
@@ -109,7 +110,7 @@ test("Streamable HTTP (/mcp, Authorization: Bearer) : listTools et callTool", as
   const c = await httpClient();
   try {
     const { tools } = await c.listTools();
-    assert.equal(tools.length, 7);
+    assert.equal(tools.length, 15);
     const out = text(await c.callTool({ name: "salesforce_query", arguments: { soql: "SELECT Id FROM Account" } }));
     assert.equal(out.records.length, 2);
     assert.equal(up.requests("/query")[0].headers.authorization, "Bearer sf-token-alice");

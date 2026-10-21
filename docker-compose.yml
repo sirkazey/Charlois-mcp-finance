@@ -24,6 +24,18 @@ services:
       SAGE_OAUTH_CLIENT_ID: ${SAGE_OAUTH_CLIENT_ID}
       SAGE_OAUTH_CLIENT_SECRET: ${SAGE_OAUTH_CLIENT_SECRET}
       SAGE_OAUTH_SCOPE: ${SAGE_OAUTH_SCOPE}
+      # SharePoint / OneDrive — app Entra ID (permissions déléguées User.Read, Files.Read.All, Sites.Read.All), callback = $PUBLIC_URL/auth/sharepoint/callback
+      MS_TENANT_ID: ${MS_TENANT_ID}
+      MS_CLIENT_ID: ${MS_CLIENT_ID}
+      MS_CLIENT_SECRET: ${MS_CLIENT_SECRET}
+      SP_SITE: ${SP_SITE}                    # ex. charlois.sharepoint.com:/sites/Finance (vide = OneDrive de l'utilisateur)
+      # Dropbox — app Dropbox (scopes lecture), proxy vers le serveur MCP officiel, callback = $PUBLIC_URL/auth/dropbox/callback
+      DROPBOX_APP_KEY: ${DROPBOX_APP_KEY}
+      DROPBOX_APP_SECRET: ${DROPBOX_APP_SECRET}
+      DROPBOX_MCP_URL: ${DROPBOX_MCP_URL}    # défaut https://mcp.dropbox.com/mcp
+      # MyReport — proxy MCP distant (HTTP SSE) vers le serveur MCP de votre instance MyReport Server. Vide = simulateur local.
+      MYREPORT_MCP_URL: ${MYREPORT_MCP_URL}
+      MYREPORT_AUTH_HEADER: ${MYREPORT_AUTH_HEADER}   # défaut Authorization (Bearer <jeton personnel>) ; ex. X-Api-Key
     volumes:
       - mcp-data:/data   # users.json : jetons OAuth par utilisateur
 

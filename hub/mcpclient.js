@@ -1,0 +1,29 @@
+// Client MCP partagé par les connecteurs "proxy" (Dropbox, MyReport) : une session par appel, fermée ensuite.
+// `headers` porte l'autorisation de l'utilisateur ; `sse` choisit le transport SSE (sinon Streamable HTTP).
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+
+export async function withMcp({ url, headers, sse = false, label = "MCP" }, fn) {
+  const client = new Client({ name: "charlois-finance-hub", version: "1.0.0" });
+  const opts = { requestInit: { headers } };
+  const transport = sse ? new SSEClientTransport(new URL(url), opts) : new StreamableHTTPClientTransport(new URL(url), opts);
+  try {
+    await client.connect(transport);
+    return await fn(client);
+  } catch (e) {
+    throw Object.assign(new Error(`${label} : ${e.message}`), { status: e.code === 401 || /\b401\b|Unauthorized/i.test(e.message) ? 401 : e.code });
+  } finally {
+    await client.close().catch(() => {});
+  }
+}
+
+/** Texte d'une réponse d'outil MCP. */
+export const toolText = (r) => r.content?.map((c) => c.text ?? JSON.stringify(c)).join("\n") ?? "";
+
+/** Exécute un outil distant et renvoie son résultat (structuré si fourni, sinon texte). */
+export async function callRemote(client, name, args) {
+  const r = await client.callTool({ name, arguments: args });
+  if (r.isError) throw new Error(toolText(r));
+  return r.structuredContent ?? toolText(r);
+}

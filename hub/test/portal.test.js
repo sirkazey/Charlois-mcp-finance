@@ -41,12 +41,14 @@ test("GET /api/me sans cookie : pose mcp_key et renvoie {key, mcpUrl, systems[2]
   assert.equal(me.email, null);
   assert.equal(me.mcpUrl, `${hub.url}/mcp`);
   assert.equal(me.sseUrl, `${hub.url}/sse`);
-  assert.equal(me.systems.length, 2);
-  assert.deepEqual(me.systems.map((s) => s.id), ["salesforce", "sagex3"]);
-  assert.deepEqual(me.systems.map((s) => s.connected), [false, false]);
-  assert.deepEqual(me.systems.map((s) => s.configured), [true, true]);
-  assert.deepEqual(me.systems.map((s) => s.schemaAt), [null, null]);
-  assert.deepEqual(me.systems.map((s) => s.mock), [false, false]);
+  assert.equal(me.systems.length, 5);
+  assert.deepEqual(me.systems.map((s) => s.id), ["salesforce", "sagex3", "sharepoint", "dropbox", "myreport"]);
+  assert.deepEqual(me.systems.map((s) => s.connected), [false, false, false, false, false]);
+  assert.deepEqual(me.systems.map((s) => s.configured), [true, true, true, true, false]);
+  assert.deepEqual(me.systems.map((s) => s.oauth), [true, true, true, true, false], "MyReport : jeton personnel, pas d'OAuth");
+  assert.deepEqual(me.systems.map((s) => s.schemaAt), [null, null, null, null, null]);
+  assert.deepEqual(me.systems.map((s) => s.mock), [false, false, false, false, false]);
+  assert.deepEqual(me.systems[4].apiKey, { mode: "bearer", label: "jeton personnel MyReport Server" });
   // Configuration masquée : valeurs visibles sauf les *SECRET*
   const cfg = Object.fromEntries(me.config.map((v) => [v.name, v.value]));
   assert.equal(cfg.SF_CLIENT_ID, "sf-client-id");
@@ -171,7 +173,37 @@ test("Sage X3 : /auth/sagex3 redirige vers SAGE_OAUTH_AUTH_URL ; le callback sto
   assert.equal(u.sagex3.refresh_token, "sage-refresh-xyz");
 
   const me = await fetch(`${hub.url}/api/me`, { headers: { cookie } }).then((x) => x.json());
-  assert.deepEqual(me.systems.map((s) => s.connected), [true, true]);
+  assert.deepEqual(me.systems.map((s) => s.connected), [true, true, false, false, false]);
+  assert.equal((await fetch(`${hub.url}/auth/myreport`, { headers: { cookie }, ...noFollow })).status, 400, "pas de flux OAuth pour MyReport");
+});
+
+test("SharePoint et Dropbox : OAuth utilisateur (Entra avec scopes délégués lecture, Dropbox avec token_access_type=offline), callbacks et identité", async () => {
+  up.reset();
+  const sp = new URL((await fetch(`${hub.url}/auth/sharepoint`, { headers: { cookie }, ...noFollow })).headers.get("location"));
+  assert.equal(sp.origin + sp.pathname, `${up.url}/ms/common/oauth2/v2.0/authorize`);
+  assert.equal(sp.searchParams.get("scope"), "openid offline_access User.Read Files.Read.All Sites.Read.All");
+  const spCb = await fetch(`${hub.url}/auth/sharepoint/callback?code=sp1&state=${sp.searchParams.get("state")}`, { headers: { cookie }, ...noFollow });
+  assert.equal(spCb.status, 302, await spCb.text());
+  assert.equal(up.requests("/v1.0/me")[0].headers.authorization, "Bearer ms-token-sp1");
+
+  const dbx = new URL((await fetch(`${hub.url}/auth/dropbox`, { headers: { cookie }, ...noFollow })).headers.get("location"));
+  assert.equal(dbx.origin + dbx.pathname, "https://www.dropbox.com/oauth2/authorize");
+  assert.equal(dbx.searchParams.get("token_access_type"), "offline", "refresh_token Dropbox");
+  assert.equal(dbx.searchParams.get("scope"), "account_info.read files.metadata.read files.content.read sharing.read");
+  const dbxCb = await fetch(`${hub.url}/auth/dropbox/callback?code=d1&state=${dbx.searchParams.get("state")}`, { headers: { cookie }, ...noFollow });
+  assert.equal(dbxCb.status, 302, await dbxCb.text());
+  assert.ok(up.requests("/dropbox-mcp", "POST").every((r) => r.headers.authorization === "Bearer dbx-token-d1"), "identité via who_am_i avec le jeton de l'utilisateur");
+
+  const u = hub.readUsers()[key];
+  assert.deepEqual([u.sharepoint.access_token, u.sharepoint.refresh_token, u.dropbox.access_token, u.dropbox.refresh_token], ["ms-token-sp1", "ms-refresh-sp1", "dbx-token-d1", "dbx-refresh-d1"]);
+  const me = await fetch(`${hub.url}/api/me`, { headers: { cookie } }).then((x) => x.json());
+  assert.deepEqual(me.systems.map((s) => s.connected), [true, true, true, true, false]);
+
+  // Diagnostic : voyants verts avec le jeton de chacun
+  const t1 = await fetch(`${hub.url}/api/test/sharepoint`, { headers: { cookie } }).then((x) => x.json());
+  assert.equal(t1.ok, true, JSON.stringify(t1)); assert.match(t1.message, /Alice Martin/);
+  const t2 = await fetch(`${hub.url}/api/test/dropbox`, { headers: { cookie } }).then((x) => x.json());
+  assert.equal(t2.ok, true, JSON.stringify(t2)); assert.deepEqual(t2.tables, ["who_am_i", "list_folder"], "delete exclu de la liste blanche");
 });
 
 test("GET /api/test/:system : voyant vert avec le jeton de l'utilisateur, rouge avec le message d'erreur", async () => {
@@ -206,7 +238,11 @@ test("Clé d'API Syracuse : POST /api/sagex3/apikey remplace OAuth, l'état pass
   assert.equal(u.salesforce.access_token, "sf-token-abc123", "Salesforce intact");
 
   const me = await fetch(`${hub.url}/api/me`, { headers: { cookie } }).then((x) => x.json());
-  assert.deepEqual([me.systems[1].connected, me.systems[1].method, me.systems[1].apiKey], [true, "apikey", { mode: "bearer" }]);
+  assert.deepEqual([me.systems[1].connected, me.systems[1].method, me.systems[1].apiKey.mode], [true, "apikey", "bearer"]);
+  assert.equal((await fetch(`${hub.url}/api/salesforce/apikey`, { method: "POST", headers: { cookie, "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: "x" }) })).status, 404, "pas de jeton personnel pour Salesforce");
+  assert.equal((await fetch(`${hub.url}/api/myreport/apikey`, { method: "POST", headers: { cookie, "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: "mr-token-alice" }) })).status, 204);
+  const t = await fetch(`${hub.url}/api/test/myreport`, { headers: { cookie } }).then((x) => x.json());
+  assert.equal(t.ok, true, JSON.stringify(t)); assert.match(t.message, /Proxy SSE connecté/);
   assert.ok(!JSON.stringify(me).includes("syr-key-alice"), "la clé n'est jamais renvoyée au navigateur");
 
   up.reset();
@@ -227,7 +263,7 @@ test("Clé d'API en mode basic (SAGE_APIKEY_MODE=basic) : Authorization: Basic b
   try {
     const c = `mcp_key=${(await fetch(`${basic.url}/api/me`).then((x) => x.json())).key}`;
     const me = await fetch(`${basic.url}/api/me`, { headers: { cookie: c } }).then((x) => x.json());
-    assert.deepEqual(me.systems[1].apiKey, { mode: "basic" });
+    assert.equal(me.systems[1].apiKey.mode, "basic");
     await fetch(`${basic.url}/api/sagex3/apikey`, { method: "POST", headers: { cookie: c, "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: "k-bob", login: "BOB" }) });
     up.reset();
     const d = await fetch(`${basic.url}/api/test/sagex3`, { headers: { cookie: c } }).then((x) => x.json());
@@ -246,22 +282,22 @@ test("POST /api/disconnect/salesforce retire les jetons Salesforce (et seulement
   assert.equal(u.sagex3.apiKey, "syr-key-alice");
   assert.equal(u.email, "alice@example.com");
   const me = await fetch(`${hub.url}/api/me`, { headers: { cookie } }).then((x) => x.json());
-  assert.deepEqual(me.systems.map((s) => s.connected), [false, true]);
+  assert.deepEqual(me.systems.map((s) => s.connected), [false, true, true, true, true]);
 });
 
 test("index.html : chaque URL appelée (fetch / href) correspond à une route du serveur et répond", async () => {
   const html = readFileSync(join(HUB_DIR, "public", "index.html"), "utf8");
-  const systems = ["salesforce", "sagex3"];
+  const systems = ["sagex3", "myreport"]; // systèmes acceptant les deux familles de routes (OAuth et jeton)
   const urls = new Set();
-  for (const m of html.matchAll(/fetch\(\s*"([^"]+)"(\s*\+\s*(\w+))?/g)) {
-    if (m[3]) systems.forEach((s) => urls.add(m[1] + s)); else urls.add(m[1]);
+  for (const m of html.matchAll(/fetch\(\s*"([^"]+)"(?:\s*\+\s*\w+(?:\s*\+\s*"([^"]+)")?)?/g)) {
+    if (m[0].includes("+")) systems.forEach((s) => urls.add(m[1] + s + (m[2] || ""))); else urls.add(m[1]);
   }
   for (const m of html.matchAll(/href="([^"]+)"/g)) {
     const u = m[1];
     if (/^https?:/.test(u)) continue;
-    if (/\$\{s\.id\}/.test(u)) systems.forEach((s) => urls.add(u.replace("${s.id}", s))); else urls.add(u);
+    if (/\$\{s\.id\}/.test(u)) ["sagex3", "sharepoint"].forEach((s) => urls.add(u.replace("${s.id}", s))); else urls.add(u); // href OAuth : systèmes avec OAuth
   }
-  assert.ok(urls.has("/api/me") && urls.has("/api/disconnect/salesforce") && urls.has("/auth/salesforce") && urls.has("/api/test/sagex3"), [...urls].join(", "));
+  assert.ok(urls.has("/api/me") && urls.has("/api/disconnect/sagex3") && urls.has("/auth/sagex3") && urls.has("/api/test/sagex3") && urls.has("/api/myreport/apikey"), [...urls].join(", "));
 
   // Routes déclarées dans server.js et oauth.js (app.get/post/all et r.get)
   const src = ["server.js", "oauth.js"].map((f) => readFileSync(join(HUB_DIR, f), "utf8")).join("\n");
