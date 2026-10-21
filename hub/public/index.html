@@ -205,7 +205,7 @@ const SIM = { on: false, sf: true, sage: "mock", sageKey: false, sp: true, dbx: 
 const PUBLIC = location.origin;
 function demoMe() {
   const sageMock = SIM.sage === "mock", mrMock = SIM.mr === "mock";
-  return { email: SIM.sf ? SIM.email : null, key: SIM.key, mcpUrl: PUBLIC + "/mcp",
+  return { version: "démo", env: "PRE-PROD", email: SIM.sf ? SIM.email : null, key: SIM.key, mcpUrl: PUBLIC + "/mcp",
     systems: [
       { id: "salesforce", label: "Salesforce", mock: false, oauth: true, configured: true, connected: SIM.sf, method: SIM.sf ? "oauth" : null },
       { id: "sagex3", label: "Sage X3", mock: sageMock, oauth: true, configured: false, connected: !sageMock && SIM.sageKey, method: SIM.sageKey ? "apikey" : null, apiKey: sageMock ? undefined : { mode: "bearer", label: "clé d'API Syracuse personnelle (sans expiration)" } },
