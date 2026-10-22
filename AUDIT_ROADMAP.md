@@ -106,10 +106,18 @@ Crash-test exécuté deux fois sur le vrai hub branché sur le vrai bouchon, jet
 * README : ouvrir exactement l'adresse de `PUBLIC_URL` (sinon « State OAuth invalide »), supprimer le volume d'une version
   antérieure créée par root (`down -v`), `BROWSER_URL_REWRITE` à renseigner sur un serveur Portainer.
 
-### À surveiller sur votre PC, et à corriger ensuite (code, par ordre de priorité)
+### Alertes 1 à 4 : corrigées (commit suivant, une vingtaine de lignes, un test de régression chacune)
 
-Aucune de ces alertes n'empêche le test de demain. Chaque correctif tient en quelques lignes ; aucun n'ajoute de
-dépendance ni de structure nouvelle.
+* Rate-limiting : une clé valide passe toujours ; seuls les échecs sont comptés par IP.
+* Refresh token révoqué : jetons effacés, message « Session … expirée ou révoquée : reconnectez-vous sur le portail »,
+  voyant repassé à « non connecté ».
+* Contenus MCP non textuels (image, resource) relayés tels quels : le podium arrive à l'assistant comme image.
+* Refresh partagé : une seule promesse de renouvellement par collaborateur et par système, relecture du store avant de
+  rafraîchir ; prêt pour les IdP à rotation de refresh token (Entra ID).
+
+### À surveiller sur votre PC (alertes 5 à 8, mineures, non corrigées)
+
+Aucune n'empêche le test. Chaque correctif tient en quelques lignes ; aucun n'ajoute de dépendance ni de structure.
 
 | # | Gravité | Ce que vous verrez | Cause | Correctif (budget) |
 |---|---|---|---|---|

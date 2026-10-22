@@ -21,9 +21,11 @@ export async function withMcp({ url, headers, sse = false, label = "MCP" }, fn) 
 /** Texte d'une réponse d'outil MCP. */
 export const toolText = (r) => r.content?.map((c) => c.text ?? JSON.stringify(c)).join("\n") ?? "";
 
-/** Exécute un outil distant et renvoie son résultat (structuré si fourni, sinon texte). */
+/** Exécute un outil distant et renvoie son résultat : structuré si fourni, texte sinon ;
+ *  un contenu non textuel (image, resource) est relayé tel quel au client MCP via { $content }. */
 export async function callRemote(client, name, args) {
   const r = await client.callTool({ name, arguments: args });
   if (r.isError) throw new Error(toolText(r));
+  if (r.content?.some((c) => c.type !== "text")) return { $content: r.content };
   return r.structuredContent ?? toolText(r);
 }

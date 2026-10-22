@@ -119,6 +119,8 @@ test("Dropbox canin via le serveur MCP simulé : liste blanche, podium en image 
   assert.match(who, /Marie Dupont/);
   const img = await marie.mcp.callTool({ name: "dropbox_call", arguments: { tool: "file_preview", arguments: { path: "/Concours/podium-agility-2025.png" } } });
   assert.equal(img.isError, undefined, img.content?.[0]?.text);
+  assert.equal(img.content[0].type, "image", "le podium arrive à l'assistant comme image MCP, pas comme texte");
+  assert.equal(Buffer.from(img.content[0].data, "base64").subarray(0, 4).toString("hex"), "89504e47", "PNG valide");
   const del = await marie.mcp.callTool({ name: "dropbox_call", arguments: { tool: "delete", arguments: { path: "/Bilans" } } });
   assert.equal(del.isError, true);
 });

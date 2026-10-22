@@ -17,9 +17,10 @@ async function postToken(c, params) {
     body: new URLSearchParams({ client_id: c.clientId, client_secret: c.clientSecret, ...params }),
   });
   const body = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(`OAuth ${c.tokenUrl}: ${r.status} ${JSON.stringify(body)}`);
+  if (!r.ok) throw Object.assign(new Error(`OAuth ${c.tokenUrl}: ${r.status} ${JSON.stringify(body)}`), { status: r.status });
   return body;
 }
+const refreshing = new Map(); // "clé:système" -> promesse de refresh en cours, partagée entre appels concurrents
 
 /** Vrai si l'entrée users.json contient de quoi s'authentifier (jeton OAuth ou clé d'API personnelle). */
 export const hasCredential = (t) => !!(t?.access_token || t?.apiKey);
@@ -35,9 +36,19 @@ export async function withToken(connector, key, fn) {
     return await fn(tokens);
   } catch (e) {
     if (e.status !== 401 || !tokens.refresh_token) throw e;
-    const fresh = await postToken(connector.oauth, { grant_type: "refresh_token", refresh_token: tokens.refresh_token });
-    store.setTokens(key, connector.id, fresh);
-    return fn({ ...tokens, ...fresh });
+    const current = store.get(key)?.[connector.id];
+    if (current?.access_token && current.access_token !== tokens.access_token) return fn(current); // déjà rafraîchi par un appel concurrent
+    const id = `${key}:${connector.id}`;
+    const pending = refreshing.get(id) ?? postToken(connector.oauth, { grant_type: "refresh_token", refresh_token: tokens.refresh_token })
+      .then((fresh) => { store.setTokens(key, connector.id, fresh); return fresh; })
+      .catch((re) => {
+        if (re.status !== 400 && re.status !== 401) throw re;
+        store.clearTokens(key, connector.id); // refresh_token révoqué : l'entrée disparaît, le portail repasse à « non connecté »
+        throw new Error(`Session ${connector.label} expirée ou révoquée : reconnectez-vous sur le portail.`);
+      })
+      .finally(() => refreshing.delete(id));
+    refreshing.set(id, pending);
+    return fn({ ...tokens, ...(await pending) });
   }
 }
 

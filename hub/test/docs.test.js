@@ -51,7 +51,9 @@ test("SharePoint : list / search / read avec le Bearer Graph de l'utilisateur ; 
 test("Dropbox : proxy MCP avec le Bearer de l'utilisateur, liste blanche lecture seule, droits Dropbox respectés", async () => {
   up.reset();
   const tools = text(await c.callTool({ name: "dropbox_tools", arguments: {} }));
-  assert.deepEqual(tools.map((t) => t.name), ["who_am_i", "list_folder"], "delete est filtré");
+  assert.deepEqual(tools.map((t) => t.name), ["who_am_i", "list_folder", "file_preview"], "delete est filtré");
+  const img = await c.callTool({ name: "dropbox_call", arguments: { tool: "file_preview", arguments: { path: "/x.png" } } });
+  assert.equal(img.content[0].type, "image", "contenu image relayé tel quel"); assert.equal(img.content[0].mimeType, "image/png");
   assert.ok(tools[1].inputSchema.properties.path, "le schéma du serveur Dropbox est transmis tel quel");
   assert.ok(up.requests("/dropbox-mcp").length > 0 && up.requests("/dropbox-mcp").every((r) => r.headers.authorization === "Bearer dbx-token-alice"));
 

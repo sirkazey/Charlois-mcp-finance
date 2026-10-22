@@ -44,11 +44,10 @@ const cookieKey = (req) => req.headers.cookie?.match(/(?:^|;\s*)mcp_key=([^;]+)/
 const mcpKey = (req) => req.headers.authorization?.match(/^Bearer\s+(\S+)$/i)?.[1];
 // CLEVOA_KEY est une clé de licence (pas un secret utilisateur) mais reste masquée comme les autres clés.
 const requireKey = (read) => (req, res, next) => {
-  if (hit("auth-fail", req.ip, 20)) return res.status(429).json({ error: "Trop d'échecs d'authentification, réessayez dans une minute." });
   req.key = read(req);
-  if (!store.get(req.key)) return res.status(401).json({ error: "Clé MCP inconnue ou absente : utilisez l'en-tête Authorization: Bearer <clé> obtenue sur le portail." });
-  buckets.get(`auth-fail:${req.ip}`).n--; // succès : ne compte pas comme un échec
-  next();
+  if (store.get(req.key)) return next(); // une clé valide n'est jamais freinée par les échecs d'autres clients de la même IP
+  if (hit("auth-fail", req.ip, 20)) return res.status(429).json({ error: "Trop d'échecs d'authentification, réessayez dans une minute." });
+  res.status(401).json({ error: "Clé MCP inconnue ou absente : utilisez l'en-tête Authorization: Bearer <clé> obtenue sur le portail." });
 };
 const mcpUser = requireKey(mcpKey), portalUser = requireKey(cookieKey);
 
@@ -68,6 +67,7 @@ function buildServer(key) {
       try {
         const out = await call(c, key, (tok, schema) => t.run(tok, args, schema));
         debug(`${t.name} ok ${Date.now() - t0} ms`); // jamais les arguments ni les résultats
+        if (out?.$content) return { content: out.$content }; // contenu MCP relayé tel quel (image, resource) par un connecteur proxy
         return { content: [{ type: "text", text: typeof out === "string" ? out : JSON.stringify(out) }] };
       } catch (e) {
         debug(`${t.name} erreur ${Date.now() - t0} ms : ${e.message.slice(0, 120)}`);

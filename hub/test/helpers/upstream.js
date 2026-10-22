@@ -14,6 +14,7 @@ function dropboxMcp() {
   srv.registerTool("list_folder", { description: "Liste un dossier", inputSchema: { path: z.string() } }, async ({ path }) =>
     path === "/Secret" ? { isError: true, content: [{ type: "text", text: "path/not_found: accès refusé" }] }
       : { content: [{ type: "text", text: JSON.stringify([{ name: "Budget 2026.xlsx", path: `${path}/Budget 2026.xlsx` }, { name: "Clôtures", path: `${path}/Clôtures`, folder: true }]) }] });
+  srv.registerTool("file_preview", { description: "Aperçu image", inputSchema: { path: z.string() } }, async () => ({ content: [{ type: "image", data: "iVBORw0KGgo=", mimeType: "image/png" }] }));
   srv.registerTool("delete", { description: "Supprime (écriture)", inputSchema: { path: z.string() } }, async () => ({ content: [{ type: "text", text: "deleted" }] }));
   return srv;
 }
@@ -34,6 +35,7 @@ export async function startUpstream() {
   const state = {
     requests: [],   // { method, path, query, headers, body }
     failNext: [],   // { pathIncludes, status, body } consommés à la première requête correspondante
+    rotate: false, rotations: 0, // jetons Salesforce rafraîchis uniques quand rotate = true
   };
   let base = "";
 
@@ -119,8 +121,8 @@ export async function startUpstream() {
     // ---- OAuth2 Salesforce ----
     if (path === "/services/oauth2/token" && req.method === "POST") {
       const p = new URLSearchParams(rawBody);
-      if (p.get("grant_type") === "refresh_token")
-        return json(res, 200, { access_token: "sf-token-refreshed", instance_url: base, token_type: "Bearer", issued_at: "1" });
+      if (p.get("grant_type") === "refresh_token") // state.rotate : un jeton différent à chaque refresh (comme un vrai IdP)
+        return json(res, 200, { access_token: state.rotate ? `sf-token-refreshed-${++state.rotations}` : "sf-token-refreshed", instance_url: base, token_type: "Bearer", issued_at: "1" });
       if (p.get("grant_type") === "authorization_code")
         return json(res, 200, { access_token: `sf-token-${p.get("code")}`, refresh_token: `sf-refresh-${p.get("code")}`, instance_url: base, token_type: "Bearer", id: `${base}/id/00D/005` });
       return json(res, 400, { error: "unsupported_grant_type" });

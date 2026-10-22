@@ -204,7 +204,7 @@ test("SharePoint et Dropbox : OAuth utilisateur (Entra avec scopes délégués l
   const t1 = await fetch(`${hub.url}/api/test/sharepoint`, { headers: { cookie } }).then((x) => x.json());
   assert.equal(t1.ok, true, JSON.stringify(t1)); assert.match(t1.message, /Alice Martin/);
   const t2 = await fetch(`${hub.url}/api/test/dropbox`, { headers: { cookie } }).then((x) => x.json());
-  assert.equal(t2.ok, true, JSON.stringify(t2)); assert.deepEqual(t2.tables, ["who_am_i", "list_folder"], "delete exclu de la liste blanche");
+  assert.equal(t2.ok, true, JSON.stringify(t2)); assert.deepEqual(t2.tables, ["who_am_i", "list_folder", "file_preview"], "delete exclu de la liste blanche");
 });
 
 test("GET /api/test/:system : voyant vert avec le jeton de l'utilisateur, rouge avec le message d'erreur", async () => {
@@ -370,6 +370,8 @@ test("Rate-limiting : 429 après 20 diagnostics par minute et après 20 échecs 
     const auth = [];
     for (let i = 0; i < 21; i++) auth.push((await fetch(`${lim.url}/mcp`, { method: "POST", headers: { Authorization: "Bearer mauvaise-cle", "Content-Type": "application/json" }, body: "{}" })).status);
     assert.equal(auth.filter((x) => x === 401).length, 20); assert.equal(auth[20], 429, "force brute sur la clé bloquée");
+    const good = await fetch(`${lim.url}/mcp`, { method: "POST", headers: { Authorization: `Bearer ${c.slice(8)}`, "Content-Type": "application/json", Accept: "application/json, text/event-stream" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping" }) });
+    assert.notEqual(good.status, 429, "une clé valide de la même IP n'est jamais freinée");
   } finally { await lim.stop(); }
   await assert.rejects(startHub({ upstreamUrl: up.url, env: { ENCRYPTION_KEY: "" } }), /ENCRYPTION_KEY/);
 });

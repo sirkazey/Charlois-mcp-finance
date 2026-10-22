@@ -335,3 +335,32 @@ test("Sécurité : users.json est chiffré sur le disque (AES-256-GCM), jamais e
   assert.ok(!raw.includes("sf-token") && !raw.includes("alice") && !raw.includes("{"), "aucun jeton ni email en clair");
   assert.equal(hub.readUsers()[KEY].salesforce.access_token, "sf-token-refreshed", "contenu déchiffrable avec ENCRYPTION_KEY");
 });
+
+// ---------------------------------------------------------------- refresh concurrent et révocation
+test("Refresh partagé : 3 appels parallèles après expiration ne déclenchent qu'un seul échange refresh_token", async () => {
+  up.reset(); up.state.rotate = true; // chaque refresh donne un jeton différent, comme un vrai IdP
+  for (let i = 0; i < 3; i++) up.failNext(`/services/data/${SF_V}/query`, 401);
+  const c = await sseClient();
+  try {
+    const rs = await Promise.all([1, 2, 3].map(() => c.callTool({ name: "salesforce_query", arguments: { soql: "SELECT Id FROM Account" } })));
+    assert.ok(rs.every((r) => r.isError === undefined), rs.map((r) => r.content[0].text).join(" | "));
+    assert.equal(up.requests("/services/oauth2/token", "POST").length, 1, "un seul refresh pour trois appels concurrents");
+    assert.equal(hub.readUsers()[KEY].salesforce.access_token, "sf-token-refreshed-1");
+  } finally { up.state.rotate = false; await c.close(); }
+});
+
+test("Refresh token révoqué : message clair, jetons effacés, portail repassé à « non connecté »", async () => {
+  up.reset();
+  up.failNext(`/services/data/${SF_V}/query`, 401);
+  up.failNext("/services/oauth2/token", 400, { error: "invalid_grant", error_description: "expired access/refresh token" });
+  const c = await sseClient();
+  try {
+    const r = await c.callTool({ name: "salesforce_query", arguments: { soql: "SELECT Id FROM Account" } });
+    assert.equal(r.isError, true); assert.match(r.content[0].text, /Session Salesforce expirée ou révoquée : reconnectez-vous/);
+    assert.equal(hub.readUsers()[KEY].salesforce, undefined, "entrée Salesforce effacée");
+    const again = await c.callTool({ name: "salesforce_query", arguments: { soql: "SELECT Id FROM Account" } });
+    assert.match(again.content[0].text, /Non connecté à Salesforce/);
+    const me = await fetch(`${hub.url}/api/me`, { headers: { cookie: `mcp_key=${KEY}` } }).then((x) => x.json());
+    assert.equal(me.systems[0].connected, false, "voyant rouge, plus vert");
+  } finally { await c.close(); }
+});
