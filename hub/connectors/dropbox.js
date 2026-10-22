@@ -10,7 +10,7 @@ const READ_ONLY = ["who_am_i", "list_folder", "search", "get_file_metadata", "fe
 export const id = "dropbox";
 export const label = "Dropbox";
 export const oauth = {
-  authUrl: "https://www.dropbox.com/oauth2/authorize",
+  authUrl: `${(process.env.DROPBOX_AUTH_URL || "https://www.dropbox.com").replace(/\/$/, "")}/oauth2/authorize`,
   tokenUrl: `${(process.env.DROPBOX_API_URL || "https://api.dropboxapi.com").replace(/\/$/, "")}/oauth2/token`,
   clientId: process.env.DROPBOX_APP_KEY,
   clientSecret: process.env.DROPBOX_APP_SECRET,

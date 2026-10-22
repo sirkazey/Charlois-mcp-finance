@@ -1,8 +1,27 @@
 # PRÉ-PRODUCTION — Stack Portainer alimentée par la branche `dev` (Git auto-update).
-# Étend docker-compose.yml (base commune) : logs détaillés, simulateurs Sage X3 et MyReport par défaut si les URL sont vides,
-# télémétrie vers l'URL Clevoa de votre choix (vide = désactivée). Portainer : compose path = docker-compose.dev.yml.
+# Étend docker-compose.yml (base commune) : logs détaillés, et par défaut TOUTES les API sortantes du hub pointent vers le
+# conteneur bouchon `mcp-stub` (Salesforce, Graph, Dropbox MCP, Sage X3, MyReport MCP, Clevoa) avec un jeu de données canin.
+# Renseigner une variable (ex. SF_LOGIN_URL, SAGE_URL) dans Portainer rebranche ce seul système sur le vrai.
+# Portainer : compose path = docker-compose.dev.yml. Mires de connexion : http://localhost:4000 (port du bouchon).
 services:
+  mcp-stub:
+    build: ./charlois-mcp-stub
+    container_name: mcp-stub
+    restart: unless-stopped
+    ports:
+      - "${STUB_PORT:-4000}:4000"           # les navigateurs doivent joindre les mires du bouchon
+    environment:
+      TOKEN_TTL_MIN: ${STUB_TOKEN_TTL_MIN:-10} # durée des jetons d'accès simulés : exerce le refresh automatique du hub
+    user: "node"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
   mcp-hub:
+    depends_on:
+      - mcp-stub
     extends:
       file: docker-compose.yml
       service: mcp-hub
@@ -10,11 +29,36 @@ services:
     environment:
       APP_ENV: preprod
       LOG_LEVEL: debug                       # trace chaque appel d'outil (nom, durée, succès) ; jamais les arguments ni les résultats
-      PUBLIC_URL: ${PUBLIC_URL:?ex. https://mcp-preprod.charlois.fr}
-      SAGE_URL: ${SAGE_URL:-}                # vide = simulateur Sage X3 (YFAC, YCLIENT, ZVENTE)
-      MYREPORT_MCP_URL: ${MYREPORT_MCP_URL:-} # vide = simulateur MyReport
-      CLEVOA_URL: ${CLEVOA_URL:-}            # ex. URL API Gateway du stage dev de clevoa-backend
-      CLEVOA_KEY: ${CLEVOA_KEY:-}
+      PUBLIC_URL: ${PUBLIC_URL:?ex. https://mcp-preprod.charlois.fr ou http://localhost:8080}
+      # --- Bouchon par défaut (http://mcp-stub:4000 vu du hub, http://localhost:4000 vu du navigateur) ---
+      BROWSER_URL_REWRITE: ${BROWSER_URL_REWRITE:-http://mcp-stub:4000=>http://localhost:4000}
+      SF_LOGIN_URL: ${SF_LOGIN_URL:-http://mcp-stub:4000}
+      SF_CLIENT_ID: ${SF_CLIENT_ID:-stub}
+      SF_CLIENT_SECRET: ${SF_CLIENT_SECRET:-stub}
+      MS_LOGIN_URL: ${MS_LOGIN_URL:-http://mcp-stub:4000/ms}
+      GRAPH_URL: ${GRAPH_URL:-http://mcp-stub:4000/v1.0}
+      MS_TENANT_ID: ${MS_TENANT_ID:-charlois-stub}
+      MS_CLIENT_ID: ${MS_CLIENT_ID:-stub}
+      MS_CLIENT_SECRET: ${MS_CLIENT_SECRET:-stub}
+      SP_SITE: ${SP_SITE:-charlois.sharepoint.com,site-finance}
+      DROPBOX_AUTH_URL: ${DROPBOX_AUTH_URL:-http://mcp-stub:4000}
+      DROPBOX_API_URL: ${DROPBOX_API_URL:-http://mcp-stub:4000}
+      DROPBOX_MCP_URL: ${DROPBOX_MCP_URL:-http://mcp-stub:4000/dropbox-mcp}
+      DROPBOX_APP_KEY: ${DROPBOX_APP_KEY:-stub}
+      DROPBOX_APP_SECRET: ${DROPBOX_APP_SECRET:-stub}
+      SAGE_URL: ${SAGE_URL:-http://mcp-stub:4000}
+      SAGE_FOLDER: ${SAGE_FOLDER:-PROD}
+      SAGE_REPRESENTATIONS: ${SAGE_REPRESENTATIONS:-YFAC,ZVENTE,BPCUSTOMER,PINVOICE,GACCENTRY}
+      SAGE_APIKEY_MODE: ${SAGE_APIKEY_MODE:-basic}
+      SAGE_OAUTH_AUTH_URL: ${SAGE_OAUTH_AUTH_URL:-http://mcp-stub:4000/oauth/authorize}
+      SAGE_OAUTH_TOKEN_URL: ${SAGE_OAUTH_TOKEN_URL:-http://mcp-stub:4000/oauth/token}
+      SAGE_OAUTH_USERINFO_URL: ${SAGE_OAUTH_USERINFO_URL:-http://mcp-stub:4000/oauth/userinfo}
+      SAGE_OAUTH_CLIENT_ID: ${SAGE_OAUTH_CLIENT_ID:-stub}
+      SAGE_OAUTH_CLIENT_SECRET: ${SAGE_OAUTH_CLIENT_SECRET:-stub}
+      MYREPORT_MCP_URL: ${MYREPORT_MCP_URL:-http://mcp-stub:4000/myreport/sse}
+      MYREPORT_TOOLS: ${MYREPORT_TOOLS:-liste_indicateurs,synthese_couts_par_race,valeur_indicateur}
+      CLEVOA_URL: ${CLEVOA_URL:-http://mcp-stub:4000/api/v1/telemetry}
+      CLEVOA_KEY: ${CLEVOA_KEY:-cle-charlois-dev}
     user: "node"                               # processus sans privilèges (déjà imposé par l'image, rappelé ici)
     read_only: true                            # système de fichiers en lecture seule ; seuls /data (volume, droits 700) et /tmp sont inscriptibles
     tmpfs:

@@ -53,7 +53,7 @@ export async function startHub({ upstreamUrl, users = {}, env = {} }) {
   writeFileSync(join(dataDir, "users.json"), JSON.stringify({ users }, null, 2));
   const url = `http://127.0.0.1:${port}`;
 
-  const child = spawn(process.execPath, ["server.js"], {
+  const child = spawn(process.execPath, [join(HUB_DIR, "server.js")], { // chemin absolu : utilisable depuis un autre dossier de tests
     env: {
       PATH: process.env.PATH, TZ: process.env.TZ, APP_ENV: process.env.APP_ENV, LOG_LEVEL: process.env.LOG_LEVEL,
       ENCRYPTION_KEY,

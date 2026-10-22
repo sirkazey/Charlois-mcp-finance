@@ -6,6 +6,8 @@ import { store } from "./store.js";
 
 export const PUBLIC_URL = (process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 8080}`).replace(/\/$/, "");
 const pending = new Map(); // state -> { key, system, exp }
+// Pré-prod avec bouchon : le hub joint le bouchon par son nom Docker, le navigateur par localhost. Ex. "http://mcp-stub:4000=>http://localhost:4000".
+const [rewriteFrom, rewriteTo] = (process.env.BROWSER_URL_REWRITE || "").split("=>");
 const redirectUri = (system) => `${PUBLIC_URL}/auth/${system}/callback`;
 
 async function postToken(c, params) {
@@ -53,7 +55,7 @@ export function oauthRouter(connectors, getKey) {
     pending.set(state, { key, system: c.id, exp: Date.now() + 10 * 60_000 });
     const u = new URL(c.oauth.authUrl);
     u.search = new URLSearchParams({ response_type: "code", client_id: c.oauth.clientId, redirect_uri: redirectUri(c.id), scope: c.oauth.scope, state, ...c.oauth.extraAuthParams });
-    res.redirect(u);
+    res.redirect(rewriteFrom ? u.href.replace(rewriteFrom, rewriteTo) : u.href);
   });
 
   r.get("/auth/:system/callback", async (req, res) => {

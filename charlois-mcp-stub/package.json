@@ -1,0 +1,17 @@
+{
+  "name": "charlois-mcp-stub",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Bouchon d'entreprise : imite Salesforce, Sage X3 Syracuse, Microsoft Graph, Dropbox MCP, MyReport MCP et Clevoa avec un jeu de données canin.",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": { "node": ">=22" },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "express": "^5.2.1",
+    "zod": "^4.0.0"
+  }
+}

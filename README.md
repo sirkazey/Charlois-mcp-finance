@@ -25,6 +25,7 @@ Assistant IA (Claude Code, Claude Desktop, ChatGPT, Copilot)
 │ public/        index.html  portail Charlois AI Gateway               │
 │ test/          node:test, amont mocké, 48 tests                      │
 └───┬─────────────┬───────────────┬───────────────┬───────────────┬────┘
+    │  (pré-prod : charlois-mcp-stub/ imite les six systèmes, 7 tests de bout en bout)
     ▼ REST        ▼ REST Syracuse ▼ Graph (GET)   ▼ MCP HTTP      ▼ MCP SSE
  Salesforce    Sage X3 24R1    SharePoint      Dropbox (MCP    MyReport Server
                (ou simulateur) OneDrive        officiel)       (ou simulateur)
@@ -94,10 +95,22 @@ derrière API Gateway, décrite par un `serverless.yml` commenté.
 
 ## Démarrage rapide (Docker Desktop)
 
+**Avec le bouchon d'entreprise** (aucun compte réel nécessaire, jeu de données canin, deux collaborateurs aux droits différents) :
+
 ```bash
-cp .env.example .env        # renseigner ENCRYPTION_KEY (openssl rand -hex 32), SF_CLIENT_ID / SF_CLIENT_SECRET ; laisser SAGE_URL vide
+cp .env.example .env        # renseigner ENCRYPTION_KEY (openssl rand -hex 32) et PUBLIC_URL=http://localhost:8080
+docker compose -f docker-compose.dev.yml up -d --build
+open http://localhost:8080  # portail ; les boutons « Se connecter » ouvrent les mires du bouchon sur http://localhost:4000
+```
+
+Le conteneur `mcp-stub` ([`charlois-mcp-stub/`](charlois-mcp-stub/)) imite Salesforce, Entra/Graph, Dropbox MCP, Sage X3
+Syracuse, MyReport MCP et Clevoa. Renseigner une variable réelle dans `.env` (ex. `SF_LOGIN_URL`, `SF_CLIENT_ID`…) rebranche
+ce seul système sur le vrai. Sage X3 en mode clé : login `MDUPONT`, clé `SYR-MARIE-2026` ; MyReport : jeton `MR-MARIE-2026`.
+
+**Sans bouchon** (vrais comptes Salesforce, simulateurs internes Sage X3 et MyReport) :
+
+```bash
 docker compose up -d --build
-open http://localhost:8080
 ```
 
 Sur le portail, la section **Diagnostic & Connectivité** permet de :
@@ -115,7 +128,7 @@ La section **Configuration du conteneur** affiche les variables lues par le hub 
 
 | Environnement | Branche Git | Fichier compose           | Conteneur         | Particularités |
 |---------------|-------------|---------------------------|-------------------|----------------|
-| Pré-prod      | `dev`       | `docker-compose.dev.yml`  | `mcp-hub-preprod` | `LOG_LEVEL=debug`, simulateurs Sage X3 et MyReport si les URL sont vides, télémétrie vers l'URL Clevoa de votre choix (vide = désactivée) |
+| Pré-prod      | `dev`       | `docker-compose.dev.yml`  | `mcp-hub-preprod` + `mcp-stub` | `LOG_LEVEL=debug` ; par défaut toutes les API sortantes pointent vers le conteneur bouchon `mcp-stub` (jeu de données canin, mires OAuth sur le port 4000) ; chaque variable renseignée rebranche un système réel |
 | Production    | `main`      | `docker-compose.prod.yml` | `mcp-hub-prod`    | `APP_ENV=production` : badge « ENV: PRODUCTION », mode démo masqué, `PUBLIC_URL` https obligatoire (sinon refus de démarrer), `CLEVOA_KEY` obligatoire, télémétrie figée sur `https://clevoa.fr`, conteneur sans privilèges, système de fichiers en lecture seule, journaux plafonnés |
 
 Les deux fichiers **étendent** `docker-compose.yml` (base commune, aussi utilisée telle quelle sur Docker Desktop) :
