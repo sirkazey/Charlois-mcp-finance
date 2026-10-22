@@ -31,7 +31,7 @@
   .brand { display:flex; flex-direction:column; line-height:1.1 }
   .brand b { font:600 13px var(--sans); letter-spacing:.32em; text-transform:uppercase }
   .brand span { font:italic 400 15px var(--serif); color:var(--gold-ink); letter-spacing:.04em }
-  .env { font:500 10px var(--sans); letter-spacing:.2em; text-transform:uppercase; color:var(--muted); margin-top:6px }
+  .env { font:500 10px var(--sans); letter-spacing:.2em; text-transform:uppercase; color:var(--muted); margin-top:6px; white-space:nowrap }
   .env b { font-weight:600; color:var(--forest) } .env b.prod { color:var(--gold-ink) }
   .who { display:flex; align-items:center; gap:10px; min-width:0 }
   .profile { font-size:.84rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:52vw }
@@ -205,7 +205,7 @@ const SIM = { on: false, sf: true, sage: "mock", sageKey: false, sp: true, dbx: 
 const PUBLIC = location.origin;
 function demoMe() {
   const sageMock = SIM.sage === "mock", mrMock = SIM.mr === "mock";
-  return { version: "démo", env: "PRE-PROD", email: SIM.sf ? SIM.email : null, key: SIM.key, mcpUrl: PUBLIC + "/mcp",
+  return { version: "1.0.0", env: "PRE-PROD", email: SIM.sf ? SIM.email : null, key: SIM.key, mcpUrl: PUBLIC + "/mcp",
     systems: [
       { id: "salesforce", label: "Salesforce", mock: false, oauth: true, configured: true, connected: SIM.sf, method: SIM.sf ? "oauth" : null },
       { id: "sagex3", label: "Sage X3", mock: sageMock, oauth: true, configured: false, connected: !sageMock && SIM.sageKey, method: SIM.sageKey ? "apikey" : null, apiKey: sageMock ? undefined : { mode: "bearer", label: "clé d'API Syracuse personnelle (sans expiration)" } },
