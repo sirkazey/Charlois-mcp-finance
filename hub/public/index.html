@@ -262,10 +262,10 @@ async function load() {
         ${s.connected ? `<button class="link" onclick="disconnect('${esc(s.id)}')">Déconnecter</button>` : ""}
       </div>
       ${s.apiKey && !s.connected ? `
-      <form class="apikey" onsubmit="saveApiKey(event, '${esc(s.id)}')">
+      <form class="apikey" autocomplete="off" onsubmit="saveApiKey(event, '${esc(s.id)}')">
         <small>${s.oauth ? "ou " : ""}${esc(s.apiKey.label)}</small>
-        ${s.apiKey.mode === "basic" ? `<input id="${esc(s.id)}-login" placeholder="Identifiant" autocomplete="username" required>` : ""}
-        <input id="${esc(s.id)}-apikey" type="password" placeholder="Jeton / clé" autocomplete="off" required>
+        ${s.apiKey.mode === "basic" ? `<input id="${esc(s.id)}-login" name="${esc(s.id)}-login" placeholder="Identifiant" autocomplete="off" required>` : ""}
+        <input id="${esc(s.id)}-apikey" name="${esc(s.id)}-apikey" type="password" placeholder="Jeton / clé" autocomplete="new-password" required>
         <button class="btn ghost" type="submit">Enregistrer</button>
       </form>` : ""}
     </div>`).join("");
