@@ -21,20 +21,20 @@ Assistant IA (Claude Code, Claude Desktop, ChatGPT, Copilot)
 │ mcpclient.js   client MCP partagé par les connecteurs proxy          │
 │ version.js     VERSION stricte + APP_ENV (PRODUCTION / PRE-PROD)     │
 │ telemetry.js   télémétrie Clevoa anonyme, au démarrage puis à 03:00  │
-│ connectors/    salesforce · sagex3 · sharepoint · dropbox · myreport  │
+│ connectors/    salesforce (proxy MCP) · sagex3 · sharepoint · dropbox · myreport │
 │ public/        index.html  portail Charlois AI Gateway               │
 │ test/          node:test, amont mocké, 48 tests                      │
 └───┬─────────────┬───────────────┬───────────────┬───────────────┬────┘
     │  (pré-prod : charlois-mcp-stub/ imite les six systèmes, 7 tests de bout en bout)
-    ▼ REST        ▼ REST Syracuse ▼ Graph (GET)   ▼ MCP HTTP      ▼ MCP SSE
+    ▼ MCP HTTP    ▼ REST Syracuse ▼ Graph (GET)   ▼ MCP HTTP      ▼ MCP SSE
  Salesforce    Sage X3 24R1    SharePoint      Dropbox (MCP    MyReport Server
-               (ou simulateur) OneDrive        officiel)       (ou simulateur)
+ (SObject Reads) (ou simulateur) OneDrive      officiel)       (ou simulateur)
 ```
 
 * **Pas de framework** : `@modelcontextprotocol/sdk` + `express` + `zod`. Environ 650 lignes de code, 5 connecteurs de 50 à 90 lignes.
 * **Données jamais cachées** : chaque question interroge l'outil en direct. Seule la *structure* (objets / champs)
   est gardée en mémoire, **par utilisateur** (donc selon ses propres droits), et expire chaque nuit.
-* **Lecture seule** : SOQL `SELECT` uniquement ; Sage X3 `$query` / `$details` / `$prototypes` uniquement ;
+* **Lecture seule** : Salesforce via le serveur MCP hébergé `SObject Reads` uniquement ; Sage X3 `$query` / `$details` / `$prototypes` uniquement ;
   Graph en GET uniquement, chemins et sites validés ; Dropbox et MyReport limités à une liste blanche d'outils ;
   noms d'objets validés (`^\w+$`) ; outils annotés `readOnlyHint`.
 * **Jeton passif** : chaque appel amont porte le jeton de l'appelant. Le callback OAuth est lié au navigateur
@@ -119,7 +119,7 @@ docker compose up -d --build
 ```
 
 Sur le portail, la section **Diagnostic & Connectivité** permet de :
-* **Tester la connexion Salesforce** : un `GET /limits` avec votre jeton. Voyant vert + quota API, ou rouge + erreur.
+* **Tester Salesforce** : session MCP vers le serveur hébergé `SObject Reads` avec votre jeton. Vert avec la liste des outils, rouge avec l'erreur.
 * **Tester le simulateur Sage X3** : sans `SAGE_URL`, le connecteur répond avec 3 tables fictives
   (`YFAC`, `YCLIENT`, `ZVENTE`) servies depuis le cache mémoire. Voyant vert + liste des tables.
 * **Tester SharePoint** : `GET /me` sur Graph avec votre jeton. Vert avec votre identité, rouge avec l'erreur.
@@ -175,16 +175,29 @@ Tout se passe dans GitHub, sans outil supplémentaire :
 Pour une stack locale ou de test, `docker compose -f docker-compose.dev.yml config` et `... prod.yml config` affichent la
 configuration résolue sans rien déployer.
 
-## Côté Salesforce
+## Côté Salesforce (serveur MCP hébergé « SObject Reads »)
 
-Connected App OAuth : scopes **`openid`**, **`api`**, **`refresh_token`**, **`offline_access`**,
-callback `<PUBLIC_URL>/auth/salesforce/callback`. Dans la Connected App, régler *Refresh Token Policy* sur
-**« Refresh token is valid until revoked »**, sinon le jeton de rafraîchissement expire et l'utilisateur doit se reconnecter.
-Reporter *Consumer Key / Secret* dans `SF_CLIENT_ID` / `SF_CLIENT_SECRET`. Sandbox : `SF_LOGIN_URL=https://test.salesforce.com`.
+Le hub est **client MCP** du serveur hébergé par Salesforce `SObject Reads` (lecture seule des objets métier : comptes,
+contacts, pistes, opportunités, objets personnalisés), avec le jeton OAuth de chaque collaborateur : Salesforce applique
+son profil, ses règles de partage et la sécurité au niveau des champs. Deux outils : `salesforce_tools` (outils du serveur
+et leurs schémas) et `salesforce_call` (exécution). Le connecteur refuse de démarrer si `SF_MCP_URL` désigne un serveur
+d'écriture (`sobject-all`, `mutations`, `deletes`…).
 
-Renouvellement transparent : quand Salesforce répond 401 (session expirée), le hub échange le `refresh_token` contre
-un nouvel `access_token`, le persiste dans `users.json` et rejoue l'appel. L'utilisateur ne voit rien.
-Il ne se reconnecte que si le refresh token est révoqué (admin, changement de mot de passe, politique d'expiration).
+Configuration (Setup, droits administrateur, édition Enterprise ou supérieure ; vérifier sur l'org) :
+1. **Serveurs MCP** (API Catalog) : laisser actif `SObject Reads` seul (et `salesforce-api-context` au besoin), désactiver
+   `SObject All`, `SObject Mutations`, `SObject Deletes`. Copier l'URL de `SObject Reads` → `SF_MCP_URL`
+   (forme `https://api.salesforce.com/platform/mcp/v1/d/<org>/platform/sobject-reads`).
+2. **External Client App** (les Connected Apps classiques ne sont pas acceptées) : OAuth activé, callback
+   `<PUBLIC_URL>/auth/salesforce/callback` (et `https://claude.ai/api/mcp/auth_callback` pour un usage direct depuis
+   claude.ai), scopes « Access Salesforce hosted MCP servers » (`mcp_api`) et « Perform requests at any time »
+   (`refresh_token`), « Require PKCE » coché, « Issue JWT based access tokens for named users » coché, secret non requis.
+   Consumer Key → `SF_CLIENT_ID` ; `SF_CLIENT_SECRET` vide si l'app n'exige pas de secret. Propagation : jusqu'à 30 min.
+3. `SF_LOGIN_URL` = **My Domain** de l'org (`https://<org>.my.salesforce.com`), ou de la sandbox
+   (`https://<org>--<nom>.sandbox.my.salesforce.com`) : c'est le serveur d'autorisation annoncé par le serveur MCP.
+
+Renouvellement transparent : sur 401 du serveur MCP, le hub échange le `refresh_token`, persiste le nouveau jeton et rejoue
+l'appel. Un refresh token révoqué efface l'entrée et demande une reconnexion sur le portail. L'usage des serveurs MCP
+hébergés peut être facturé par Salesforce en crédits Flex : à vérifier avec votre interlocuteur Salesforce.
 
 ## Côté Sage X3 24R1
 
@@ -254,7 +267,7 @@ marquées `simule: true`) pour les tests Docker Desktop, sans jeton ni réseau. 
 
 Le serveur MCP s'annonce aux assistants sous le nom `charlois-finance` (clé du bloc `mcpServers`).
 
-Outils : `salesforce_objects`, `salesforce_describe`, `salesforce_query` · `sagex3_representations`, `sagex3_describe`, `sagex3_query`, `sagex3_get`
+Outils : `salesforce_tools`, `salesforce_call` · `sagex3_representations`, `sagex3_describe`, `sagex3_query`, `sagex3_get`
 · `sharepoint_sites`, `sharepoint_list`, `sharepoint_search`, `sharepoint_read` · `dropbox_tools`, `dropbox_call` · `myreport_tools`, `myreport_call`.
 
 ## Développement et tests

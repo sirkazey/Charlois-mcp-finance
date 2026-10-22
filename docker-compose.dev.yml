@@ -34,6 +34,7 @@ services:
       # --- Bouchon par défaut (http://mcp-stub:4000 vu du hub, http://localhost:4000 vu du navigateur) ---
       BROWSER_URL_REWRITE: ${BROWSER_URL_REWRITE:-http://mcp-stub:4000=>http://localhost:4000}
       SF_LOGIN_URL: ${SF_LOGIN_URL:-http://mcp-stub:4000}
+      SF_MCP_URL: ${SF_MCP_URL:-http://mcp-stub:4000/platform/mcp/v1/d/charlois/platform/sobject-reads}
       SF_CLIENT_ID: ${SF_CLIENT_ID:-stub}
       SF_CLIENT_SECRET: ${SF_CLIENT_SECRET:-stub}
       MS_LOGIN_URL: ${MS_LOGIN_URL:-http://mcp-stub:4000/ms}

@@ -25,7 +25,7 @@ const strip = (o) => Object.fromEntries(Object.entries(o).filter(([k]) => !k.sta
 app.get("/", (_req, res) => res.type("html").send(`<!doctype html><meta charset="utf-8"><title>Bouchon Charlois</title><body style="font:15px system-ui;max-width:720px;margin:40px auto">
 <h1>Bouchon d'entreprise Charlois</h1><p>Imite Salesforce, Microsoft Graph, Dropbox MCP, Sage X3 Syracuse, MyReport MCP et Clevoa avec un jeu de données canin.</p>
 <h3>Collaborateurs simulés</h3><ul>${Object.entries(USERS).map(([u, p]) => `<li><b>${p.name}</b> (${p.role}) — ${u}<br>Sage X3 : login <code>${p.sageLogin}</code>, clé <code>${p.sageKey}</code> · MyReport : jeton <code>${p.myreportKey}</code> · dossier Confidentiel : ${p.confidentiel ? "oui" : "non"} · achats Sage : ${p.achats ? "oui" : "non"}</li>`).join("")}</ul>
-<h3>Points d'entrée</h3><pre>${["/services/oauth2/{authorize,token,userinfo}  /services/data/v62.0/...   Salesforce", "/ms/{tenant}/oauth2/v2.0/{authorize,token}  /v1.0/...                   Microsoft Graph", "/oauth2/{authorize,token}  /dropbox-mcp                                Dropbox", "/oauth/{authorize,token,userinfo}  /api1/x3/erp/{dossier}/...          Sage X3 Syracuse", "/myreport/sse  /myreport/messages                                     MyReport Server (MCP SSE)", "/api/v1/telemetry                                                    Clevoa"].join("\n")}</pre>
+<h3>Points d'entrée</h3><pre>${["/services/oauth2/{authorize,token,userinfo}  /platform/mcp/v1/d/{org}/platform/sobject-reads   Salesforce (MCP hébergé)", "/ms/{tenant}/oauth2/v2.0/{authorize,token}  /v1.0/...                   Microsoft Graph", "/oauth2/{authorize,token}  /dropbox-mcp                                Dropbox", "/oauth/{authorize,token,userinfo}  /api1/x3/erp/{dossier}/...          Sage X3 Syracuse", "/myreport/sse  /myreport/messages                                     MyReport Server (MCP SSE)", "/api/v1/telemetry                                                    Clevoa"].join("\n")}</pre>
 <p>Télémétrie reçue : <a href="/api/v1/telemetry">/api/v1/telemetry</a></p></body>`));
 app.get("/_stub/approve", approve);
 
@@ -33,27 +33,37 @@ app.get("/_stub/approve", approve);
 app.get("/services/oauth2/authorize", authorizePage("sf", "Salesforce"));
 app.post("/services/oauth2/token", tokenEndpoint("sf"));
 app.get("/services/oauth2/userinfo", (req, res) => { const u = bearerUser(req, "sf"); if (!u) return deny(res, 401, { error: "invalid_token" }); res.json({ email: u, name: USERS[u].name, user_id: SF.User.records.find((r) => r.Email === u)?.Id }); });
-app.use("/services/data/v62.0", (req, res) => {
-  const u = bearerUser(req, "sf");
-  if (!u) return deny(res, 401, [{ errorCode: "INVALID_SESSION_ID", message: "Session expired or invalid" }]);
-  const p = req.path, q = req.query;
-  if (p === "/limits") return res.json({ DailyApiRequests: { Max: 15000, Remaining: 14821 }, DailyBulkApiBatches: { Max: 15000, Remaining: 15000 } });
-  if (p === "/sobjects") return res.json({ sobjects: Object.entries(SF).map(([name, o]) => ({ name, label: o.label, queryable: true, custom: false })) });
-  let m = p.match(/^\/sobjects\/(\w+)\/describe$/);
-  if (m) return SF[m[1]] ? res.json({ name: m[1], label: SF[m[1]].label, fields: SF[m[1]].fields }) : deny(res, 404, [{ errorCode: "NOT_FOUND", message: "The requested resource does not exist" }]);
-  if (p === "/query") {
-    const soql = String(q.q || ""), from = soql.match(/\bFROM\s+(\w+)/i)?.[1], obj = SF[from];
-    if (!obj) return deny(res, 400, [{ errorCode: "INVALID_TYPE", message: `sObject type '${from}' is not supported.` }]);
+// Serveur MCP hébergé "SObject Reads" simulé (Streamable HTTP). Noms d'outils PROVISOIRES, à aligner sur le vrai serveur
+// dès la première connexion réelle (la liste réelle s'affiche dans Configuration → Serveurs MCP → SObject Reads).
+function sobjectReadsMcp(u) {
+  const srv = new McpServer({ name: "salesforce-sobject-reads-stub", version: "1.0.0" });
+  const text = (o) => ({ content: [{ type: "text", text: JSON.stringify(o, null, 1) }], structuredContent: Array.isArray(o) ? undefined : o });
+  const err = (m) => ({ isError: true, content: [{ type: "text", text: m }] });
+  srv.registerTool("list_sobjects", { description: "Lists the sObjects the user can access", inputSchema: {} }, async () => text(Object.entries(SF).map(([name, o]) => ({ name, label: o.label }))));
+  srv.registerTool("describe_sobject", { description: "Describes the fields of an sObject", inputSchema: { sobject: z.string() } }, async ({ sobject }) => SF[sobject] ? text({ name: sobject, label: SF[sobject].label, fields: SF[sobject].fields }) : err(`NOT_FOUND: sObject ${sobject}`));
+  srv.registerTool("query_records", { description: "Runs a SOQL SELECT query with the user's permissions", inputSchema: { soql: z.string() } }, async ({ soql }) => {
+    const from = soql.match(/\bFROM\s+(\w+)/i)?.[1], obj = SF[from];
+    if (!obj || !/^\s*select\s/i.test(soql)) return err(`INVALID_QUERY: ${soql.slice(0, 80)}`);
     let rows = obj.records.slice();
-    for (const [, f, v] of soql.matchAll(/\bWHERE\s+(\w+)\s*=\s*'([^']*)'|\bAND\s+(\w+)\s*=\s*'([^']*)'/gi)) if (f) rows = rows.filter((r) => String(r[f]) === v);
+    for (const [, f, v] of soql.matchAll(/\b(?:WHERE|AND)\s+(\w+)\s*=\s*'([^']*)'/gi)) rows = rows.filter((r) => String(r[f]) === v);
     const limit = Number(soql.match(/\bLIMIT\s+(\d+)/i)?.[1] || 2000);
-    const sel = soql.match(/^\s*SELECT\s+(.+?)\s+FROM/i)?.[1].split(",").map((s) => s.trim());
-    const known = sel && sel.every((f) => obj.fields.some((x) => x.name === f));
-    const out = rows.slice(0, limit).map((r) => ({ attributes: { type: from, url: `/services/data/v62.0/sobjects/${from}/${r.Id}` }, ...(known ? Object.fromEntries(sel.map((f) => [f, r[f]])) : r) }));
-    return res.json({ totalSize: rows.length, done: true, records: out });
-  }
-  deny(res, 404, [{ errorCode: "NOT_FOUND", message: `bouchon : ${p}` }]);
+    const sel = soql.match(/^\s*SELECT\s+(.+?)\s+FROM/i)?.[1].split(",").map((x) => x.trim()), known = sel && sel.every((f) => obj.fields.some((x) => x.name === f));
+    return text({ totalSize: rows.length, done: true, records: rows.slice(0, limit).map((r) => (known ? Object.fromEntries(sel.map((f) => [f, r[f]])) : r)) });
+  });
+  srv.registerTool("get_record", { description: "Gets one record by sObject and Id", inputSchema: { sobject: z.string(), id: z.string() } }, async ({ sobject, id }) => { const r = SF[sobject]?.records.find((x) => x.Id === id); return r ? text(r) : err("NOT_FOUND"); });
+  srv.registerTool("search_records", { description: "Full-text search across records (SOSL-like)", inputSchema: { query: z.string(), sobjects: z.array(z.string()).optional() } }, async ({ query, sobjects }) =>
+    text(Object.entries(SF).filter(([n]) => !sobjects || sobjects.includes(n)).flatMap(([n, o]) => o.records.filter((r) => JSON.stringify(r).toLowerCase().includes(query.toLowerCase())).map((r) => ({ sobject: n, ...r })))));
+  srv.registerTool("get_related_records", { description: "Gets records related to a parent record (e.g. Opportunities of an Account)", inputSchema: { sobject: z.string(), id: z.string(), related: z.string() } }, async ({ id, related }) =>
+    text((SF[related]?.records || []).filter((r) => r.AccountId === id)));
+  return srv;
+}
+app.post("/platform/mcp/v1/d/:org/platform/sobject-reads", async (req, res) => {
+  const u = bearerUser(req, "sf"); if (!u) return deny(res, 401, { errors: [{ message: "JWT Token is required" }] });
+  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined }), srv = sobjectReadsMcp(u);
+  res.on("close", () => { transport.close(); srv.close(); });
+  await srv.connect(transport); await transport.handleRequest(req, res, req.body);
 });
+app.all("/platform/mcp/v1/d/:org/platform/:server", (req, res) => deny(res, req.method === "POST" ? 403 : 405, { errors: [{ message: `serveur MCP ${req.params.server} inactif sur cette org simulée` }] }));
 
 // ---------------------------------------------------------------- Microsoft Entra + Graph
 app.get("/ms/:tenant/oauth2/v2.0/authorize", authorizePage("ms", "Microsoft Entra ID"));

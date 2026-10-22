@@ -39,7 +39,7 @@ before(async () => {
   stub = spawn(process.execPath, [STUB], { env: { ...process.env, PORT: String(port), TOKEN_TTL_MIN: "10" }, stdio: ["ignore", "pipe", "pipe"] });
   for (let i = 0; i < 100; i++) { try { if ((await fetch(stubUrl + "/")).ok) break; } catch {} await sleep(50); }
   hub = await startHub({ upstreamUrl: stubUrl, env: {
-    SF_LOGIN_URL: stubUrl, MS_LOGIN_URL: `${stubUrl}/ms`, GRAPH_URL: `${stubUrl}/v1.0`, SP_SITE: "charlois.sharepoint.com,site-finance",
+    SF_LOGIN_URL: stubUrl, SF_MCP_URL: `${stubUrl}/platform/mcp/v1/d/charlois/platform/sobject-reads`, MS_LOGIN_URL: `${stubUrl}/ms`, GRAPH_URL: `${stubUrl}/v1.0`, SP_SITE: "charlois.sharepoint.com,site-finance",
     DROPBOX_API_URL: stubUrl, DROPBOX_AUTH_URL: stubUrl, DROPBOX_MCP_URL: `${stubUrl}/dropbox-mcp`,
     SAGE_URL: stubUrl, SAGE_FOLDER: "PROD", SAGE_REPRESENTATIONS: "YFAC,ZVENTE,BPCUSTOMER,PINVOICE,GACCENTRY", SAGE_APIKEY_MODE: "basic",
     SAGE_OAUTH_AUTH_URL: `${stubUrl}/oauth/authorize`, SAGE_OAUTH_TOKEN_URL: `${stubUrl}/oauth/token`, SAGE_OAUTH_USERINFO_URL: `${stubUrl}/oauth/userinfo`,
@@ -60,13 +60,22 @@ test("Mires OAuth : Marie se connecte à Salesforce, SharePoint, Dropbox et Sage
   for (const s of ["salesforce", "sagex3", "sharepoint", "dropbox", "myreport"]) { const d = await diag(marie, s); assert.equal(d.ok, true, `${s}: ${JSON.stringify(d)}`); }
 });
 
-test("Salesforce canin : prospects éleveurs avec Race__c et Inscrits__c, opportunités de stands d'agility", async () => {
-  const leads = text(await marie.mcp.callTool({ name: "salesforce_query", arguments: { soql: "SELECT Name, Company, Race__c, Inscrits__c FROM Lead WHERE Race__c = 'Berger Allemand'" } }));
+test("Salesforce canin via le serveur MCP SObject Reads simulé : outils, SOQL avec Race__c et Inscrits__c, stands d'agility", async () => {
+  const tools = text(await marie.mcp.callTool({ name: "salesforce_tools", arguments: {} }));
+  assert.deepEqual(tools.map((t) => t.name), ["list_sobjects", "describe_sobject", "query_records", "get_record", "search_records", "get_related_records"]);
+  const sf = (tool, args) => marie.mcp.callTool({ name: "salesforce_call", arguments: { tool, arguments: args } }).then(text);
+  const leads = await sf("query_records", { soql: "SELECT Name, Company, Race__c, Inscrits__c FROM Lead WHERE Race__c = 'Berger Allemand'" });
   assert.equal(leads.totalSize, 1); assert.equal(leads.records[0].Company, "Élevage des Crocs de Bourgogne"); assert.equal(leads.records[0].Inscrits__c, 38);
-  const opps = text(await marie.mcp.callTool({ name: "salesforce_query", arguments: { soql: "SELECT Name, Amount, Concours__c FROM Opportunity LIMIT 2" } }));
+  const opps = await sf("query_records", { soql: "SELECT Name, Amount, Concours__c FROM Opportunity LIMIT 2" });
   assert.equal(opps.records.length, 2); assert.match(opps.records[0].Concours__c, /Agility Cup/);
-  const fields = text(await marie.mcp.callTool({ name: "salesforce_describe", arguments: { object: "Opportunity" } }));
-  assert.ok(fields.some((f) => f.name === "Inscrits__c" && f.type === "double"));
+  const desc = await sf("describe_sobject", { sobject: "Opportunity" });
+  assert.ok(desc.fields.some((f) => f.name === "Inscrits__c" && f.type === "double"));
+  const related = await sf("get_related_records", { sobject: "Account", id: "0013", related: "Opportunity" });
+  assert.equal(related.length, 3);
+  const bad = await marie.mcp.callTool({ name: "salesforce_call", arguments: { tool: "query_records", arguments: { soql: "DELETE FROM Lead" } } });
+  assert.equal(bad.isError, true);
+  const write = await fetch(`${stubUrl}/platform/mcp/v1/d/charlois/platform/sobject-all`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+  assert.equal(write.status, 403, "les serveurs d'écriture sont inactifs sur l'org simulée");
 });
 
 test("Sage X3 canin : factures Royal Canin Pro, axes analytiques race, YFAC en retard et ZVENTE ; Paul n'a pas les achats", async () => {

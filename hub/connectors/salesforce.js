@@ -1,12 +1,14 @@
-// Connecteur passif Salesforce : API REST native, jeton OAuth de l'utilisateur transmis tel quel.
-// Lecture seule : seuls /query, /sobjects, /describe et /limits sont appelés, toujours en GET.
+// Connecteur Salesforce : proxy vers le serveur MCP hébergé par Salesforce "SObject Reads" (lecture seule des objets métier).
+// Le hub est client MCP (Streamable HTTP) avec le jeton OAuth de l'utilisateur (External Client App, scope mcp_api, PKCE) :
+// Salesforce applique le profil, les règles de partage et la sécurité au niveau des champs de ce collaborateur.
+// Verrou : SF_MCP_URL doit désigner un serveur de lecture ; un serveur d'écriture (sobject-all, mutations, deletes…) est refusé.
 import { z } from "zod";
-import { unreachable } from "../mcpclient.js";
+import { withMcp, callRemote } from "../mcpclient.js";
 
-const LOGIN = (process.env.SF_LOGIN_URL || "https://login.salesforce.com").replace(/\/$/, "");
-const V = process.env.SF_API_VERSION || "v62.0";
-const OBJECTS = (process.env.SF_OBJECTS || "Account,Contact,Lead,Opportunity,Order,Case,Product2,Pricebook2").split(",").map((s) => s.trim());
-const name = z.string().regex(/^\w+$/, "nom API invalide"); // bloque toute traversée de chemin
+const LOGIN = (process.env.SF_LOGIN_URL || "https://login.salesforce.com").replace(/\/$/, ""); // My Domain de l'org (serveur d'autorisation)
+const MCP_URL = process.env.SF_MCP_URL || ""; // ex. https://api.salesforce.com/platform/mcp/v1/d/<org>/platform/sobject-reads
+const ALLOW = (process.env.SF_MCP_TOOLS || "").split(",").map((s) => s.trim()).filter(Boolean); // liste blanche optionnelle ; vide = tous les outils du serveur (lecture seule par construction)
+if (/sobject-all|mutations|deletes|write|crma|data-cloud/i.test(MCP_URL)) { console.error(`[salesforce] SF_MCP_URL désigne un serveur d'écriture ou hors périmètre : ${MCP_URL}. Seul un serveur de lecture (sobject-reads) est accepté.`); process.exit(1); }
 
 export const id = "salesforce";
 export const label = "Salesforce";
@@ -14,63 +16,44 @@ export const oauth = {
   authUrl: `${LOGIN}/services/oauth2/authorize`,
   tokenUrl: `${LOGIN}/services/oauth2/token`,
   clientId: process.env.SF_CLIENT_ID,
-  clientSecret: process.env.SF_CLIENT_SECRET,
-  // refresh_token + offline_access : jeton de rafraîchissement (la Connected App doit l'autoriser : « Refresh token is valid until revoked »).
-  scope: "openid api refresh_token offline_access",
+  clientSecret: process.env.SF_CLIENT_SECRET, // vide si l'External Client App n'exige pas de secret (PKCE)
+  scope: process.env.SF_SCOPE || "mcp_api refresh_token", // + openid si l'app l'autorise, pour afficher l'email
 };
 
-/** GET REST authentifié sur l'instance de l'utilisateur. */
-async function get(tok, path, params = {}) {
-  const u = new URL(path, tok.instance_url);
-  u.search = new URLSearchParams(params);
-  const r = await fetch(u, { headers: { Authorization: `Bearer ${tok.access_token}`, Accept: "application/json" } }).catch((e) => { throw unreachable("Salesforce", u, e); });
-  if (!r.ok) throw Object.assign(new Error(`Salesforce ${r.status}: ${await r.text()}`), { status: r.status });
-  return r.json();
+const mcp = (tok, fn) => withMcp({ url: MCP_URL, headers: { Authorization: `Bearer ${tok.access_token}` }, label: "Salesforce MCP" }, fn);
+const allowed = (name) => !ALLOW.length || ALLOW.includes(name);
+
+/** Email de l'utilisateur si le scope openid est accordé ; sinon null (sans conséquence). */
+export const identity = async (tok) => {
+  const r = await fetch(`${LOGIN}/services/oauth2/userinfo`, { headers: { Authorization: `Bearer ${tok.access_token}` } });
+  return r.ok ? (await r.json()).email ?? null : null;
+};
+
+/** Outils du serveur SObject Reads (structure en cache par utilisateur, expirée chaque nuit). */
+export const schema = (tok) => mcp(tok, async (c) => ({
+  tools: (await c.listTools()).tools.filter((t) => allowed(t.name)).map(({ name, description, inputSchema }) => ({ name, description, inputSchema })),
+}));
+
+export async function ping(_tok, schema) {
+  if (!MCP_URL) throw new Error("SF_MCP_URL non renseignée : URL du serveur MCP SObject Reads (Configuration → Serveurs MCP).");
+  const { tools } = await schema();
+  return { message: `Connecté au serveur MCP Salesforce (${MCP_URL.split("/d/")[1] || MCP_URL}) · ${tools.length} outils en lecture seule`, tables: tools.map((t) => t.name) };
 }
 
-const fieldOf = (f) => ({ name: f.name, type: f.type, label: f.label, ...(f.referenceTo?.length ? { ref: f.referenceTo } : {}) });
-const describe = (tok, object) => get(tok, `/services/data/${V}/sobjects/${object}/describe`).then((d) => d.fields.map(fieldOf));
-
-/** Identité (email) après connexion OAuth. */
-export const identity = (tok) => get(tok, "/services/oauth2/userinfo").then((u) => u.email);
-
-/** Structure mise en cache (par utilisateur, expirée chaque nuit) : objets interrogeables + champs des objets principaux. */
-export async function schema(tok) {
-  const { sobjects } = await get(tok, `/services/data/${V}/sobjects`);
-  const objects = sobjects.filter((o) => o.queryable).map((o) => ({ name: o.name, label: o.label }));
-  const fields = {};
-  for (const o of OBJECTS) fields[o] = await describe(tok, o).catch(() => undefined);
-  return { objects, fields };
-}
-
-/** Test de connectivité (portail) : un GET minimal sur /limits. */
-export async function ping(tok) {
-  const l = await get(tok, `/services/data/${V}/limits`);
-  return { message: `Connecté à ${tok.instance_url} · API restante : ${l.DailyApiRequests?.Remaining ?? "?"} / ${l.DailyApiRequests?.Max ?? "?"}` };
-}
-
-/** Outils MCP : run(tok, args, schema) où schema() renvoie la structure en cache de l'utilisateur. */
 export const tools = [
   {
-    name: "salesforce_objects",
-    description: "Liste les objets Salesforce interrogeables (structure en cache, rafraîchie chaque nuit).",
+    name: "salesforce_tools",
+    description: "Outils du serveur MCP Salesforce SObject Reads (lecture des comptes, contacts, opportunités, objets personnalisés…) avec leur schéma d'arguments. À appeler avant salesforce_call.",
     input: {},
-    run: async (_tok, _args, schema) => (await schema()).objects,
+    run: async (_tok, _a, schema) => (await schema()).tools,
   },
   {
-    name: "salesforce_describe",
-    description: "Champs d'un objet Salesforce (nom, type, libellé, relations).",
-    input: { object: name.describe("Nom API de l'objet, ex. Opportunity") },
-    run: async (tok, { object }, schema) => (await schema()).fields[object] ?? describe(tok, object),
-  },
-  {
-    name: "salesforce_query",
-    description: "Exécute une requête SOQL en lecture seule avec les droits de l'utilisateur. Ajoutez LIMIT. Ex : SELECT Name, Amount, CloseDate FROM Opportunity WHERE CloseDate = LAST_N_MONTHS:12 LIMIT 200",
-    input: { soql: z.string().describe("Requête SOQL (SELECT uniquement)") },
-    run: async (tok, { soql }) => {
-      if (!/^\s*select\s/i.test(soql)) throw new Error("Seules les requêtes SELECT sont autorisées.");
-      const page = await get(tok, `/services/data/${V}/query`, { q: soql });
-      return { totalSize: page.totalSize, done: page.done, records: page.records.map(({ attributes, ...r }) => r) };
+    name: "salesforce_call",
+    description: "Appelle un outil du serveur MCP Salesforce avec les droits de l'utilisateur, ex. tool='query_records', arguments={soql:'SELECT Name FROM Account LIMIT 10'}.",
+    input: { tool: z.string().regex(/^[\w.-]+$/), arguments: z.record(z.string(), z.any()).default({}) },
+    run: (tok, { tool, arguments: args }) => {
+      if (!allowed(tool)) throw new Error(`Outil ${tool} refusé : absent de la liste blanche SF_MCP_TOOLS.`);
+      return mcp(tok, (c) => callRemote(c, tool, args));
     },
   },
 ];

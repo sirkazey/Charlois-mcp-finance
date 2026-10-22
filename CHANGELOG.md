@@ -4,6 +4,8 @@ Une section par version, trois lignes au plus par rubrique. La version est celle
 
 ## [Non publié]
 
+- **Salesforce via le serveur MCP hébergé « SObject Reads »** : le connecteur REST est remplacé par un proxy MCP (outils `salesforce_tools` et `salesforce_call`), avec verrou refusant tout serveur d'écriture ; External Client App, scope `mcp_api`, PKCE S256 ajouté à tous les flux OAuth, secret client optionnel. Bouchon : serveur SObject Reads simulé (outils provisoires), serveurs d'écriture 403.
+
 - **Bouchon d'entreprise** `charlois-mcp-stub/` : conteneur qui imite Salesforce, Entra/Graph, Dropbox MCP, Sage X3 Syracuse, MyReport MCP et Clevoa (mires OAuth avec refresh, clés d'API, Basic, serveurs MCP HTTP et SSE) sur un jeu de données canin ; deux collaborateurs aux droits différents ; vrais fichiers Excel, PNG, CSV. Intégré par défaut à `docker-compose.dev.yml`. 7 tests de bout en bout hub ↔ bouchon.
 - Hub : `DROPBOX_AUTH_URL` et `BROWSER_URL_REWRITE` (mires du bouchon joignables depuis le navigateur).
 - Hub, suite au crash-test : une clé MCP valide n'est plus freinée par les échecs d'authentification d'autres clients de la même IP ; un refresh token révoqué efface les jetons et demande une reconnexion claire ; les contenus MCP non textuels (images) sont relayés tels quels ; un seul refresh par collaborateur et par système en cas d'appels concurrents.

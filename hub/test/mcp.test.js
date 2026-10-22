@@ -5,12 +5,12 @@ import assert from "node:assert/strict";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { startUpstream, SF_V } from "./helpers/upstream.js";
+import { startUpstream } from "./helpers/upstream.js";
 import { startHub, connectedUser, KEY } from "./helpers/hub.js";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const TOOLS = ["salesforce_objects", "salesforce_describe", "salesforce_query", "sagex3_representations", "sagex3_describe", "sagex3_query", "sagex3_get",
+const TOOLS = ["salesforce_tools", "salesforce_call", "sagex3_representations", "sagex3_describe", "sagex3_query", "sagex3_get",
   "sharepoint_sites", "sharepoint_list", "sharepoint_search", "sharepoint_read", "dropbox_tools", "dropbox_call", "myreport_tools", "myreport_call"];
 const KEY_NO_REFRESH = "test-key-bob-no-refresh-token";
 const KEY_CAROL = "test-key-carol-0123456789";
@@ -44,45 +44,36 @@ async function httpClient(key = KEY) {
   return client;
 }
 const text = (r) => JSON.parse(r.content[0].text);
+const sfQuery = (c, soql) => c.callTool({ name: "salesforce_call", arguments: { tool: "query_records", arguments: { soql } } });
+/** Requêtes reçues par le serveur MCP Salesforce simulé (initialize, notifications, tools/*). */
+const sfCalls = (method) => up.requests("/sobject-reads", "POST").filter((r) => !method || r.body.includes(`"${method}"`));
 
 // ---------------------------------------------------------------- 1. flux SSE / Streamable HTTP
-test("SSE : listTools expose les 15 outils en lecture seule", async () => {
+test("SSE : listTools expose les 14 outils en lecture seule", async () => {
   const c = await sseClient();
   try {
     const { tools } = await c.listTools();
     assert.deepEqual(tools.map((t) => t.name).sort(), [...TOOLS].sort());
     assert.ok(tools.every((t) => t.annotations?.readOnlyHint === true), "readOnlyHint attendu sur chaque outil");
-    const q = tools.find((t) => t.name === "salesforce_query");
-    assert.equal(q.inputSchema.properties.soql.type, "string");
+    const q = tools.find((t) => t.name === "salesforce_call");
+    assert.equal(q.inputSchema.properties.tool.type, "string");
   } finally { await c.close(); }
 });
 
-test("SSE : salesforce_query renvoie les records du mock avec le Bearer de l'utilisateur", async () => {
+test("SSE : salesforce_call (serveur MCP SObject Reads) renvoie les records avec le Bearer de l'utilisateur", async () => {
   up.reset();
   const c = await sseClient();
   try {
-    const r = await c.callTool({ name: "salesforce_query", arguments: { soql: "SELECT Id, Name FROM Account" } });
-    assert.equal(r.isError, undefined);
+    const r = await sfQuery(c, "SELECT Id, Name FROM Account");
+    assert.equal(r.isError, undefined, r.content[0].text);
     const out = text(r);
     assert.equal(out.totalSize, 2);
-    assert.equal(out.done, true);
-    assert.deepEqual(out.records, [{ Id: "001A", Name: "ACME" }, { Id: "001B", Name: "Globex" }], "attributes doit être retiré");
-    const calls = up.requests(`/services/data/${SF_V}/query`, "GET");
+    assert.deepEqual(out.records, [{ Id: "001A", Name: "ACME" }, { Id: "001B", Name: "Globex" }]);
+    const calls = sfCalls("tools/call");
     assert.equal(calls.length, 1);
     assert.equal(calls[0].headers.authorization, "Bearer sf-token-alice");
-    assert.equal(calls[0].query.q, "SELECT Id, Name FROM Account");
-  } finally { await c.close(); }
-});
-
-test("SSE : salesforce_query renvoie la première page seulement (done=false, pas de pagination)", async () => {
-  up.reset();
-  const c = await sseClient();
-  try {
-    const out = text(await c.callTool({ name: "salesforce_query", arguments: { soql: "SELECT Id FROM Opportunity" } }));
-    assert.equal(out.totalSize, 3);
-    assert.equal(out.done, false);
-    assert.deepEqual(out.records.map((r) => r.Id), ["006A", "006B"]);
-    assert.equal(up.requests("/query/01g-2000").length, 0, "nextRecordsUrl ne doit pas être suivi");
+    assert.ok(calls[0].body.includes("SELECT Id, Name FROM Account"), "la requête SOQL est transmise telle quelle");
+    assert.ok(sfCalls().every((q) => q.headers.authorization === "Bearer sf-token-alice"), "jeton sur initialize et tools/call");
   } finally { await c.close(); }
 });
 
@@ -110,25 +101,23 @@ test("Streamable HTTP (/mcp, Authorization: Bearer) : listTools et callTool", as
   const c = await httpClient();
   try {
     const { tools } = await c.listTools();
-    assert.equal(tools.length, 15);
-    const out = text(await c.callTool({ name: "salesforce_query", arguments: { soql: "SELECT Id FROM Account" } }));
+    assert.equal(tools.length, 14);
+    const out = text(await sfQuery(c, "SELECT Id FROM Account"));
     assert.equal(out.records.length, 2);
-    assert.equal(up.requests("/query")[0].headers.authorization, "Bearer sf-token-alice");
+    assert.equal(sfCalls("tools/call")[0].headers.authorization, "Bearer sf-token-alice");
   } finally { await c.close(); }
 });
 
 // ---------------------------------------------------------------- 2. lecture seule / identité
-test("Lecture seule : une requête non-SELECT est refusée (isError) sans appel amont", async () => {
-  up.reset();
+test("Lecture seule : le serveur SObject Reads refuse toute requête non-SELECT ; un serveur d'écriture est refusé au démarrage du hub", async () => {
   const c = await sseClient();
   try {
-    for (const soql of ["DELETE FROM Account", "UPDATE Account SET Name='x'", "  insert into Account", "FIND {ACME} IN ALL FIELDS"]) {
-      const r = await c.callTool({ name: "salesforce_query", arguments: { soql } });
-      assert.equal(r.isError, true, soql);
-      assert.match(r.content[0].text, /SELECT/);
+    for (const soql of ["DELETE FROM Account", "UPDATE Account SET Name='x'"]) {
+      const r = await sfQuery(c, soql);
+      assert.equal(r.isError, true, soql); assert.match(r.content[0].text, /only SELECT/);
     }
-    assert.equal(up.requests("/services/data").length, 0, "aucun appel Salesforce ne doit partir");
   } finally { await c.close(); }
+  await assert.rejects(startHub({ upstreamUrl: up.url, env: { SF_MCP_URL: `${up.url}/platform/mcp/v1/d/test/platform/sobject-all` } }), /serveur d'écriture/);
 });
 
 test("Sécurité : la clé en paramètre d'URL (?key=) est refusée, seul l'en-tête Authorization: Bearer est accepté", async () => {
@@ -165,14 +154,13 @@ test("Cache : la structure est chargée au premier appel avec le jeton de l'util
   up.reset();
   const c = await sseClient();
   try {
-    const objects = text(await c.callTool({ name: "salesforce_objects", arguments: {} }));
-    assert.deepEqual(objects.map((o) => o.name), ["Account", "Contact", "Opportunity", "Lead"], "seuls les objets queryable");
-    assert.ok(up.requests(`/services/data/${SF_V}/sobjects`).every((r) => r.headers.authorization === "Bearer sf-token-alice"));
-    assert.deepEqual(up.requests("/describe").map((r) => r.path.split("/")[5]), ["Account", "Contact", "Opportunity"], "SF_OBJECTS décrits au chargement");
-
+    const tools = text(await c.callTool({ name: "salesforce_tools", arguments: {} }));
+    assert.deepEqual(tools.map((t) => t.name), ["list_sobjects", "describe_sobject", "query_records"]);
+    assert.ok(sfCalls("tools/list").length === 1 && sfCalls().every((r) => r.headers.authorization === "Bearer sf-token-alice"));
     up.reset();
-    const account = text(await c.callTool({ name: "salesforce_describe", arguments: { object: "Account" } }));
-    assert.deepEqual(account[2], { name: "OwnerId", type: "reference", label: "Propriétaire", ref: ["User"] });
+    assert.equal(text(await c.callTool({ name: "salesforce_tools", arguments: {} })).length, 3);
+    assert.equal(sfCalls().length, 0, "liste d'outils servie depuis le cache");
+
     const reps = text(await c.callTool({ name: "sagex3_representations", arguments: {} }));
     assert.deepEqual(reps, ["BPCUSTOMER", "SINVOICE"]);
     assert.ok(up.requests("$prototypes").every((r) => r.headers.authorization === "Bearer sage-token-alice"));
@@ -184,10 +172,10 @@ test("Cache : la structure est chargée au premier appel avec le jeton de l'util
     ]);
     assert.equal(up.state.requests.length, 0, `le mock ne doit pas être rappelé : ${JSON.stringify(up.state.requests.map((r) => r.path))}`);
 
-    // Hors cache → appel direct avec le jeton de l'utilisateur, même forme de champs
-    const lead = text(await c.callTool({ name: "salesforce_describe", arguments: { object: "Lead" } }));
-    assert.deepEqual(lead[2], { name: "OwnerId", type: "reference", label: "Propriétaire", ref: ["User"] });
-    assert.equal(up.requests("/sobjects/Lead/describe").length, 1);
+    // Hors cache → appel direct avec le jeton de l'utilisateur
+    const lead = text(await c.callTool({ name: "salesforce_call", arguments: { tool: "describe_sobject", arguments: { sobject: "Lead" } } }));
+    assert.deepEqual(lead.fields[2], { name: "OwnerId", type: "reference", label: "Propriétaire", ref: ["User"] });
+    assert.equal(sfCalls("tools/call").length, 1);
     const porder = text(await c.callTool({ name: "sagex3_describe", arguments: { representation: "PORDER" } }));
     assert.equal(porder[0].name, "PORDER_NUM");
     assert.equal(up.requests("$prototypes('PORDER.$query')").length, 1);
@@ -202,7 +190,7 @@ test("Cache : par utilisateur — Bob ne réutilise pas la structure d'Alice, il
     assert.deepEqual(reps, ["BPCUSTOMER", "SINVOICE"]);
     const calls = up.requests("$prototypes");
     assert.ok(calls.length > 0 && calls.every((r) => r.headers.authorization === "Bearer sage-token-bob"));
-    const sf = await c.callTool({ name: "salesforce_objects", arguments: {} });
+    const sf = await c.callTool({ name: "salesforce_tools", arguments: {} });
     assert.equal(sf.isError, true, "Bob n'est pas connecté à Salesforce : pas de structure empruntée");
   } finally { await c.close(); }
 });
@@ -212,7 +200,6 @@ test("Lecture seule : noms d'objet / représentation / clé invalides sont rejet
   const c = await sseClient();
   try {
     for (const [name, args] of [
-      ["salesforce_describe", { object: "../../../apexrest/MonService/x" }],
       ["sagex3_describe", { representation: "../../syracuse-main/html/main.html" }],
       ["sagex3_query", { representation: "BPCUSTOMER;rm" }],
     ]) {
@@ -230,14 +217,14 @@ test("Cloisonnement : chaque appel amont porte le jeton personnel de l'appelant,
   up.reset();
   const alice = await sseClient(KEY), carol = await httpClient(KEY_CAROL);
   try {
-    const args = [["salesforce_query", { soql: "SELECT Id FROM Account" }], ["salesforce_describe", { object: "Lead" }], ["sagex3_query", { representation: "BPCUSTOMER" }], ["sagex3_describe", { representation: "PORDER" }]];
+    const args = [["salesforce_call", { tool: "query_records", arguments: { soql: "SELECT Id FROM Account" } }], ["salesforce_call", { tool: "describe_sobject", arguments: { sobject: "Lead" } }], ["sagex3_query", { representation: "BPCUSTOMER" }], ["sagex3_describe", { representation: "PORDER" }]];
     for (const [name, a] of args) {
       assert.equal((await alice.callTool({ name, arguments: a })).isError, undefined, `alice ${name}`);
       assert.equal((await carol.callTool({ name, arguments: a })).isError, undefined, `carol ${name}`);
     }
     const bearers = new Set(up.state.requests.map((r) => r.headers.authorization));
     assert.deepEqual([...bearers].sort(), ["Bearer sage-token-alice", "Bearer sage-token-carol", "Bearer sf-token-alice", "Bearer sf-token-carol"], "seuls les jetons des deux appelants circulent");
-    assert.equal(up.requests("/", "POST").length, 0, "aucune écriture, aucun échange OAuth déclenché");
+    assert.equal(up.requests("/oauth", "POST").length + up.requests("/services/oauth2/token", "POST").length, 0, "aucun échange OAuth déclenché");
 
     // users.json ne contient que des jetons individuels, rangés sous la clé de leur propriétaire
     const users = hub.readUsers();
@@ -265,16 +252,15 @@ test("Clé d'API Syracuse : les outils MCP l'envoient en Bearer, et un 401 ne d�
 // ---------------------------------------------------------------- 3. refresh de jeton
 test("Refresh : sur 401 amont, le hub appelle /services/oauth2/token (refresh_token) puis réussit avec le nouveau jeton", async () => {
   up.reset();
-  up.failNext(`/services/data/${SF_V}/query`, 401);
+  up.failNext("/sobject-reads", 401);
   const c = await sseClient();
   try {
-    const out = text(await c.callTool({ name: "salesforce_query", arguments: { soql: "SELECT Id FROM Account" } }));
+    const out = text(await sfQuery(c, "SELECT Id FROM Account"));
     assert.equal(out.records.length, 2);
 
-    const queries = up.requests(`/services/data/${SF_V}/query`, "GET");
-    assert.equal(queries.length, 2, "premier appel (401) puis nouvel essai");
-    assert.equal(queries[0].headers.authorization, "Bearer sf-token-alice");
-    assert.equal(queries[1].headers.authorization, "Bearer sf-token-refreshed");
+    const sf = sfCalls();
+    assert.equal(sf[0].headers.authorization, "Bearer sf-token-alice", "premier essai avec l'ancien jeton (401)");
+    assert.ok(sf.slice(1).every((q) => q.headers.authorization === "Bearer sf-token-refreshed"), "nouvelle session avec le jeton rafraîchi");
 
     const tok = up.requests("/services/oauth2/token", "POST");
     assert.equal(tok.length, 1);
@@ -282,20 +268,19 @@ test("Refresh : sur 401 amont, le hub appelle /services/oauth2/token (refresh_to
     const body = Object.fromEntries(new URLSearchParams(tok[0].body));
     assert.deepEqual(body, { grant_type: "refresh_token", refresh_token: "sf-refresh-alice", client_id: "sf-client-id", client_secret: "sf-client-secret" });
 
-    // Ordre : query (401) → token → query (200)
+    // Ordre : sobject-reads (401) → token → sobject-reads (200)
     const order = up.state.requests.map((r) => r.path);
-    assert.ok(order.indexOf("/services/oauth2/token") > order.indexOf(`/services/data/${SF_V}/query`));
+    assert.ok(order.indexOf("/services/oauth2/token") > order.indexOf("/platform/mcp/v1/d/test/platform/sobject-reads"));
 
     // Le nouveau jeton est persisté, le refresh_token conservé
     const u = hub.readUsers()[KEY];
     assert.equal(u.salesforce.access_token, "sf-token-refreshed");
     assert.equal(u.salesforce.refresh_token, "sf-refresh-alice");
-    assert.equal(u.salesforce.instance_url, up.url);
 
     // L'appel suivant utilise directement le jeton rafraîchi
     up.reset();
-    await c.callTool({ name: "salesforce_query", arguments: { soql: "SELECT Id FROM Account" } });
-    assert.equal(up.requests("/query")[0].headers.authorization, "Bearer sf-token-refreshed");
+    await sfQuery(c, "SELECT Id FROM Account");
+    assert.ok(sfCalls().every((q) => q.headers.authorization === "Bearer sf-token-refreshed"));
     assert.equal(up.requests("/services/oauth2/token").length, 0);
   } finally { await c.close(); }
 });
@@ -310,7 +295,7 @@ test("Refresh : sans refresh_token, le 401 amont remonte en isError sans appel a
     assert.match(r.content[0].text, /Sage X3 401/);
     assert.equal(up.requests("/oauth/token").length, 0);
 
-    const sf = await c.callTool({ name: "salesforce_query", arguments: { soql: "SELECT Id FROM Account" } });
+    const sf = await sfQuery(c, "SELECT Id FROM Account");
     assert.equal(sf.isError, true);
     assert.match(sf.content[0].text, /Non connecté à Salesforce/);
   } finally { await c.close(); }
@@ -318,13 +303,13 @@ test("Refresh : sans refresh_token, le 401 amont remonte en isError sans appel a
 
 test("Refresh : un 401 persistant après refresh remonte en isError", async () => {
   up.reset();
-  up.failNext(`/services/data/${SF_V}/query`, 401);
-  up.failNext(`/services/data/${SF_V}/query`, 401);
+  up.failNext("/sobject-reads", 401);
+  up.failNext("/sobject-reads", 401);
   const c = await sseClient();
   try {
-    const r = await c.callTool({ name: "salesforce_query", arguments: { soql: "SELECT Id FROM Account" } });
+    const r = await sfQuery(c, "SELECT Id FROM Account");
     assert.equal(r.isError, true);
-    assert.match(r.content[0].text, /Salesforce 401/);
+    assert.match(r.content[0].text, /Salesforce MCP/);
     assert.equal(up.requests("/services/oauth2/token").length, 1, "un seul refresh, pas de boucle");
   } finally { await c.close(); }
 });
@@ -339,10 +324,10 @@ test("Sécurité : users.json est chiffré sur le disque (AES-256-GCM), jamais e
 // ---------------------------------------------------------------- refresh concurrent et révocation
 test("Refresh partagé : 3 appels parallèles après expiration ne déclenchent qu'un seul échange refresh_token", async () => {
   up.reset(); up.state.rotate = true; // chaque refresh donne un jeton différent, comme un vrai IdP
-  for (let i = 0; i < 3; i++) up.failNext(`/services/data/${SF_V}/query`, 401);
+  up.expire(hub.readUsers()[KEY].salesforce.access_token); // le jeton courant d'Alice est expiré, quel que soit l'ordre des requêtes
   const c = await sseClient();
   try {
-    const rs = await Promise.all([1, 2, 3].map(() => c.callTool({ name: "salesforce_query", arguments: { soql: "SELECT Id FROM Account" } })));
+    const rs = await Promise.all([1, 2, 3].map(() => sfQuery(c, "SELECT Id FROM Account")));
     assert.ok(rs.every((r) => r.isError === undefined), rs.map((r) => r.content[0].text).join(" | "));
     assert.equal(up.requests("/services/oauth2/token", "POST").length, 1, "un seul refresh pour trois appels concurrents");
     assert.equal(hub.readUsers()[KEY].salesforce.access_token, "sf-token-refreshed-1");
@@ -351,14 +336,14 @@ test("Refresh partagé : 3 appels parallèles après expiration ne déclenchent 
 
 test("Refresh token révoqué : message clair, jetons effacés, portail repassé à « non connecté »", async () => {
   up.reset();
-  up.failNext(`/services/data/${SF_V}/query`, 401);
+  up.failNext("/sobject-reads", 401);
   up.failNext("/services/oauth2/token", 400, { error: "invalid_grant", error_description: "expired access/refresh token" });
   const c = await sseClient();
   try {
-    const r = await c.callTool({ name: "salesforce_query", arguments: { soql: "SELECT Id FROM Account" } });
+    const r = await sfQuery(c, "SELECT Id FROM Account");
     assert.equal(r.isError, true); assert.match(r.content[0].text, /Session Salesforce expirée ou révoquée : reconnectez-vous/);
     assert.equal(hub.readUsers()[KEY].salesforce, undefined, "entrée Salesforce effacée");
-    const again = await c.callTool({ name: "salesforce_query", arguments: { soql: "SELECT Id FROM Account" } });
+    const again = await sfQuery(c, "SELECT Id FROM Account");
     assert.match(again.content[0].text, /Non connecté à Salesforce/);
     const me = await fetch(`${hub.url}/api/me`, { headers: { cookie: `mcp_key=${KEY}` } }).then((x) => x.json());
     assert.equal(me.systems[0].connected, false, "voyant rouge, plus vert");

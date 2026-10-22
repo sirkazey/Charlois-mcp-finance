@@ -85,7 +85,8 @@ test("GET /auth/salesforce : 302 vers SF_LOGIN_URL/services/oauth2/authorize ave
   assert.equal(loc.searchParams.get("response_type"), "code");
   assert.equal(loc.searchParams.get("client_id"), "sf-client-id");
   assert.equal(loc.searchParams.get("redirect_uri"), `${hub.url}/auth/salesforce/callback`);
-  assert.equal(loc.searchParams.get("scope"), "openid api refresh_token offline_access");
+  assert.equal(loc.searchParams.get("scope"), "mcp_api refresh_token");
+  assert.equal(loc.searchParams.get("code_challenge_method"), "S256"); assert.match(loc.searchParams.get("code_challenge"), /^[\w-]{43}$/, "PKCE");
   state = loc.searchParams.get("state");
   assert.match(state, /^[0-9a-f]{32}$/);
 
@@ -113,7 +114,9 @@ test("Callback /auth/salesforce/callback : échange du code, stockage des jetons
 
   const tok = up.requests("/services/oauth2/token", "POST");
   assert.equal(tok.length, 1);
-  assert.deepEqual(Object.fromEntries(new URLSearchParams(tok[0].body)), {
+  const exch = Object.fromEntries(new URLSearchParams(tok[0].body));
+  assert.match(exch.code_verifier, /^[\w-]{43}$/, "PKCE code_verifier"); delete exch.code_verifier;
+  assert.deepEqual(exch, {
     client_id: "sf-client-id", client_secret: "sf-client-secret",
     grant_type: "authorization_code", code: "abc123", redirect_uri: `${hub.url}/auth/salesforce/callback`,
   });
@@ -211,17 +214,18 @@ test("GET /api/test/:system : voyant vert avec le jeton de l'utilisateur, rouge 
   up.reset();
   const sf = await fetch(`${hub.url}/api/test/salesforce`, { headers: { cookie } }).then((x) => x.json());
   assert.equal(sf.ok, true, JSON.stringify(sf));
-  assert.match(sf.message, /Connecté à .* 14990 \/ 15000/);
-  assert.equal(up.requests("/limits")[0].headers.authorization, "Bearer sf-token-abc123");
+  assert.match(sf.message, /Connecté au serveur MCP Salesforce .* 3 outils en lecture seule/);
+  assert.deepEqual(sf.tables, ["list_sobjects", "describe_sobject", "query_records"]);
+  assert.ok(up.requests("/sobject-reads", "POST").every((q) => q.headers.authorization === "Bearer sf-token-abc123"));
 
   const sage = await fetch(`${hub.url}/api/test/sagex3`, { headers: { cookie } }).then((x) => x.json());
   assert.equal(sage.ok, true, JSON.stringify(sage));
   assert.deepEqual(sage.tables, ["BPCUSTOMER", "SINVOICE"]);
 
-  up.failNext("/limits", 403, [{ errorCode: "API_DISABLED_FOR_ORG", message: "API désactivée" }]);
+  up.failNext("/sobject-reads", 403, { errors: [{ message: "MCP server inactive" }] });
   const ko = await fetch(`${hub.url}/api/test/salesforce`, { headers: { cookie } }).then((x) => x.json());
   assert.equal(ko.ok, false);
-  assert.match(ko.error, /Salesforce 403/);
+  assert.match(ko.error, /Salesforce MCP/);
 
   assert.equal((await fetch(`${hub.url}/api/test/salesforce`)).status, 401, "sans cookie");
   assert.equal((await fetch(`${hub.url}/api/test/nope`, { headers: { cookie } })).status, 404);

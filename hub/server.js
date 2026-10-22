@@ -22,7 +22,7 @@ if (IS_PROD && !/^https:|^http:\/\/(localhost|127\.0\.0\.1)(:|$)/.test(PUBLIC_UR
 const CONNECTORS = [salesforce, sagex3, sharepoint, dropbox, myreport];
 const byId = Object.fromEntries(CONNECTORS.map((c) => [c.id, c]));
 // Variables visibles dans le portail (les *SECRET* ne sont jamais renvoyées, seulement « défini / vide »).
-const ENV = ["PUBLIC_URL", "SF_LOGIN_URL", "SF_CLIENT_ID", "SF_CLIENT_SECRET", "SAGE_URL", "SAGE_FOLDER", "SAGE_APIKEY_MODE", "SAGE_OAUTH_AUTH_URL", "SAGE_OAUTH_TOKEN_URL", "SAGE_OAUTH_USERINFO_URL", "SAGE_OAUTH_CLIENT_ID", "SAGE_OAUTH_CLIENT_SECRET", "SAGE_OAUTH_SCOPE",
+const ENV = ["PUBLIC_URL", "SF_LOGIN_URL", "SF_MCP_URL", "SF_CLIENT_ID", "SF_CLIENT_SECRET", "SF_SCOPE", "SAGE_URL", "SAGE_FOLDER", "SAGE_APIKEY_MODE", "SAGE_OAUTH_AUTH_URL", "SAGE_OAUTH_TOKEN_URL", "SAGE_OAUTH_USERINFO_URL", "SAGE_OAUTH_CLIENT_ID", "SAGE_OAUTH_CLIENT_SECRET", "SAGE_OAUTH_SCOPE",
   "MS_TENANT_ID", "MS_CLIENT_ID", "MS_CLIENT_SECRET", "SP_SITE", "DROPBOX_APP_KEY", "DROPBOX_APP_SECRET", "MYREPORT_MCP_URL", "MYREPORT_AUTH_HEADER", "MYREPORT_TOOLS", "CLEVOA_URL", "CLEVOA_KEY", "ENCRYPTION_KEY"];
 
 // ---------- Limitation de débit (mémoire, par adresse IP) ----------
@@ -58,7 +58,7 @@ const call = (c, key, fn) => withToken(c, key, (tok) => fn(tok, () => cachedSche
 function buildServer(key) {
   const server = new McpServer(
     { name: "charlois-finance", version: "1.0.0" },
-    { instructions: "Outils en LECTURE SEULE sur Salesforce, Sage X3, SharePoint, Dropbox et MyReport avec les droits de l'utilisateur connecté. ERP/CRM : commence par *_describe pour connaître les champs, puis interroge en direct ; les montants sont dans la devise de l'ERP. Documents : sharepoint_search / sharepoint_read, dropbox_tools puis dropbox_call. Analyses financières MyReport : myreport_tools puis myreport_call." },
+    { instructions: "Outils en LECTURE SEULE sur Salesforce, Sage X3, SharePoint, Dropbox et MyReport avec les droits de l'utilisateur connecté. Salesforce : salesforce_tools puis salesforce_call (serveur MCP officiel SObject Reads). Sage X3 : sagex3_describe puis sagex3_query ; les montants sont dans la devise de l'ERP. Documents : sharepoint_search / sharepoint_read, dropbox_tools puis dropbox_call. Analyses MyReport : myreport_tools puis myreport_call." },
   );
   for (const c of CONNECTORS) for (const t of c.tools) {
     server.registerTool(t.name, { description: t.description, inputSchema: t.input, annotations: { readOnlyHint: true } }, async (args) => {

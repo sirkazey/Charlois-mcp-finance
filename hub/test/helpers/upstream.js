@@ -31,11 +31,31 @@ function myreportMcp() {
 }
 const sseSessions = new Map();
 
+/** Serveur MCP Salesforce "SObject Reads" simulé : lecture seule, données d'Alice/Carol/… identiques (droits non simulés ici). */
+const SF_FIELDS = {
+  Account: [{ name: "Id", type: "id", label: "ID" }, { name: "Name", type: "string", label: "Nom" }, { name: "OwnerId", type: "reference", label: "Propriétaire", ref: ["User"] }],
+  Lead: [{ name: "Id", type: "id", label: "ID" }, { name: "Name", type: "string", label: "Nom Lead" }, { name: "OwnerId", type: "reference", label: "Propriétaire", ref: ["User"] }],
+};
+function sobjectReadsMcp() {
+  const srv = new McpServer({ name: "sobject-reads-mock", version: "1.0.0" });
+  const text = (o) => ({ content: [{ type: "text", text: JSON.stringify(o) }] });
+  srv.registerTool("list_sobjects", { description: "Lists sObjects", inputSchema: {} }, async () => text([{ name: "Account" }, { name: "Contact" }, { name: "Opportunity" }, { name: "Lead" }]));
+  srv.registerTool("describe_sobject", { description: "Describes an sObject", inputSchema: { sobject: z.string() } }, async ({ sobject }) =>
+    SF_FIELDS[sobject] ? text({ name: sobject, fields: SF_FIELDS[sobject] }) : { isError: true, content: [{ type: "text", text: `NOT_FOUND: ${sobject}` }] });
+  srv.registerTool("query_records", { description: "Runs a SOQL SELECT query", inputSchema: { soql: z.string() } }, async ({ soql }) => {
+    if (!/^\s*select\s/i.test(soql)) return { isError: true, content: [{ type: "text", text: `MALFORMED_QUERY: only SELECT is supported (${soql.slice(0, 30)})` }] };
+    if (/FROM\s+Opportunity/i.test(soql)) return text({ totalSize: 3, done: true, records: [{ Id: "006A" }, { Id: "006B" }, { Id: "006C" }] });
+    return text({ totalSize: 2, done: true, records: [{ Id: "001A", Name: "ACME" }, { Id: "001B", Name: "Globex" }] });
+  });
+  return srv;
+}
+
 export async function startUpstream() {
   const state = {
     requests: [],   // { method, path, query, headers, body }
     failNext: [],   // { pathIncludes, status, body } consommés à la première requête correspondante
     rotate: false, rotations: 0, // jetons Salesforce rafraîchis uniques quand rotate = true
+    expired: new Set(), // jetons d'accès déclarés expirés : 401 systématique, quel que soit l'ordre des requêtes
   };
   let base = "";
 
@@ -57,6 +77,7 @@ export async function startUpstream() {
     }
 
     const bearer = req.headers.authorization?.match(/^Bearer (.+)$/)?.[1];
+    if (bearer && state.expired.has(bearer)) return json(res, 401, [{ errorCode: "INVALID_SESSION_ID", message: "Session expired or invalid" }]);
 
     // ---- Clevoa (télémétrie) ----
     if (path === "/api/v1/telemetry" && req.method === "POST") {
@@ -147,49 +168,14 @@ export async function startUpstream() {
     }
 
     // ---- Salesforce REST ----
-    if (path.startsWith(`/services/data/${SF_V}/`)) {
-      if (!bearer) return json(res, 401, [{ errorCode: "INVALID_SESSION_ID", message: "no bearer" }]);
-      const rest = path.slice(`/services/data/${SF_V}/`.length);
-      if (rest === "limits") return json(res, 200, { DailyApiRequests: { Max: 15000, Remaining: 14990 } });
-      if (rest === "sobjects") {
-        return json(res, 200, { sobjects: [
-          { name: "Account", label: "Compte", queryable: true },
-          { name: "Contact", label: "Contact", queryable: true },
-          { name: "Opportunity", label: "Opportunité", queryable: true },
-          { name: "Lead", label: "Piste", queryable: true },
-          { name: "AccountHistory", label: "Historique", queryable: false },
-        ] });
-      }
-      const d = rest.match(/^sobjects\/(\w+)\/describe$/);
-      if (d) {
-        if (d[1] === "Unknown__c") return json(res, 404, [{ errorCode: "NOT_FOUND", message: "The requested resource does not exist" }]);
-        return json(res, 200, { name: d[1], fields: [
-          { name: "Id", type: "id", label: "ID" },
-          { name: "Name", type: "string", label: `Nom ${d[1]}` },
-          { name: "OwnerId", type: "reference", label: "Propriétaire", referenceTo: ["User"] },
-        ] });
-      }
-      if (rest === "query") {
-        const q = query.q || "";
-        if (/FROM\s+Opportunity/i.test(q)) {
-          return json(res, 200, { totalSize: 3, done: false, nextRecordsUrl: `/services/data/${SF_V}/query/01g-2000`, records: [
-            { attributes: { type: "Opportunity", url: "/x/1" }, Id: "006A", Name: "Opp A", Amount: 100 },
-            { attributes: { type: "Opportunity", url: "/x/2" }, Id: "006B", Name: "Opp B", Amount: 200 },
-          ] });
-        }
-        return json(res, 200, { totalSize: 2, done: true, records: [
-          { attributes: { type: "Account", url: "/x/1" }, Id: "001A", Name: "ACME" },
-          { attributes: { type: "Account", url: "/x/2" }, Id: "001B", Name: "Globex" },
-        ] });
-      }
-      if (rest === "query/01g-2000") {
-        return json(res, 200, { totalSize: 3, done: true, records: [
-          { attributes: { type: "Opportunity", url: "/x/3" }, Id: "006C", Name: "Opp C", Amount: 300 },
-        ] });
-      }
-      return json(res, 404, [{ errorCode: "NOT_FOUND", message: `mock: ${path}` }]);
+    // ---- Salesforce : serveur MCP hébergé "SObject Reads" simulé (Streamable HTTP, sans état) ----
+    if (path === "/platform/mcp/v1/d/test/platform/sobject-reads") {
+      if (!bearer?.startsWith("sf-token-")) return json(res, 401, { errors: [{ message: "JWT Token is required" }] });
+      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+      const srv = sobjectReadsMcp();
+      res.on("close", () => { transport.close(); srv.close(); });
+      return srv.connect(transport).then(() => transport.handleRequest(req, res, rawBody ? JSON.parse(rawBody) : undefined));
     }
-
     // ---- Sage X3 Syracuse ----
     if (path.startsWith("/api1/x3/erp/PROD/")) {
       if (!/^(Bearer|Basic) \S+$/.test(req.headers.authorization || "")) return json(res, 401, { $diagnoses: [{ $severity: "error", $message: "no bearer" }] });
@@ -234,7 +220,9 @@ export async function startUpstream() {
     state,
     /** Requêtes dont le chemin contient `fragment` (et, optionnellement, de cette méthode). */
     requests: (fragment, method) => state.requests.filter((r) => r.path.includes(fragment) && (!method || r.method === method)),
-    reset: () => { state.requests.length = 0; state.failNext.length = 0; },
+    reset: () => { state.requests.length = 0; state.failNext.length = 0; state.expired.clear(); },
+    /** Déclare un jeton d'accès expiré : toute requête qui le porte reçoit 401 (simulation d'expiration réelle). */
+    expire: (token) => state.expired.add(token),
     /** La prochaine requête dont le chemin contient `pathIncludes` répondra `status`. */
     failNext: (pathIncludes, status = 401, body) => state.failNext.push({ pathIncludes, status, body }),
     stop: () => new Promise((r) => server.close(r)),
