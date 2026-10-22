@@ -117,19 +117,30 @@ test("Téléchargements Graph signés : /dl/<id> sans signature est refusé, le 
   assert.match(csv.text, /Agility Cup/, "lecture via le hub toujours possible");
 });
 
-test("Dropbox canin via le serveur MCP simulé : liste blanche, podium en image MCP, delete jamais transmis", async () => {
+test("Dropbox canin via le serveur MCP simulé (schémas du serveur officiel) : liste blanche, ns_path, fetch par id, vignette signée, delete jamais transmis", async () => {
   const tools = text(await marie.mcp.callTool({ name: "dropbox_tools", arguments: {} }));
   assert.ok(!tools.some((t) => t.name === "delete") && tools.some((t) => t.name === "file_preview"));
-  const bilans = text(await marie.mcp.callTool({ name: "dropbox_call", arguments: { tool: "list_folder", arguments: { path: "/Bilans" } } }));
-  assert.deepEqual(bilans.entries.map((e) => e.name), ["bilan-canin-2025.xlsx", "bilan-canin-2024.xlsx"]);
-  const who = text(await marie.mcp.callTool({ name: "dropbox_call", arguments: { tool: "who_am_i", arguments: {} } }).then((r) => ({ content: [{ text: JSON.stringify(r.content[0].text) }] })));
-  assert.match(who, /Marie Dupont/);
-  const img = await marie.mcp.callTool({ name: "dropbox_call", arguments: { tool: "file_preview", arguments: { path: "/Concours/podium-agility-2025.png" } } });
-  assert.equal(img.isError, undefined, img.content?.[0]?.text);
-  assert.equal(img.content[0].type, "image", "le podium arrive à l'assistant comme image MCP, pas comme texte");
-  assert.equal(Buffer.from(img.content[0].data, "base64").subarray(0, 4).toString("hex"), "89504e47", "PNG valide");
+  assert.ok(tools.find((t) => t.name === "fetch").inputSchema.properties.id, "fetch prend id, comme le vrai serveur");
+  const bilans = text(await marie.mcp.callTool({ name: "dropbox_call", arguments: { tool: "list_folder", arguments: { path: "/Bilans", recursive: false } } }));
+  assert.deepEqual(bilans.entries.map((e) => [e.name, e.object_type, e.path]), [["bilan-canin-2025.xlsx", "file", "ns:4242//Bilans/bilan-canin-2025.xlsx"], ["bilan-canin-2024.xlsx", "file", "ns:4242//Bilans/bilan-canin-2024.xlsx"]]);
+  assert.equal(bilans.has_more, false);
+  const who = text(await marie.mcp.callTool({ name: "dropbox_call", arguments: { tool: "who_am_i", arguments: {} } }));
+  assert.equal(who.email, "marie.dupont@charlois.com"); assert.equal(who.team_name, "Charlois");
+  const meta = text(await marie.mcp.callTool({ name: "dropbox_call", arguments: { tool: "get_file_metadata", arguments: { path_or_file_id: "id:01A" } } }));
+  assert.equal(meta.metadata_type, "file"); assert.ok(meta.file.size > 1000); assert.match(meta.file.mime_type, /spreadsheetml/);
+  const csv = text(await marie.mcp.callTool({ name: "dropbox_call", arguments: { tool: "fetch", arguments: { id: "ns:4242//Concours/inscrits-agility-2026.csv" } } }));
+  assert.match(csv.text, /Border Collie,142/); assert.equal(csv.title, "inscrits-agility-2026.csv");
+  const prev = text(await marie.mcp.callTool({ name: "dropbox_call", arguments: { tool: "file_preview", arguments: { file_paths: ["/Concours/podium-agility-2025.png"] } } }));
+  assert.equal(prev.results[0].file_type, "png"); assert.match(prev.results[0].thumbnail_url, /\/dl\/01C\?sig=/);
+  const png = await fetch(prev.results[0].thumbnail_url.replace(/^http:\/\/[^/]+/, stubUrl));
+  assert.equal(png.status, 200); assert.equal(Buffer.from(await png.arrayBuffer()).subarray(0, 4).toString("hex"), "89504e47", "la vignette signée est un PNG valide");
+  const search = text(await marie.mcp.callTool({ name: "dropbox_call", arguments: { tool: "search", arguments: { query: "bilan" } } }));
+  assert.equal(search.results.length, 2); assert.equal(search.results[0].id, "id:01A");
   const del = await marie.mcp.callTool({ name: "dropbox_call", arguments: { tool: "delete", arguments: { path: "/Bilans" } } });
   assert.equal(del.isError, true);
+  await connect(paul.cookie, "dropbox", "paul.martin@charlois.com");
+  const denied = await paul.mcp.callTool({ name: "dropbox_call", arguments: { tool: "list_folder", arguments: { path: "/Confidentiel" } } });
+  assert.equal(denied.isError, true); assert.match(denied.content[0].text, /access_denied/);
 });
 
 test("MyReport canin via SSE : synthèse des coûts par race avec le jeton personnel ; purger_cache hors liste blanche", async () => {

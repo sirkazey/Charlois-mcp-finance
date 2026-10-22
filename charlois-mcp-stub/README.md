@@ -6,7 +6,7 @@ Un seul processus Node (express + SDK MCP, ~330 lignes) qui imite, protocoles et
 |---|---|---|
 | Salesforce | OAuth2 code + refresh (`/services/oauth2/*`), REST `/services/data/v62.0/{sobjects,describe,query,limits}` avec mini-SOQL (`WHERE x = 'v'`, `LIMIT`) | Pistes éleveurs (`Race__c`, `Inscrits__c`), opportunités de stands d'agility (`Concours__c`), comptes, contacts |
 | Microsoft Entra + Graph | OAuth2 code + refresh (`/ms/{tenant}/oauth2/v2.0/*`), Graph `/v1.0/{me,sites,drive…}` avec redirection de téléchargement pré-authentifiée | Site Finance : `Bilans/` (vrais classeurs Excel), `Concours/` (images PNG de podiums, CSV des inscrits), `Confidentiel/` (réservé) |
-| Dropbox | OAuth2 code + refresh (`/oauth2/*`), **serveur MCP Streamable HTTP** `/dropbox-mcp` (`who_am_i`, `list_folder`, `search`, `get_file_metadata`, `fetch`, `file_preview` → image MCP, `delete`) | Même arborescence que SharePoint |
+| Dropbox | OAuth2 code + refresh (`/oauth2/*`), **serveur MCP Streamable HTTP** `/dropbox-mcp` aux schémas du serveur officiel relevés le 22/10/2026 (`who_am_i`, `list_folder` avec `ns_path`, `search`, `get_file_metadata` imbriqué, `fetch` par `id`, `file_preview` → vignettes et liens, `delete`) | Même arborescence que SharePoint |
 | Sage X3 24R1 Syracuse | IdP OAuth2 (`/oauth/*`), clé d'API en Bearer ou Basic `login:clé`, REST `/api1/x3/erp/{dossier}/{REP}` avec `$query` (where SData, orderBy, count), `('clé')`, `$prototypes` | `YFAC` (factures croquettes, axes analytiques `AXE_RACE`/`AXE_SITE`), `ZVENTE` (stands), `BPCUSTOMER`, `PINVOICE` (Royal Canin Pro), `GACCENTRY` |
 | MyReport Server | **serveur MCP SSE** `/myreport/sse` + `/myreport/messages`, jeton en Bearer ou `X-Api-Key` | `liste_indicateurs`, `synthese_couts_par_race`, `valeur_indicateur`, `purger_cache` (écriture, à exclure) |
 | Clevoa | `POST /api/v1/telemetry` (clé requise), `GET` pour relire ce qui a été reçu | — |
@@ -31,3 +31,18 @@ npm test                          # 7 tests : le vrai hub branché sur le boucho
 
 Avec Docker : `docker compose -f docker-compose.dev.yml up -d --build` à la racine du dépôt lance le bouchon et le hub
 déjà branché dessus (toutes les URL sortantes du hub pointent vers `mcp-stub` sauf celles que vous renseignez).
+
+## Fidélité des simulateurs : ce qui est vérifié et ce qui ne l'est pas
+
+| Système | Confiance | Base |
+|---|---|---|
+| Salesforce | Élevée | Endpoints OAuth et REST standard, formes `totalSize/done/records` et erreurs `[{errorCode}]`. Le mini-SOQL n'accepte que `WHERE champ = 'valeur'`, `AND`, `LIMIT` : pas de fonctions, de jointures, de `ORDER BY` ni de littéraux de date (`LAST_N_MONTHS`). |
+| Microsoft Graph | Élevée | `/me`, `/sites`, `drive/root/children`, `search(q=)`, `items/{id}/content` en 302 pré-authentifié. Pas de pagination `@odata.nextLink` (le hub lit la première page). Identifiants de site simplifiés. |
+| Dropbox MCP | Élevée sur les noms, arguments et formes de réponse (relevés sur le serveur officiel) | Non vérifié : l'acceptation par `mcp.dropbox.com` d'un jeton issu d'une app Dropbox tierce. |
+| Sage X3 Syracuse | Moyenne à faible | API REST « représentations » (`$query`, `$details`, `$prototypes`, filtre SData, `$resources`, `$diagnoses`) écrite de mémoire, non confrontée à une instance 24R1. À vérifier avec le `curl` du README principal. |
+| MyReport | Aucune | Il n'existe pas, à ma connaissance, de serveur MCP officiel MyReport : le bouchon prouve seulement la plomberie SSE et la liste blanche, avec des outils inventés. |
+| Clevoa | Exacte | C'est notre propre backend. |
+
+Le bouchon valide le **hub** (flux OAuth, refresh, transmission des jetons, droits, transports MCP, fichiers), pas la
+conformité des produits : la première connexion réelle à chaque système reste le vrai test, et les boutons de diagnostic
+du portail sont faits pour ça.

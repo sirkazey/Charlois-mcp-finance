@@ -95,25 +95,42 @@ app.get("/dl/:id", (req, res) => {
 app.get("/oauth2/authorize", authorizePage("dbx", "Dropbox"));
 app.post("/oauth2/token", tokenEndpoint("dbx"));
 function dropboxMcp(u) {
+  // Noms d'outils, arguments et formes de réponse alignés sur le serveur MCP officiel Dropbox (schémas relevés le 22/10/2026).
   const srv = new McpServer({ name: "dropbox-stub", version: "1.0.0" });
-  const text = (o) => ({ content: [{ type: "text", text: typeof o === "string" ? o : JSON.stringify(o, null, 1) }] });
+  const text = (o) => ({ content: [{ type: "text", text: typeof o === "string" ? o : JSON.stringify(o, null, 1) }], structuredContent: typeof o === "object" ? o : undefined });
   const err = (m) => ({ isError: true, content: [{ type: "text", text: m }] });
-  const find = (path) => { const d = DOCS.find((x) => "/" + x.path === path); return !d ? null : d.restricted && !USERS[u].confidentiel ? "denied" : d; };
-  const entry = (d) => ({ ".tag": d.folder ? "folder" : "file", name: d.path.split("/").pop(), path_display: "/" + d.path, ...(d.file ? { size: statSync(new URL(d.file, FILES)).size, client_modified: "2026-10-01T08:00:00Z" } : {}) });
-  srv.registerTool("who_am_i", { description: "Compte Dropbox courant", inputSchema: {} }, async () => text(`${USERS[u].name} <${u}> — équipe Charlois (${USERS[u].role})`));
-  srv.registerTool("list_folder", { description: "Liste le contenu d'un dossier (path, ex. '/Bilans')", inputSchema: { path: z.string() } }, async ({ path }) => {
-    const dir = path.replace(/\/$/, ""); if (dir && find(dir) === "denied") return err("path/access_denied : dossier réservé"); if (dir && !find(dir)) return err("path/not_found");
-    return text({ entries: visible(u).filter((d) => "/" + d.path.split("/").slice(0, -1).join("/") === (dir || "/") || (!dir && !d.path.includes("/"))).map(entry), has_more: false });
+  const NS = "ns:4242"; // espace de noms d'équipe : les chemins renvoyés sont des ns_path, comme en vrai
+  const norm = (p) => (p || "").replace(/^ns:\d+\/\//, "/").replace(/^id:(\w+)$/, (_, id) => "/" + (DOCS.find((d) => d.id === id)?.path ?? "?")).replace(/\/$/, "") || "/";
+  const find = (p) => { const d = DOCS.find((x) => "/" + x.path === norm(p)); return !d ? null : d.restricted && !USERS[u].confidentiel ? "denied" : d; };
+  const size = (d) => (d.file ? statSync(new URL(d.file, FILES)).size : undefined);
+  const entry = (d) => ({ name: d.path.split("/").pop(), path: `${NS}//${d.path}`, path_display: "/" + d.path, file_id: `id:${d.id}`, object_type: d.folder ? "folder" : "file", modified_time: "2026-10-01T08:00:00Z", client_modified: "2026-10-01T08:00:00Z", ...(d.folder ? { folder: {} } : { file: { size: size(d) } }) });
+  srv.registerTool("who_am_i", { description: "Get the connected Dropbox user's identity, team, and namespace roots", inputSchema: {} }, async () =>
+    text({ account_id: `dbid:${u}`, display_name: USERS[u].name, email: u, country: "FR", locale: "fr", team_id: "dbtid:charlois", team_name: "Charlois", root_namespace_id: "4242", home_namespace_id: "4243" }));
+  srv.registerTool("list_folder", { description: "List Dropbox folder contents; supports direct children or recursive traversal", inputSchema: { path: z.string(), recursive: z.boolean().optional(), max_results: z.number().int().optional(), object_types: z.array(z.enum(["file", "folder"])).optional() } }, async ({ path, recursive, object_types }) => {
+    const dir = norm(path); if (dir !== "/" && find(dir) === "denied") return err("path/access_denied"); if (dir !== "/" && !find(dir)) return err("path/not_found");
+    const prefix = dir === "/" ? "" : dir.slice(1) + "/";
+    let list = visible(u).filter((d) => d.path.startsWith(prefix) && (recursive !== false || !d.path.slice(prefix.length).includes("/")));
+    if (object_types?.length) list = list.filter((d) => object_types.includes(d.folder ? "folder" : "file"));
+    return text({ entries: list.map(entry), cursor: "", has_more: false });
   });
-  srv.registerTool("search", { description: "Recherche de fichiers par nom", inputSchema: { query: z.string() } }, async ({ query }) => text({ matches: visible(u).filter((d) => d.path.toLowerCase().includes(query.toLowerCase())).map(entry) }));
-  srv.registerTool("get_file_metadata", { description: "Métadonnées d'un fichier", inputSchema: { path: z.string() } }, async ({ path }) => { const d = find(path); return !d ? err("path/not_found") : d === "denied" ? err("path/access_denied") : text(entry(d)); });
-  srv.registerTool("fetch", { description: "Contenu texte d'un fichier (txt, csv) ; les binaires renvoient leurs métadonnées", inputSchema: { path: z.string() } }, async ({ path }) => {
-    const d = find(path); if (!d || d === "denied" || d.folder) return err(d === "denied" ? "path/access_denied" : "path/not_found");
-    return /^text\//.test(d.mime) ? text(readFileSync(new URL(d.file, FILES), "utf8")) : text({ ...entry(d), note: "Fichier binaire : utilisez file_preview pour une image, ou ouvrez le fichier dans Dropbox." });
+  srv.registerTool("search", { description: "Search Dropbox files and folders by name or content, with optional filters", inputSchema: { query: z.string(), path: z.string().optional(), include_folders: z.boolean().optional(), max_results: z.number().int().optional() } }, async ({ query, include_folders }) =>
+    text({ results: visible(u).filter((d) => (include_folders || !d.folder) && d.path.toLowerCase().includes(query.toLowerCase())).map((d, i) => ({ id: `id:${d.id}`, title: d.path.split("/").pop(), url: `https://www.dropbox.com/home/${d.path}`, path: `${NS}//${d.path}`, path_display: "/" + d.path, object_type: d.folder ? "folder" : "file", match_type: "FILENAME", ...(d.file ? { mime_type: d.mime, size: size(d) } : {}), last_modified: "2026-10-01T08:00:00Z", rank: i + 1 })) }));
+  srv.registerTool("get_file_metadata", { description: "Get metadata, sharing details, and permissions for a Dropbox file or folder", inputSchema: { path_or_file_id: z.string() } }, async ({ path_or_file_id }) => {
+    const d = find(path_or_file_id); if (!d) return err("path/not_found"); if (d === "denied") return err("path/access_denied");
+    const common = { tag: d.folder ? "folder" : "file", id: `id:${d.id}`, name: d.path.split("/").pop(), path_display: "/" + d.path, path_lower: "/" + d.path.toLowerCase(), url: `https://www.dropbox.com/home/${d.path}` };
+    return text(d.folder ? { metadata_type: "folder", folder: { ...common, descendants_count: DOCS.filter((x) => x.path.startsWith(d.path + "/")).length } }
+      : { metadata_type: "file", file: { ...common, client_modified: "2026-10-01T08:00:00Z", server_modified: "2026-10-01T08:00:00Z", size: size(d), mime_type: d.mime, is_downloadable: true, rev: "0a1b2c" } });
   });
-  srv.registerTool("file_preview", { description: "Aperçu d'une image (PNG) à analyser", inputSchema: { path: z.string() } }, async ({ path }) => {
-    const d = find(path); if (!d || d === "denied" || d.mime !== "image/png") return err("preview/unsupported");
-    return { content: [{ type: "image", data: readFileSync(new URL(d.file, FILES)).toString("base64"), mimeType: "image/png" }] };
+  srv.registerTool("fetch", { description: "Fetch full text content for a Dropbox file by id or path", inputSchema: { id: z.string() } }, async ({ id }) => {
+    const d = find(id); if (!d || d === "denied" || d.folder) return err(d === "denied" ? "path/access_denied" : "path/not_found");
+    if (!/^text\//.test(d.mime)) return err(`extraction_failed: ${d.path.split("/").pop()} — extraction de texte impossible pour ${d.mime} ; ouvrez https://www.dropbox.com/home/${d.path}`);
+    return text({ id, title: d.path.split("/").pop(), text: readFileSync(new URL(d.file, FILES), "utf8"), url: `https://www.dropbox.com/home/${d.path}`, metadata: { path_display: "/" + d.path, server_modified: "2026-10-01T08:00:00Z" } });
+  });
+  srv.registerTool("file_preview", { description: "Preview Dropbox files visually with thumbnails and Open in Dropbox links", inputSchema: { file_paths: z.array(z.string()).min(1) } }, async ({ file_paths }, extra) => {
+    const base = `http://${extra?.requestInfo?.headers?.host || "mcp-stub:4000"}`;
+    const results = file_paths.map((p) => { const d = find(p); return !d || d === "denied" ? { file_name: p, message: d === "denied" ? "accès refusé" : "introuvable" }
+      : { thumbnail_url: d.file ? `${base}/dl/${d.id}?sig=${sign(d.id)}` : "", file_type: d.path.split(".").pop(), open_in_dropbox_url: `https://www.dropbox.com/home/${d.path}`, copy_link_url: `https://www.dropbox.com/scl/${d.id}`, file_name: d.path.split("/").pop(), message: d.mime === "image/png" ? "Podium d'un concours canin (image PNG)" : d.folder ? "Dossier" : "Document" }; });
+    return text({ results });
   });
   srv.registerTool("delete", { description: "Supprime un fichier (écriture : jamais atteignable via le hub)", inputSchema: { path: z.string() } }, async () => text("deleted"));
   return srv;

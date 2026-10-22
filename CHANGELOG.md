@@ -8,6 +8,7 @@ Une section par version, trois lignes au plus par rubrique. La version est celle
 - Hub : `DROPBOX_AUTH_URL` et `BROWSER_URL_REWRITE` (mires du bouchon joignables depuis le navigateur).
 - Hub, suite au crash-test : une clé MCP valide n'est plus freinée par les échecs d'authentification d'autres clients de la même IP ; un refresh token révoqué efface les jetons et demande une reconnexion claire ; les contenus MCP non textuels (images) sont relayés tels quels ; un seul refresh par collaborateur et par système en cas d'appels concurrents.
 - `.env.example` : plus de commentaire sur une ligne à valeur vide (Docker Compose le lisait comme la valeur).
+- Bouchon : serveur MCP Dropbox aligné sur les schémas du serveur officiel (`fetch` par `id`, `get_file_metadata` imbriqué, `file_preview` en vignettes signées, `ns_path`) ; niveau de confiance de chaque simulateur documenté.
 - Hub : erreurs réseau explicites (système, hôte, cause), nouvel essai de télémétrie à 1/5/30 min après un échec, state OAuth consommé seulement par le bon navigateur. Bouchon : URL de téléchargement signées.
 
 ## [1.0.0] — 2026-10-21

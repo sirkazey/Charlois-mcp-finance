@@ -140,6 +140,16 @@ Points fragiles sans anomalie reproduite : limites de débit du portail partagé
 minute pour tout un site derrière un NAT) ; une session MCP amont ouverte et fermée à chaque appel Dropbox ou MyReport
 (16 ms en local, à mesurer contre `mcp.dropbox.com`) ; le refresh ne se déclenche que sur un `401` strict.
 
+### Fidélité des simulateurs : niveau de confiance par système
+
+Le bouchon valide le hub, pas les produits. Confiance : **Salesforce élevée** (endpoints et formes standard ; mini-SOQL
+limité), **Microsoft Graph élevée** (sans pagination), **Dropbox MCP élevée** sur les noms, arguments et réponses des
+outils, relevés sur le serveur officiel le 22/10/2026 (`fetch` par `id`, `get_file_metadata` imbriqué, `file_preview` →
+vignettes et liens, pas d'image MCP) mais acceptation du jeton d'une app tierce non vérifiée, **Sage X3 Syracuse moyenne
+à faible** (API « représentations » écrite de mémoire, non confrontée à une instance 24R1), **MyReport aucune** (pas de
+serveur MCP officiel connu : outils inventés, seule la plomberie SSE est prouvée). Détail dans `charlois-mcp-stub/README.md`.
+La première connexion réelle à chaque système reste le vrai test ; les boutons de diagnostic sont faits pour ça.
+
 ## 2. Backlog du reste à faire avant la mise en production chez Charlois
 
 Aucun développement : uniquement de la configuration et des décisions humaines. Dans l'ordre où elles se débloquent.
