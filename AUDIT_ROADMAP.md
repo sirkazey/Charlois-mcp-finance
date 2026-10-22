@@ -115,9 +115,15 @@ Crash-test exécuté deux fois sur le vrai hub branché sur le vrai bouchon, jet
 * Refresh partagé : une seule promesse de renouvellement par collaborateur et par système, relecture du store avant de
   rafraîchir ; prêt pour les IdP à rotation de refresh token (Entra ID).
 
-### À surveiller sur votre PC (alertes 5 à 8, mineures, non corrigées)
+### Alertes 5 à 8 : corrigées également (même journée, un test de régression chacune)
 
-Aucune n'empêche le test. Chaque correctif tient en quelques lignes ; aucun n'ajoute de dépendance ni de structure.
+* Système injoignable : « Sage X3 injoignable (hôte:port) : ECONNREFUSED » au lieu de « fetch failed », sur les trois
+  connecteurs REST et les deux proxys MCP.
+* Télémétrie : après un échec, nouvel essai à 1, 5 puis 30 minutes avant de retomber sur l'horaire quotidien.
+* Callback OAuth : le `state` n'est consommé que par le navigateur qui a lancé le flux ; un appel étranger ne le grille plus.
+* Bouchon : URL de téléchargement `/dl/<id>` signée (HMAC), comme le fait réellement Graph.
+
+Le tableau ci-dessous reste comme trace de l'audit.
 
 | # | Gravité | Ce que vous verrez | Cause | Correctif (budget) |
 |---|---|---|---|---|

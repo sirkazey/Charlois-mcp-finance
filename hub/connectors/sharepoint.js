@@ -2,6 +2,7 @@
 // Lecture seule : uniquement des GET (sites, children, search, content). Graph applique les droits de
 // l'utilisateur : un dossier « Finance » qu'il ne voit pas dans SharePoint répond 403/404 ici aussi.
 import { z } from "zod";
+import { unreachable } from "../mcpclient.js";
 
 const LOGIN = (process.env.MS_LOGIN_URL || "https://login.microsoftonline.com").replace(/\/$/, "");
 const TENANT = process.env.MS_TENANT_ID || "common";
@@ -22,7 +23,7 @@ export const oauth = {
 async function get(tok, path, params = {}, raw = false) {
   const u = new URL(GRAPH + path);
   u.search = new URLSearchParams(params);
-  let r = await fetch(u, { headers: { Authorization: `Bearer ${tok.access_token}`, Accept: "application/json" }, redirect: "manual" });
+  let r = await fetch(u, { headers: { Authorization: `Bearer ${tok.access_token}`, Accept: "application/json" }, redirect: "manual" }).catch((e) => { throw unreachable("SharePoint", u, e); });
   if (r.status === 302) r = await fetch(r.headers.get("location")); // URL de téléchargement pré-authentifiée : jamais le jeton
   if (!r.ok) throw Object.assign(new Error(`SharePoint ${r.status}: ${(await r.text()).slice(0, 300)}`), { status: r.status });
   return raw ? r : r.json();

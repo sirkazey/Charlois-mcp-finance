@@ -3,6 +3,7 @@
 // Sage X3 Syracuse (REST + IdP OAuth2 / clé d'API / Basic), MyReport Server (serveur MCP SSE), Clevoa (télémétrie).
 import express from "express";
 import { readFileSync, statSync } from "node:fs";
+import { createHmac, randomBytes } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
@@ -16,6 +17,8 @@ const app = express();
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: false }));
 const base = (req) => `${req.protocol}://${req.headers.host}`;
+const DL_SECRET = randomBytes(16); // signe les URL de téléchargement pré-authentifiées, comme le fait Graph
+const sign = (id) => createHmac("sha256", DL_SECRET).update(id).digest("hex").slice(0, 24);
 const deny = (res, status, body) => res.status(status).json(body);
 const strip = (o) => Object.fromEntries(Object.entries(o).filter(([k]) => !k.startsWith("$")));
 
@@ -77,11 +80,16 @@ app.use("/v1.0", (req, res) => {
     const d = DOCS.find((x) => x.id === m[1]);
     if (!d || (d.restricted && !USERS[u].confidentiel)) return deny(res, d ? 403 : 404, { error: { code: d ? "accessDenied" : "itemNotFound", message: d ? "Access denied" : "Not found" } });
     if (!m[2]) return res.json(docItem(d, req));
-    return res.redirect(302, `${base(req)}/dl/${d.id}`); // URL de téléchargement pré-authentifiée, comme Graph
+    return res.redirect(302, `${base(req)}/dl/${d.id}?sig=${sign(d.id)}`); // URL de téléchargement pré-authentifiée et signée, comme Graph
   }
   deny(res, 404, { error: { code: "itemNotFound", message: `bouchon : ${p}` } });
 });
-app.get("/dl/:id", (req, res) => { const d = DOCS.find((x) => x.id === req.params.id && x.file); if (!d) return res.sendStatus(404); res.type(d.mime).send(readFileSync(new URL(d.file, FILES))); });
+app.get("/dl/:id", (req, res) => {
+  const d = DOCS.find((x) => x.id === req.params.id && x.file);
+  if (!d) return res.sendStatus(404);
+  if (req.query.sig !== sign(d.id)) return deny(res, 403, { error: "URL de téléchargement non signée ou expirée" });
+  res.type(d.mime).send(readFileSync(new URL(d.file, FILES)));
+});
 
 // ---------------------------------------------------------------- Dropbox (OAuth2 + serveur MCP officiel simulé)
 app.get("/oauth2/authorize", authorizePage("dbx", "Dropbox"));

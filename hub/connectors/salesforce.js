@@ -1,6 +1,7 @@
 // Connecteur passif Salesforce : API REST native, jeton OAuth de l'utilisateur transmis tel quel.
 // Lecture seule : seuls /query, /sobjects, /describe et /limits sont appelés, toujours en GET.
 import { z } from "zod";
+import { unreachable } from "../mcpclient.js";
 
 const LOGIN = (process.env.SF_LOGIN_URL || "https://login.salesforce.com").replace(/\/$/, "");
 const V = process.env.SF_API_VERSION || "v62.0";
@@ -22,7 +23,7 @@ export const oauth = {
 async function get(tok, path, params = {}) {
   const u = new URL(path, tok.instance_url);
   u.search = new URLSearchParams(params);
-  const r = await fetch(u, { headers: { Authorization: `Bearer ${tok.access_token}`, Accept: "application/json" } });
+  const r = await fetch(u, { headers: { Authorization: `Bearer ${tok.access_token}`, Accept: "application/json" } }).catch((e) => { throw unreachable("Salesforce", u, e); });
   if (!r.ok) throw Object.assign(new Error(`Salesforce ${r.status}: ${await r.text()}`), { status: r.status });
   return r.json();
 }

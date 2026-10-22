@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { startUpstream } from "./helpers/upstream.js";
-import { startHub, HUB_DIR } from "./helpers/hub.js";
+import { startHub, HUB_DIR, freePort } from "./helpers/hub.js";
 
 let up, hub, key, cookie;
 const noFollow = { redirect: "manual" };
@@ -105,7 +105,7 @@ test("Callback /auth/salesforce/callback : échange du code, stockage des jetons
   assert.equal(up.requests("/services/oauth2/token").length, 0, "aucun échange de code pour un autre navigateur");
   const st2 = new URL((await fetch(`${hub.url}/auth/salesforce`, { headers: { cookie }, ...noFollow })).headers.get("location")).searchParams.get("state");
   assert.equal((await fetch(`${hub.url}/auth/salesforce/callback?code=abc123&state=${st2}`, noFollow)).status, 400, "sans cookie → 400");
-  state = new URL((await fetch(`${hub.url}/auth/salesforce`, { headers: { cookie }, ...noFollow })).headers.get("location")).searchParams.get("state");
+  state = st2; // l'appel étranger n'a pas consommé le state : le vrai navigateur peut encore terminer son flux
 
   const r = await fetch(`${hub.url}/auth/salesforce/callback?code=abc123&state=${state}`, { headers: { cookie }, ...noFollow });
   assert.equal(r.status, 302, await r.text());
@@ -374,4 +374,16 @@ test("Rate-limiting : 429 après 20 diagnostics par minute et après 20 échecs 
     assert.notEqual(good.status, 429, "une clé valide de la même IP n'est jamais freinée");
   } finally { await lim.stop(); }
   await assert.rejects(startHub({ upstreamUrl: up.url, env: { ENCRYPTION_KEY: "" } }), /ENCRYPTION_KEY/);
+});
+
+// ---------------------------------------------------------------- système injoignable
+test("Système injoignable : le diagnostic nomme le système, l'hôte et la cause réseau", async () => {
+  const port = await freePort(); // rien n'écoute sur ce port → ECONNREFUSED (le port 1 est refusé par fetch comme « bad port »)
+  const dead = await startHub({ upstreamUrl: up.url, env: { SAGE_URL: `http://127.0.0.1:${port}`, SAGE_APIKEY_MODE: "bearer" } });
+  try {
+    const c = `mcp_key=${(await fetch(`${dead.url}/api/me`).then((x) => x.json())).key}`;
+    await fetch(`${dead.url}/api/sagex3/apikey`, { method: "POST", headers: { cookie: c, "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: "k" }) });
+    const d = await fetch(`${dead.url}/api/test/sagex3`, { headers: { cookie: c } }).then((x) => x.json());
+    assert.equal(d.ok, false); assert.match(d.error, /^Sage X3 injoignable \(127\.0\.0\.1:\d+\) : ECONNREFUSED/, d.error);
+  } finally { await dead.stop(); }
 });

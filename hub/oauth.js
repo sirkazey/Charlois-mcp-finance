@@ -70,10 +70,10 @@ export function oauthRouter(connectors, getKey) {
   });
 
   r.get("/auth/:system/callback", async (req, res) => {
-    const p = pending.get(req.query.state); pending.delete(req.query.state);
-    const c = byId[req.params.system];
+    const p = pending.get(req.query.state), c = byId[req.params.system];
     // p.key === getKey(req) : le navigateur qui revient doit être celui qui a lancé le flux (anti login-CSRF).
     if (!p || !c?.oauth || p.system !== c.id || p.exp < Date.now() || p.key !== getKey(req)) return res.status(400).send("State OAuth invalide ou expiré");
+    pending.delete(req.query.state); // consommé seulement par le bon navigateur ; un appel étranger ne le grille pas
     if (req.query.error) return res.status(400).send(`Refus OAuth : ${req.query.error_description || req.query.error}`);
     try {
       const tokens = await postToken(c.oauth, { grant_type: "authorization_code", code: req.query.code, redirect_uri: redirectUri(c.id) });

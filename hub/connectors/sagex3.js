@@ -6,6 +6,7 @@
 // CLÉ D'API : alternative à OAuth, saisie par l'utilisateur dans le portail (users.json : sagex3.apiKey, sagex3.login).
 // Envoyée selon SAGE_APIKEY_MODE : "bearer" (Authorization: Bearer <clé>) ou "basic" (Authorization: Basic login:clé).
 import { z } from "zod";
+import { unreachable } from "../mcpclient.js";
 
 const BASE = (process.env.SAGE_URL || "").replace(/\/$/, "");
 const FOLDER = process.env.SAGE_FOLDER || "PROD";
@@ -52,7 +53,7 @@ async function get(tok, path, params = {}) {
   if (mock) return mockGet(path);
   const u = new URL(`${BASE}/api1/x3/erp/${FOLDER}/${path}`);
   u.search = new URLSearchParams(params);
-  const r = await fetch(u, { headers: { Authorization: authHeader(tok), Accept: "application/json" } });
+  const r = await fetch(u, { headers: { Authorization: authHeader(tok), Accept: "application/json" } }).catch((e) => { throw unreachable("Sage X3", u, e); });
   if (!r.ok) throw Object.assign(new Error(`Sage X3 ${r.status}: ${await r.text()}`), { status: r.status });
   return r.json();
 }

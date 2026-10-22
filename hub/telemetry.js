@@ -28,17 +28,24 @@ export async function send(connectors) {
     const data = await r.json().catch(() => ({}));
     if (r.ok) requests = 0;
     console.log(`[telemetry] ${r.status} ${data.status ?? ""} (${body.requests} requêtes)`);
-    return data.status ?? null;
+    return r.ok ? data.status ?? "ok" : null;
   } catch (e) {
     console.error(`[telemetry] échec : ${e.message}`);
     return null;
   }
 }
 
-/** Démarre : envoi immédiat, puis chaque jour à HOUR:00 (recalculé à chaque passage, donc insensible au changement d'heure). */
+const RETRY = [60_000, 300_000, 1_800_000]; // après un échec : 1 min, 5 min, 30 min, puis retour à l'horaire quotidien
+
+/** Démarre : envoi immédiat, puis chaque jour à HOUR:00 (recalculé à chaque passage, donc insensible au changement d'heure).
+ *  Un envoi en échec (Clevoa injoignable) est retenté à 1, 5 puis 30 minutes avant de retomber sur l'horaire quotidien. */
 export function start(connectors) {
   if (!KEY) return console.log("[telemetry] désactivée (CLEVOA_KEY vide)");
   const next = () => { const d = new Date(); d.setHours(HOUR, 0, 0, 0); if (d <= Date.now()) d.setDate(d.getDate() + 1); return d - Date.now(); };
-  const tick = () => { send(connectors); setTimeout(tick, next()).unref(); };
+  let failures = 0;
+  const tick = async () => {
+    failures = (await send(connectors)) ? 0 : failures + 1;
+    setTimeout(tick, failures ? RETRY[Math.min(failures, RETRY.length) - 1] : next()).unref();
+  };
   tick();
 }

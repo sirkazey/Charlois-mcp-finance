@@ -46,6 +46,26 @@ test("Module : payload 100 % anonyme (version, date, booléens par connecteur, c
   } finally { fetchMock.mock.restore(); }
 });
 
+test("Module : Clevoa injoignable au démarrage → nouvel essai à 1 min, 5 min, 30 min, puis horaire quotidien", async (t) => {
+  process.env.CLEVOA_KEY = "k-unit"; process.env.CLEVOA_URL = "https://clevoa.test/api/v1/telemetry";
+  const tm = await import("../telemetry.js");
+  t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+  t.mock.timers.setTime(Date.parse("2026-10-21T10:00:00"));
+  let fail = 3; const calls = [];
+  const fetchMock = mock.method(globalThis, "fetch", async () => { calls.push(Date.now()); if (fail-- > 0) throw new TypeError("fetch failed"); return new Response(JSON.stringify({ status: "active" }), { status: 200 }); });
+  try {
+    tm.start(CONNECTORS);
+    const settle = () => new Promise((r) => setImmediate(r));
+    await settle(); assert.equal(calls.length, 1, "essai immédiat (échec)");
+    t.mock.timers.tick(60_000); await settle(); assert.equal(calls.length, 2, "nouvel essai après 1 min");
+    t.mock.timers.tick(300_000); await settle(); assert.equal(calls.length, 3, "puis 5 min");
+    t.mock.timers.tick(1_800_000); await settle(); assert.equal(calls.length, 4, "puis 30 min : succès");
+    t.mock.timers.tick(1_800_000); await settle(); assert.equal(calls.length, 4, "après succès, plus d'essai rapproché");
+    t.mock.timers.setTime(Date.parse("2026-10-22T03:00:01")); t.mock.timers.tick(1); await settle();
+    assert.equal(calls.length, 5, "retour à l'horaire quotidien");
+  } finally { fetchMock.mock.restore(); }
+});
+
 test("Lambda clevoa-backend : clé client exigée, payload validé, { status: 'active' } et statistiques simulées", async () => {
   const ev = (body, headers = { "X-Clevoa-Key": "cle-charlois", "content-type": "application/json" }) => ({ headers, body: typeof body === "string" ? body : JSON.stringify(body) });
   const ok = { version: "1.0.0", date: "2026-10-22", connectors: { salesforce: true, sagex3: false }, requests: 42 };

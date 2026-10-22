@@ -12,11 +12,15 @@ export async function withMcp({ url, headers, sse = false, label = "MCP" }, fn) 
     await client.connect(transport);
     return await fn(client);
   } catch (e) {
-    throw Object.assign(new Error(`${label} : ${e.message}`), { status: e.code }); // StreamableHTTPError / SseError portent le statut HTTP
+    const cause = e.cause?.code || e.cause?.cause?.code; // fetch failed → ECONNREFUSED, ENOTFOUND…
+    throw Object.assign(new Error(cause ? `${label} injoignable (${new URL(url).host}) : ${cause}` : `${label} : ${e.message}`), { status: e.code }); // StreamableHTTPError / SseError portent le statut HTTP
   } finally {
     await client.close().catch(() => {});
   }
 }
+
+/** Erreur réseau lisible : « Sage X3 injoignable (hôte:port) : ECONNREFUSED » au lieu de « fetch failed ». */
+export const unreachable = (label, url, e) => new Error(`${label} injoignable (${new URL(url).host}) : ${e.cause?.code || e.cause?.message || e.message}`);
 
 /** Texte d'une réponse d'outil MCP. */
 export const toolText = (r) => r.content?.map((c) => c.text ?? JSON.stringify(c)).join("\n") ?? "";

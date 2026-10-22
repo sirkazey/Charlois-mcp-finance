@@ -110,6 +110,13 @@ test("SharePoint canin : bilans Excel (binaire → métadonnées), CSV lisible, 
   assert.equal(deniedRead.isError, true);
 });
 
+test("Téléchargements Graph signés : /dl/<id> sans signature est refusé, le hub suit la redirection signée", async () => {
+  assert.equal((await fetch(`${stubUrl}/dl/01I`)).status, 403, "fichier Confidentiel non servi sans signature");
+  assert.equal((await fetch(`${stubUrl}/dl/01A?sig=mauvaise`)).status, 403);
+  const csv = text(await marie.mcp.callTool({ name: "sharepoint_read", arguments: { itemId: "01E" } }));
+  assert.match(csv.text, /Agility Cup/, "lecture via le hub toujours possible");
+});
+
 test("Dropbox canin via le serveur MCP simulé : liste blanche, podium en image MCP, delete jamais transmis", async () => {
   const tools = text(await marie.mcp.callTool({ name: "dropbox_tools", arguments: {} }));
   assert.ok(!tools.some((t) => t.name === "delete") && tools.some((t) => t.name === "file_preview"));
