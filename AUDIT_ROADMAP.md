@@ -1,8 +1,10 @@
 # Audit de clôture et feuille de route — Charlois AI Gateway
 
-**Périmètre** : commit `8fe2cb8` (version 1.0.0), dépôt `Charlois-mcp-finance`, 48 tests verts en pré-prod et en production.
-**Méthode** : relecture indépendante du code par un agent validateur (faits cités fichier par fichier), essais manuels des cas
-de panne du store, synthèse par l'agent principal. Aucun fichier de code modifié par cet audit.
+**Périmètre** : version 1.0.0 et bouchon d'entreprise `charlois-mcp-stub/` (commit `20d6eb1`), 48 tests du hub verts en
+pré-prod et en production, 7 tests de bout en bout hub ↔ bouchon.
+**Méthode** : relecture indépendante du code par un agent validateur (faits cités fichier par fichier), crash-test en boîte
+noire du vrai hub branché sur le vrai bouchon par un agent testeur (expiration forcée des jetons, deux collaborateurs en
+parallèle, fichiers physiques, pannes, charge), synthèse par l'agent principal. Mise à jour du 22 octobre 2026.
 **Fil conducteur** : la solution doit rester une petite machine que n'importe quel développeur Node lit en une heure.
 Chaque point ci-dessous est jugé à cette aune.
 
@@ -80,6 +82,50 @@ tournent en moins de vingt secondes sans réseau. Le blindage de sécurité a co
 vingtaine de lignes. S'il fallait simplifier encore une chose : retirer le transport SSE historique (treize lignes, une
 structure en mémoire et un endpoint de moins) dès que les assistants utilisés sont confirmés sur Streamable HTTP.
 
+## Bugs et alertes prioritaires — audit interne hub ↔ bouchon (22 octobre 2026)
+
+Crash-test exécuté deux fois sur le vrai hub branché sur le vrai bouchon, jetons d'accès expirant toutes les 1,2 secondes.
+
+| Scénario | Résultat |
+|---|---|
+| Expiration forcée puis 4 appels (Salesforce, SharePoint, Dropbox, Sage) | OK : refresh automatique à chaque fois, refresh token conservé, surcoût 5 à 11 ms par appel |
+| Marie et Paul en parallèle, 48 appels alternés | OK : aucun mélange d'identité, 403 de Paul sur Confidentiel et PINVOICE, 200 pour Marie |
+| Fichiers physiques (Excel, CSV, texte, PNG) | OK sauf l'image : le hub renvoie le PNG comme texte base64, pas comme image MCP (alerte 3) |
+| Mire : refus, code rejoué, state inconnu | OK : 400 partout, store inchangé |
+| Hub démarré sans bouchon, puis bouchon démarré | OK : pas de crash, voyants rouges puis verts sans redémarrage ; messages « fetch failed » peu parlants (alerte 5) ; télémétrie non réémise avant 03:00 (alerte 6) |
+| 50 requêtes Sage séquentielles | OK : 4 ms en moyenne, 9 ms au maximum |
+| Refresh token révoqué | KO : message brut `invalid_grant`, voyant toujours vert (alerte 2) |
+| 21 mauvaises clés depuis une IP, puis une bonne clé depuis la même IP | KO : la bonne clé reçoit 429 pendant une minute (alerte 1) |
+
+### Déjà corrigé (configuration uniquement, commit `20d6eb1`)
+
+* `.env.example` : un commentaire sur une ligne à valeur vide était lu comme la valeur par Docker Compose. Effets au
+  premier démarrage : clé de chiffrement égale à un texte public du dépôt, liste blanche MyReport absurde, Salesforce
+  envoyé sur le vrai `login.salesforce.com` au lieu du bouchon. Commentaires déplacés au-dessus, valeurs vides laissées
+  vides. Vérifié avec le scénario exact `cp .env.example .env`.
+* README : ouvrir exactement l'adresse de `PUBLIC_URL` (sinon « State OAuth invalide »), supprimer le volume d'une version
+  antérieure créée par root (`down -v`), `BROWSER_URL_REWRITE` à renseigner sur un serveur Portainer.
+
+### À surveiller sur votre PC, et à corriger ensuite (code, par ordre de priorité)
+
+Aucune de ces alertes n'empêche le test de demain. Chaque correctif tient en quelques lignes ; aucun n'ajoute de
+dépendance ni de structure nouvelle.
+
+| # | Gravité | Ce que vous verrez | Cause | Correctif (budget) |
+|---|---|---|---|---|
+| 1 | Important | Après 21 appels MCP avec une mauvaise clé depuis une IP, **toute** clé valide depuis la même IP (NAT d'entreprise, reverse-proxy mal réglé) reçoit `429` pendant une minute | `server.js` : le compteur d'échecs est incrémenté avant la vérification de la clé, par IP | N'incrémenter qu'après un échec réel (3 lignes) |
+| 2 | Important | Refresh token révoqué côté éditeur : chaque outil répond par un message brut `invalid_grant`, le portail affiche toujours « Connecté » | `oauth.js` : l'échec du refresh est propagé tel quel, l'entrée n'est pas invalidée | Sur `invalid_grant`, effacer les jetons et répondre « Session Salesforce expirée : reconnectez-vous sur le portail » (4 lignes) |
+| 3 | Important | `dropbox_call file_preview` renvoie le podium comme 1 Ko de base64 en texte ; l'assistant ne « voit » pas l'image | `server.js` + `mcpclient.js` : tout résultat d'outil est sérialisé en texte | Relayer tels quels les items MCP `image` et `resource` (5 lignes) ; renforcer le test du bouchon |
+| 4 | Important | Plusieurs outils lancés en parallèle juste après une expiration : jusqu'à 6 refresh pour 10 appels | `oauth.js` : pas de verrou sur le refresh | Partager une promesse de refresh en cours par utilisateur et système (6 lignes) ; indispensable avant Entra ID, qui fait tourner les refresh tokens |
+| 5 | Mineur | Système injoignable : voyant rouge « fetch failed » sans nom d'hôte ni cause | Connecteurs REST : `fetch` sans contexte d'erreur | Envelopper : « Salesforce injoignable (hôte) : ECONNREFUSED » (1 ligne par connecteur) |
+| 6 | Mineur | Clevoa injoignable au démarrage : aucune télémétrie avant le lendemain 03:00 | `telemetry.js` : pas de nouvel essai après échec | Réessayer à 1, 5 puis 30 minutes (3 lignes) |
+| 7 | Mineur | Un callback OAuth reçu sans cookie consomme le `state` ; le vrai navigateur reçoit ensuite 400 | `oauth.js` : `pending.delete` avant la vérification du cookie | Supprimer le state après vérification (déplacer 1 ligne) |
+| 8 | Mineur, bouchon seulement | `GET /dl/<id>` du bouchon sert les fichiers, y compris « Confidentiel », sans jeton | Choix de design (URL pré-authentifiée comme Graph), données inventées | Signer l'URL si le bouchon est exposé à d'autres personnes (6 lignes) |
+
+Points fragiles sans anomalie reproduite : limites de débit du portail partagées par IP (60 `/api/me`, 20 diagnostics par
+minute pour tout un site derrière un NAT) ; une session MCP amont ouverte et fermée à chaque appel Dropbox ou MyReport
+(16 ms en local, à mesurer contre `mcp.dropbox.com`) ; le refresh ne se déclenche que sur un `401` strict.
+
 ## 2. Backlog du reste à faire avant la mise en production chez Charlois
 
 Aucun développement : uniquement de la configuration et des décisions humaines. Dans l'ordre où elles se débloquent.
@@ -133,7 +179,7 @@ Tant qu'un outil n'est pas configuré, son bouton reste grisé et Sage X3 / MyRe
 
 ## 3. Catalogue des évolutions possibles (optionnel, roadmap Clevoa)
 
-Trois évolutions à forte valeur commerciale, et une écartée. Pour chacune, la règle qui l'empêche de devenir une usine à gaz.
+Quatre évolutions à forte valeur commerciale, et une écartée. Pour chacune, la règle qui l'empêche de devenir une usine à gaz.
 
 ### 3.1 Santé des connecteurs et alertes proactives sur le portail
 
@@ -152,6 +198,44 @@ Trois évolutions à forte valeur commerciale, et une écartée. Pour chacune, l
 **Valeur** : Clevoa suit ses clients (version déployée, outils activés, volume d'usage, dernier contact) et détecte un hub silencieux ou une version obsolète : c'est la base d'un contrat de maintenance.
 
 **Pour rester simple** : dans `clevoa-backend`, remplacer la simulation par un `PutItem` DynamoDB (une table, une ligne par envoi) et servir une page HTML statique depuis S3 qui lit les trente derniers jours. Une Lambda, une table, une page ; pas de framework, pas d'authentification complexe (un lien signé suffit).
+
+### 3.4 Interface d'administration déclarative des connecteurs MCP
+
+**Valeur** : la DSI ajoute, suspend ou retire un serveur MCP distant (MyReport, un futur outil métier, le serveur MCP
+officiel d'un éditeur) depuis le portail, sans commit ni redéploiement. Clevoa vend un hub « extensible par le client »
+sans intervention.
+
+**Ce que c'est, et rien de plus** : une liste JSON déclarative de connecteurs distants, chiffrée dans le store existant
+(`users.json` a déjà le chiffrement AES-256-GCM ; la liste vit à côté, sous la même clé maîtresse). Chaque entrée tient
+en six champs : identifiant, libellé, URL du serveur MCP, transport (`sse` ou `http`), nom de l'en-tête d'authentification,
+liste blanche des outils autorisés. Exemple :
+
+```json
+[{ "id": "myreport", "label": "MyReport", "url": "https://myreport.charlois.local/mcp/sse", "transport": "sse",
+   "authHeader": "Authorization", "tools": ["liste_indicateurs", "synthese_couts_par_race"] }]
+```
+
+Le hub lit cette liste au démarrage et à chaque modification, et instancie pour chaque entrée le **même connecteur proxy
+générique** que MyReport aujourd'hui (`mcpclient.js` + liste blanche) : les outils `<id>_tools` et `<id>_call`
+apparaissent dans la liste des outils, le bouton de diagnostic et la carte de connexion (jeton personnel) sur le portail.
+Côté portail, une section « Administration » réservée (en-tête Entra `X-Forwarded-Email` du reverse-proxy ou clé
+`ADMIN_KEY`) affiche la liste dans un formulaire de six champs par ligne.
+
+**Règles impératives pour que cela reste simple** :
+
+* **Standard FastMCP officiel uniquement** : le hub reste client des serveurs distants via `@modelcontextprotocol/sdk`
+  (transports SSE et Streamable HTTP standards). Aucun protocole maison, aucun adaptateur par éditeur : si un outil n'a
+  pas de serveur MCP standard, il n'entre pas par cette porte.
+* **Aucun framework** : le formulaire est du HTML dans `index.html` ; l'API est une route `GET/PUT /api/admin/connectors`
+  dans `server.js`. Pas de panneau d'administration tiers, pas de bibliothèque de formulaires.
+* **Aucune base de données** : la liste JSON chiffrée dans le store est la seule persistance. Pas de table, pas de
+  migration, pas de cache.
+* **Un seul code de proxy** : `myreport.js` devient la première entrée de la liste ; il ne doit rester qu'un connecteur
+  générique, pas un fichier par outil distant. Budget : environ 80 lignes de hub et 60 lignes de portail. Au-delà, on
+  s'arrête et on revoit la copie.
+* **Lecture seule par liste blanche** : sans outils listés, rien n'est transféré ; aucune option « tout autoriser ».
+* **Jetons toujours personnels** : chaque collaborateur saisit son jeton par connecteur, comme pour MyReport aujourd'hui ;
+  l'administrateur déclare des serveurs, jamais des identifiants.
 
 ### Écarté : accès depuis claude.ai web et mobile
 
