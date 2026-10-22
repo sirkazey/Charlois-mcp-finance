@@ -98,14 +98,19 @@ derrière API Gateway, décrite par un `serverless.yml` commenté.
 **Avec le bouchon d'entreprise** (aucun compte réel nécessaire, jeu de données canin, deux collaborateurs aux droits différents) :
 
 ```bash
-cp .env.example .env        # renseigner ENCRYPTION_KEY (openssl rand -hex 32) et PUBLIC_URL=http://localhost:8080
+cp .env.example .env        # renseigner ENCRYPTION_KEY (openssl rand -hex 32) ; PUBLIC_URL=http://localhost:8080 est déjà là
 docker compose -f docker-compose.dev.yml up -d --build
-open http://localhost:8080  # portail ; les boutons « Se connecter » ouvrent les mires du bouchon sur http://localhost:4000
+open http://localhost:8080  # ouvrir EXACTEMENT l'adresse de PUBLIC_URL (pas 127.0.0.1) : le cookie et les callbacks y sont liés
 ```
+
+Les boutons « Se connecter » ouvrent les mires du bouchon sur `http://localhost:4000`. Si une version antérieure du hub a
+déjà tourné sur ce poste, supprimer son volume avant (`docker compose -f docker-compose.dev.yml down -v`) : il appartenait
+à root et le hub tourne désormais sous l'utilisateur `node`.
 
 Le conteneur `mcp-stub` ([`charlois-mcp-stub/`](charlois-mcp-stub/)) imite Salesforce, Entra/Graph, Dropbox MCP, Sage X3
 Syracuse, MyReport MCP et Clevoa. Renseigner une variable réelle dans `.env` (ex. `SF_LOGIN_URL`, `SF_CLIENT_ID`…) rebranche
-ce seul système sur le vrai. Sage X3 en mode clé : login `MDUPONT`, clé `SYR-MARIE-2026` ; MyReport : jeton `MR-MARIE-2026`.
+ce seul système sur le vrai. Sage X3 : identifiant `MDUPONT` et clé `SYR-MARIE-2026` ; MyReport : jeton `MR-MARIE-2026`.
+Dans `.env`, ne jamais mettre de commentaire sur la même ligne qu'une valeur vide : Docker Compose le lirait comme la valeur.
 
 **Sans bouchon** (vrais comptes Salesforce, simulateurs internes Sage X3 et MyReport) :
 
@@ -142,7 +147,9 @@ jamais visibles en prod, et inversement.
    `refs/heads/main` (prod), *Compose path* = le fichier du tableau ci-dessus.
 2. **GitOps updates** : activer, mode *Polling* (ex. 5 min) ou *Webhook* (coller l'URL du webhook dans GitHub →
    Settings → Webhooks, événement *push*). À chaque commit sur la branche, Portainer reconstruit l'image et redéploie.
-3. Variables d'environnement : celles de `.env.example`. `PUBLIC_URL` est obligatoire partout ; `CLEVOA_KEY` l'est en prod.
+3. Variables d'environnement : celles de `.env.example`. `PUBLIC_URL` et `ENCRYPTION_KEY` sont obligatoires partout ;
+   `CLEVOA_KEY` l'est en prod. En pré-prod avec le bouchon, `BROWSER_URL_REWRITE=http://mcp-stub:4000=>http://<hôte-préprod>:4000`
+   (le navigateur des collaborateurs doit joindre les mires du bouchon ; `localhost` ne vaut que sur Docker Desktop).
 4. Port 8080 derrière votre reverse-proxy TLS, un sous-domaine par environnement (`mcp-preprod.` / `mcp.`).
 
 **Cycle de livraison** : développer et committer sur `dev` → la stack de pré-prod se met à jour → vérifier le portail

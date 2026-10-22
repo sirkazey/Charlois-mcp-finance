@@ -2,7 +2,8 @@
 # Étend docker-compose.yml (base commune) : logs détaillés, et par défaut TOUTES les API sortantes du hub pointent vers le
 # conteneur bouchon `mcp-stub` (Salesforce, Graph, Dropbox MCP, Sage X3, MyReport MCP, Clevoa) avec un jeu de données canin.
 # Renseigner une variable (ex. SF_LOGIN_URL, SAGE_URL) dans Portainer rebranche ce seul système sur le vrai.
-# Portainer : compose path = docker-compose.dev.yml. Mires de connexion : http://localhost:4000 (port du bouchon).
+# Portainer : compose path = docker-compose.dev.yml, et BROWSER_URL_REWRITE=http://mcp-stub:4000=>http://<hôte-préprod>:4000
+# (le navigateur doit joindre les mires du bouchon ; le défaut localhost:4000 ne vaut que sur Docker Desktop).
 services:
   mcp-stub:
     build: ./charlois-mcp-stub
