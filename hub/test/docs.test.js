@@ -124,3 +124,19 @@ test("MyReport : sans MYREPORT_MCP_URL, simulateur local (tests Docker Desktop) 
     assert.equal(up.requests("/myreport/").length, 0);
   } finally { await sim.stop(); }
 });
+
+test("MyReport : plafond d'appels sortants (MYREPORT_MAX_PER_MIN) tous utilisateurs confondus, sans toucher au serveur au-delà", async () => {
+  const capped = await startHub({ upstreamUrl: up.url, users: { [KEY]: connectedUser(up.url) }, env: { MYREPORT_MAX_PER_MIN: "2" } });
+  try {
+    const c2 = new Client({ name: "t", version: "1" });
+    await c2.connect(new StreamableHTTPClientTransport(new URL(`${capped.url}/mcp`), { requestInit: { headers: { Authorization: `Bearer ${KEY}` } } }));
+    up.reset();
+    const rs = [];
+    for (let i = 0; i < 3; i++) rs.push(await c2.callTool({ name: "myreport_call", arguments: { tool: "liste_indicateurs", arguments: {} } }));
+    assert.deepEqual(rs.map((r) => r.isError ?? false), [false, false, true]);
+    assert.match(rs[2].content[0].text, /plafond de 2 appels par minute/);
+    const sse = up.requests("/myreport/sse", "GET").length;
+    assert.equal(sse, 2, "le troisième appel n'a ouvert aucune session vers MyReport");
+    await c2.close();
+  } finally { await capped.stop(); }
+});

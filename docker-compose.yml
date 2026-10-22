@@ -44,6 +44,8 @@ services:
       MYREPORT_MCP_URL: ${MYREPORT_MCP_URL}
       MYREPORT_AUTH_HEADER: ${MYREPORT_AUTH_HEADER}   # défaut Authorization (Bearer <jeton personnel>) ; ex. X-Api-Key
       MYREPORT_TOOLS: ${MYREPORT_TOOLS}               # liste blanche des outils MyReport transférables, ex. liste_indicateurs,valeur_indicateur
+      MYREPORT_MAX_PER_MIN: ${MYREPORT_MAX_PER_MIN}   # plafond d'appels sortants vers MyReport (production unique) ; défaut 20, 0 = illimité
+      SF_MAX_PER_MIN: ${SF_MAX_PER_MIN}               # plafond d'appels vers le serveur MCP Salesforce (crédits Flex) ; défaut 0 = illimité
       # Clevoa — télémétrie anonyme quotidienne (version, connecteurs configurés, compteur de requêtes). Vide = désactivée.
       CLEVOA_KEY: ${CLEVOA_KEY}
       CLEVOA_URL: ${CLEVOA_URL}              # défaut https://clevoa.fr/api/v1/telemetry

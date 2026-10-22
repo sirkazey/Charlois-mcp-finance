@@ -12,6 +12,7 @@ if (/sobject-all|mutations|deletes|write|crma|data-cloud/i.test(MCP_URL)) { cons
 
 export const id = "salesforce";
 export const label = "Salesforce";
+export const maxPerMinute = Number(process.env.SF_MAX_PER_MIN ?? 0); // crédits Flex : plafond d'appels sortants par minute (0 = illimité)
 export const oauth = {
   authUrl: `${LOGIN}/services/oauth2/authorize`,
   tokenUrl: `${LOGIN}/services/oauth2/token`,

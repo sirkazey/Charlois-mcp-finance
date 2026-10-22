@@ -23,7 +23,7 @@ const CONNECTORS = [salesforce, sagex3, sharepoint, dropbox, myreport];
 const byId = Object.fromEntries(CONNECTORS.map((c) => [c.id, c]));
 // Variables visibles dans le portail (les *SECRET* ne sont jamais renvoyées, seulement « défini / vide »).
 const ENV = ["PUBLIC_URL", "SF_LOGIN_URL", "SF_MCP_URL", "SF_CLIENT_ID", "SF_CLIENT_SECRET", "SF_SCOPE", "SAGE_URL", "SAGE_FOLDER", "SAGE_APIKEY_MODE", "SAGE_OAUTH_AUTH_URL", "SAGE_OAUTH_TOKEN_URL", "SAGE_OAUTH_USERINFO_URL", "SAGE_OAUTH_CLIENT_ID", "SAGE_OAUTH_CLIENT_SECRET", "SAGE_OAUTH_SCOPE",
-  "MS_TENANT_ID", "MS_CLIENT_ID", "MS_CLIENT_SECRET", "SP_SITE", "DROPBOX_APP_KEY", "DROPBOX_APP_SECRET", "MYREPORT_MCP_URL", "MYREPORT_AUTH_HEADER", "MYREPORT_TOOLS", "CLEVOA_URL", "CLEVOA_KEY", "ENCRYPTION_KEY"];
+  "MS_TENANT_ID", "MS_CLIENT_ID", "MS_CLIENT_SECRET", "SP_SITE", "DROPBOX_APP_KEY", "DROPBOX_APP_SECRET", "MYREPORT_MCP_URL", "MYREPORT_AUTH_HEADER", "MYREPORT_TOOLS", "MYREPORT_MAX_PER_MIN", "SF_MAX_PER_MIN", "CLEVOA_URL", "CLEVOA_KEY", "ENCRYPTION_KEY"];
 
 // ---------- Limitation de débit (mémoire, par adresse IP) ----------
 // Protège le diagnostic, les jetons et les échecs d'authentification contre la force brute. Fenêtre glissante simple.
@@ -51,8 +51,12 @@ const requireKey = (read) => (req, res, next) => {
 };
 const mcpUser = requireKey(mcpKey), portalUser = requireKey(cookieKey);
 
-/** Exécute un outil/ping d'un connecteur avec le jeton de l'utilisateur et sa structure en cache. */
-const call = (c, key, fn) => withToken(c, key, (tok) => fn(tok, () => cachedSchema(key, c.id, () => c.schema(tok))));
+/** Exécute un outil/ping d'un connecteur avec le jeton de l'utilisateur et sa structure en cache.
+ *  Un connecteur peut plafonner ses appels sortants (maxPerMinute, tous utilisateurs confondus) pour ménager un système de production. */
+const call = (c, key, fn) => {
+  if (c.maxPerMinute && hit(`upstream:${c.id}`, "*", c.maxPerMinute)) throw new Error(`${c.label} : plafond de ${c.maxPerMinute} appels par minute atteint, réessayez dans un instant.`);
+  return withToken(c, key, (tok) => fn(tok, () => cachedSchema(key, c.id, () => c.schema(tok))));
+};
 
 // ---------- Serveur MCP (un par connexion, lié à la clé de l'utilisateur) ----------
 function buildServer(key) {
