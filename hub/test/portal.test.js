@@ -318,11 +318,13 @@ test("index.html : chaque URL appelée (fetch / href) correspond à une route du
   const routes = [...src.matchAll(/\b(?:app|r)\.(get|post|all)\(\s*"([^"]+)"/g)].map((m) => ({ method: m[1], re: new RegExp("^" + m[2].replace(/:\w+/g, "[^/]+") + "$") }));
   for (const u of urls) {
     const path = u.split("?")[0];
+    if (path === "/auth/sso") continue; // n'existe qu'avec SSO_MODE (couvert par sso.test.js) ; ce hub tourne sans SSO
     assert.ok(routes.some((r) => r.re.test(path)), `aucune route déclarée pour ${u}`);
-    const method = /disconnect|apikey/.test(path) ? "POST" : "GET";
+    const method = /disconnect|apikey|logout|rotate/.test(path) ? "POST" : "GET";
     const body = /apikey/.test(path) ? { headers: { cookie, "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: "k" }) } : { headers: { cookie } };
     const r = await fetch(`${hub.url}${u}`, { method, ...body, ...noFollow });
     assert.ok(r.status < 400, `${method} ${u} → ${r.status}`);
+    if (/rotate/.test(path)) { key = (await r.json()).key; cookie = `mcp_key=${key}`; } // la rotation révoque l'ancienne clé : la suite du test (et des tests) utilise la nouvelle
   }
 });
 

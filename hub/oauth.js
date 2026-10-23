@@ -9,6 +9,8 @@ const pending = new Map(); // state -> { key, system, exp }
 // Pré-prod avec bouchon : le hub joint le bouchon par son nom Docker, le navigateur par localhost. Ex. "http://mcp-stub:4000=>http://localhost:4000".
 const [rewriteFrom, rewriteTo] = (process.env.BROWSER_URL_REWRITE || "").split("=>");
 const redirectUri = (system) => `${PUBLIC_URL}/auth/${system}/callback`;
+/** Cookie de session du portail : la clé MCP elle-même (HttpOnly, Secure en https). */
+export const keyCookie = (key) => `mcp_key=${key}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000${PUBLIC_URL.startsWith("https") ? "; Secure" : ""}`;
 
 async function postToken(c, params) {
   const r = await fetch(c.tokenUrl, {
@@ -60,16 +62,22 @@ export function oauthRouter(connectors, getKey) {
   const byId = Object.fromEntries(connectors.map((c) => [c.id, c]));
   r.use((_req, res, next) => { res.type("text/plain"); next(); }); // toute erreur part en texte brut : un paramètre reflété (error_description) ne peut pas devenir du HTML
 
+  // Avec un SSO (connecteur `bindIdentity`), les flux des systèmes exigent un navigateur déjà identifié ; sans SSO, une clé suffit.
+  const identified = (u) => u && (!byId.sso || u.sso);
+
   r.get("/auth/:system", (req, res) => {
-    const c = byId[req.params.system]; const key = getKey(req);
-    if (!c?.oauth || !store.get(key)) return res.status(400).send("Système inconnu ou session absente");
+    const c = byId[req.params.system]; let key = getKey(req);
+    if (c?.bindIdentity && !store.get(key)) { key = store.create(); res.setHeader("Set-Cookie", keyCookie(key)); } // SSO : clé temporaire, inutilisable tant que l'identité n'est pas liée
+    if (!c?.oauth || !store.get(key) || (!c.bindIdentity && !identified(store.get(key)))) return res.status(400).send("Système inconnu ou session absente");
     if (!c.oauth.clientId) return res.status(500).send(`${c.label} : OAuth non configuré (variables d'environnement)`);
     for (const [s, p] of pending) if (p.exp < Date.now()) pending.delete(s); // purge des flux abandonnés
     const state = randomBytes(16).toString("hex"), verifier = randomBytes(32).toString("base64url"); // PKCE S256 sur tous les flux
-    pending.set(state, { key, system: c.id, verifier, exp: Date.now() + 10 * 60_000 });
+    // ?silent=1 (connecteur `silent`, utilisateur SSO) : prompt=none + login_hint, Entra répond sans interface, ou par une erreur (login/consent_required)
+    const silent = c.silent && req.query.silent === "1" ? store.get(key).sso?.upn : "";
+    pending.set(state, { key, system: c.id, verifier, silent: !!silent, exp: Date.now() + 10 * 60_000 });
     const u = new URL(c.oauth.authUrl);
     u.search = new URLSearchParams({ response_type: "code", client_id: c.oauth.clientId, redirect_uri: redirectUri(c.id), scope: c.oauth.scope, state,
-      code_challenge: createHash("sha256").update(verifier).digest("base64url"), code_challenge_method: "S256", ...c.oauth.extraAuthParams });
+      code_challenge: createHash("sha256").update(verifier).digest("base64url"), code_challenge_method: "S256", ...c.oauth.extraAuthParams, ...(silent ? { prompt: "none", login_hint: silent } : {}) });
     res.redirect(rewriteFrom ? u.href.replace(rewriteFrom, rewriteTo) : u.href);
   });
 
@@ -79,18 +87,20 @@ export function oauthRouter(connectors, getKey) {
     if (!p || !c?.oauth || p.system !== c.id || p.exp < Date.now() || p.key !== getKey(req)) return res.status(400).send("State OAuth invalide ou expiré");
     pending.delete(req.query.state); // consommé seulement par le bon navigateur ; un appel étranger ne le grille pas
     if (req.query.error) { // rien de ce que renvoie le fournisseur n'est reflété au navigateur ni au journal : vocabulaire fixe
+      if (p.silent) return res.redirect("/"); // tentative sans interaction refusée : le portail propose le parcours interactif
       const denied = req.query.error === "access_denied";
       console.error(`[oauth] ${c.id} ${denied ? "refus de l'utilisateur (access_denied)" : "erreur renvoyée par le fournisseur"}`);
       return res.status(400).send(denied ? "Connexion refusée (access_denied) : réessayez depuis le portail." : "Le fournisseur OAuth a renvoyé une erreur : réessayez depuis le portail ou contactez l'administrateur.");
     }
     try {
       const tokens = await postToken(c.oauth, { grant_type: "authorization_code", code: req.query.code, redirect_uri: redirectUri(c.id), code_verifier: p.verifier });
+      if (c.bindIdentity) { const key = await c.bindIdentity(p.key, tokens); res.setHeader("Set-Cookie", keyCookie(key)); return res.redirect(c.next(key)); } // SSO : identité liée, jetons non conservés
       const email = c.identity ? await c.identity(tokens).catch(() => null) : null;
       store.setTokens(p.key, c.id, tokens, email);
       res.redirect("/");
     } catch (e) {
       console.error(`[oauth] ${c.id} : échec de l'échange de jeton`); // rien de l'erreur n'est journalisé (le fournisseur peut y glisser des données) ; le statut est rendu au navigateur
-      res.status(502).send(`Échec de la connexion ${c.label} (${e.status ?? "réseau"}) : réessayez depuis le portail.`);
+      res.status(e.sso ? 400 : 502).send(`Échec de la connexion ${c.label} (${e.status ?? "réseau"}) : réessayez depuis le portail.`);
     }
   });
   return r;

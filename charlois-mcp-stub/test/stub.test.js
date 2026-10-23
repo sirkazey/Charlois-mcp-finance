@@ -182,3 +182,41 @@ test("Mire du bouchon : redirect_uri doit être une URL http(s) ; les paramètre
   const page = await fetch(`${stubUrl}/services/oauth2/authorize?client_id=${encodeURIComponent("<img src=x onerror=1>")}&redirect_uri=${encodeURIComponent("http://localhost:8080/auth/salesforce/callback")}`).then((x) => x.text());
   assert.ok(!page.includes("<img src=x"), "client_id échappé"); assert.ok(page.includes("&lt;img src=x"));
 });
+
+test("SSO Entra simulé (SSO_MODE=mock) : Marie s'identifie sur la mire, sa clé est liée, SharePoint se connecte sans aucun clic (prompt=none) ; Paul a sa propre clé", async () => {
+  const h = await startHub({ upstreamUrl: stubUrl, env: { APP_ENV: "preprod", SSO_MODE: "mock", MS_LOGIN_URL: `${stubUrl}/ms`, GRAPH_URL: `${stubUrl}/v1.0`, SP_SITE: "charlois.sharepoint.com,site-finance", CLEVOA_URL: `${stubUrl}/api/v1/telemetry`, CLEVOA_KEY: "cle-charlois-dev" } });
+  try {
+    assert.equal((await fetch(`${h.url}/api/me`).then((x) => x.json())).key, null, "anonyme : aucune clé");
+    const login = async (user) => {
+      const r = await fetch(`${h.url}/auth/sso`, noFollow);
+      const cookie = r.headers.get("set-cookie").split(";")[0];
+      const mire = await fetch(r.headers.get("location")).then((x) => x.text());
+      assert.match(mire, /Microsoft Entra ID — connexion simulée/);
+      const link = [...mire.matchAll(/href="(\/_stub\/approve\?[^"]+)"/g)].map((m) => m[1].replace(/&amp;/g, "&")).find((l) => l.includes(encodeURIComponent(user)));
+      const back = await fetch(`${stubUrl}${link}`, noFollow);
+      const cb = await fetch(back.headers.get("location"), { headers: { cookie }, ...noFollow });
+      assert.equal(cb.status, 302, await cb.text());
+      return { cookie: cb.headers.get("set-cookie").split(";")[0], next: cb.headers.get("location") };
+    };
+    const m = await login("marie.dupont@charlois.com");
+    assert.equal(m.next, "/auth/sharepoint?silent=1");
+    // Connexion SharePoint sans interaction : hub → mire Entra (prompt=none, login_hint) → code → callback, aucune page affichée
+    const silent = await fetch(`${h.url}${m.next}`, { headers: { cookie: m.cookie }, ...noFollow });
+    const atStub = await fetch(silent.headers.get("location"), noFollow);
+    assert.equal(atStub.status, 302, "la mire ne s'affiche pas, elle répond un code");
+    const cb = await fetch(atStub.headers.get("location"), { headers: { cookie: m.cookie }, ...noFollow });
+    assert.equal(cb.status, 302); assert.equal(cb.headers.get("location"), "/");
+    const me = await fetch(`${h.url}/api/me`, { headers: { cookie: m.cookie } }).then((x) => x.json());
+    assert.equal(me.email, "marie.dupont@charlois.com"); assert.equal(me.sso, "mock");
+    assert.equal(me.systems.find((s) => s.id === "sharepoint").connected, true);
+    const d = await fetch(`${h.url}/api/test/sharepoint`, { headers: { cookie: m.cookie } }).then((x) => x.json());
+    assert.equal(d.ok, true, JSON.stringify(d)); assert.match(d.message, /Marie Dupont/);
+    // prompt=none avec un login_hint inconnu : login_required, comme Entra sans session
+    const unknown = await fetch(`${stubUrl}/ms/charlois-stub/oauth2/v2.0/authorize?client_id=x&redirect_uri=${encodeURIComponent(`${h.url}/auth/sharepoint/callback`)}&prompt=none&login_hint=inconnu@charlois.com&state=s`, noFollow);
+    assert.match(unknown.headers.get("location"), /error=login_required/);
+    const p = await login("paul.martin@charlois.com");
+    assert.notEqual(p.cookie, m.cookie);
+    const pme = await fetch(`${h.url}/api/me`, { headers: { cookie: p.cookie } }).then((x) => x.json());
+    assert.equal(pme.email, "paul.martin@charlois.com"); assert.equal(pme.systems.find((s) => s.id === "sharepoint").connected, false);
+  } finally { await h.stop(); }
+});

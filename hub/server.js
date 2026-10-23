@@ -5,7 +5,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { store } from "./store.js";
-import { oauthRouter, withToken, hasCredential, PUBLIC_URL } from "./oauth.js";
+import { oauthRouter, withToken, hasCredential, keyCookie, PUBLIC_URL } from "./oauth.js";
+import * as sso from "./sso.js";
 import { cachedSchema } from "./cache.js";
 import * as salesforce from "./connectors/salesforce.js";
 import * as sagex3 from "./connectors/sagex3.js";
@@ -23,7 +24,7 @@ if (IS_PROD && !/^https:|^http:\/\/(localhost|127\.0\.0\.1)(:|$)/.test(PUBLIC_UR
 const CONNECTORS = [salesforce, sagex3, sharepoint, dropbox, myreport].filter((c) => !(IS_PROD && c.mock));
 const byId = Object.fromEntries(CONNECTORS.map((c) => [c.id, c]));
 // Variables visibles dans le portail : toutes celles des connecteurs et du hub présentes dans l'environnement (jamais la valeur des secrets).
-const ENV = Object.keys(process.env).filter((n) => /^(PUBLIC_URL|APP_ENV|LOG_LEVEL|TRUST_PROXY|ENCRYPTION_KEY|SF_|SAGE_|MS_|SP_|GRAPH_URL|DROPBOX_|MYREPORT_|CLEVOA_)/.test(n)).sort();
+const ENV = Object.keys(process.env).filter((n) => /^(PUBLIC_URL|APP_ENV|LOG_LEVEL|TRUST_PROXY|ENCRYPTION_KEY|SSO_MODE|SF_|SAGE_|MS_|SP_|GRAPH_URL|DROPBOX_|MYREPORT_|CLEVOA_)/.test(n)).sort();
 const masked = (n) => (/SECRET|CLEVOA_KEY|ENCRYPTION_KEY/.test(n) ? "••••••••" : process.env[n]);
 
 // ---------- Limitation de débit (mémoire, par adresse IP) ----------
@@ -43,10 +44,12 @@ const limit = (rule, max) => (req, res, next) => hit(rule, req.ip, max) ? res.st
 // (jamais dans l'URL : les journaux des reverse-proxys conserveraient la clé en clair).
 const cookieKey = (req) => req.headers.cookie?.match(/(?:^|;\s*)mcp_key=([^;]+)/)?.[1];
 const mcpKey = (req) => req.headers.authorization?.match(/^Bearer\s+(\S+)$/i)?.[1];
+// Avec le SSO, une clé n'est utilisable qu'une fois liée à une identité Entra (une clé temporaire de navigateur ne l'est pas).
+const user = (key) => { const u = store.get(key); return u && (!sso.MODE || u.sso) ? u : null; };
 // CLEVOA_KEY est une clé de licence (pas un secret utilisateur) mais reste masquée comme les autres clés.
 const requireKey = (read) => (req, res, next) => {
   req.key = read(req);
-  if (store.get(req.key)) return next(); // une clé valide n'est jamais freinée par les échecs d'autres clients de la même IP
+  if (user(req.key)) return next(); // une clé valide n'est jamais freinée par les échecs d'autres clients de la même IP
   if (hit("auth-fail", req.ip, 20)) return res.status(429).json({ error: "Trop d'échecs d'authentification, réessayez dans une minute." });
   res.status(401).json({ error: "Clé MCP inconnue ou absente : utilisez l'en-tête Authorization: Bearer <clé> obtenue sur le portail." });
 };
@@ -112,19 +115,22 @@ const SECURITY_HEADERS = {
 app.use((_req, res, next) => { res.set(SECURITY_HEADERS); next(); });
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(new URL("./public", import.meta.url).pathname));
-app.use(oauthRouter(CONNECTORS, cookieKey));
+app.use("/auth", limit("oauth", 60)); // départs et retours OAuth bornés par IP (le départ SSO est ouvert aux anonymes : clés temporaires, états en attente)
+app.use(oauthRouter(sso.MODE ? [...CONNECTORS, sso.connector] : CONNECTORS, cookieKey));
 
-// Portail : état de l'utilisateur (crée la clé au premier passage) + configuration masquée.
+// Portail : état de l'utilisateur (crée la clé au premier passage, sauf SSO : identité requise, le portail redirige vers /auth/sso) + configuration masquée.
 app.get("/api/me", limit("me", 60), (req, res) => {
   let key = cookieKey(req);
-  if (!store.get(key)) {
+  if (!user(key)) {
+    if (sso.MODE) return res.json({ version: VERSION, env: APP_ENV, sso: sso.MODE, email: null, key: null, systems: [] });
     key = store.create();
-    res.setHeader("Set-Cookie", `mcp_key=${key}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000${PUBLIC_URL.startsWith("https") ? "; Secure" : ""}`);
+    res.setHeader("Set-Cookie", keyCookie(key));
   }
   const u = store.get(key);
   res.json({
     version: VERSION,
     env: APP_ENV,
+    sso: sso.MODE || undefined,
     email: u.email || null,
     key,
     mcpUrl: `${PUBLIC_URL}/mcp`,
@@ -138,6 +144,13 @@ app.get("/api/me", limit("me", 60), (req, res) => {
       ? ENV.map((n) => ({ name: n, value: process.env[n] ? masked(n) : null })) : undefined,
   });
 });
+// Nouvelle clé pour le même collaborateur : l'ancienne cesse de fonctionner immédiatement (révocation d'un client MCP compromis).
+app.post("/api/key/rotate", limit("portal", 30), portalUser, (req, res) => {
+  const fresh = store.rotate(req.key);
+  res.setHeader("Set-Cookie", keyCookie(fresh)); res.json({ key: fresh });
+});
+// Fin de session du portail (cookie effacé) : la clé reste valide pour les clients MCP ; la session Microsoft 365, elle, n'est pas fermée.
+app.post("/api/logout", portalUser, (_req, res) => { res.setHeader("Set-Cookie", "mcp_key=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"); res.sendStatus(204); });
 app.post("/api/disconnect/:system", limit("portal", 30), portalUser, (req, res) => {
   if (!byId[req.params.system]) return res.sendStatus(404);
   store.clearTokens(req.key, req.params.system); res.sendStatus(204);
@@ -189,6 +202,6 @@ app.all("/mcp", (_req, res) => res.status(405).json({ error: "Utilisez POST (mod
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
 app.listen(PORT, () => {
-  console.log(`Hub MCP v${VERSION} · ENV: ${APP_ENV} · ${PUBLIC_URL} (port ${PORT})${sagex3.mock ? " · Sage X3 simulé" : ""}${myreport.mock ? " · MyReport simulé" : ""}${process.env.LOG_LEVEL === "debug" ? " · logs détaillés" : ""}`);
+  console.log(`Hub MCP v${VERSION} · ENV: ${APP_ENV} · ${PUBLIC_URL} (port ${PORT})${sagex3.mock ? " · Sage X3 simulé" : ""}${myreport.mock ? " · MyReport simulé" : ""}${sso.MODE ? ` · SSO ${sso.MODE}` : ""}${process.env.LOG_LEVEL === "debug" ? " · logs détaillés" : ""}`);
   telemetry.start(CONNECTORS, store.seats);
 });
