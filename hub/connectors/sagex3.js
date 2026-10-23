@@ -136,7 +136,7 @@ export const tools = [
   },
   {
     name: "sagex3_describe",
-    description: "Champs d'une représentation Sage X3 : colonnes_liste = colonnes renvoyées par sagex3_query (filtrer sur X, jamais sur X_REF qui n'est qu'un libellé) ; champs_fiche = fiche complète renvoyée par sagex3_get (blocs répétés dépliés en BLOC.CHAMP).",
+    description: "Champs d'une représentation Sage X3. colonnes_liste = les seules valeurs renvoyées par sagex3_query. champs_fiche = fiche complète renvoyée par sagex3_get (blocs répétés dépliés en BLOC.CHAMP). Le where de sagex3_query accepte tout champ d'en-tête de champs_fiche (vérifié : (AMTATI gt 400) filtre PINVOICE), mais la valeur filtrée n'est renvoyée que si elle est colonne de liste : sinon lire chaque fiche avec sagex3_get. Filtrer sur X, jamais sur X_REF (simple libellé).",
     input: { representation: name.describe("Ex. SINVOICE, BPCUSTOMER") },
     run: async (tok, { representation }, schema) => ({
       representation,
@@ -149,7 +149,7 @@ export const tools = [
     description: "Interroge une représentation Sage X3 en lecture seule avec les droits de l'utilisateur. Filtre SData, ex : (ACCDAT ge '2025-01-01') and (BPR eq 'C0001')",
     input: {
       representation: name.describe("Ex. SINVOICE"),
-      where: z.string().optional().describe("Filtre SData : (CHAMP op 'valeur') and (...)  — op : eq, ne, gt, ge, lt, le, like"),
+      where: z.string().optional().describe("Filtre SData sur tout champ d'en-tête (voir sagex3_describe) : (CHAMP op 'valeur') and (...)  — op : eq, ne, gt, ge, lt, le, like ; dates en 'AAAA-MM-JJ'"),
       orderBy: z.string().optional().describe("Ex. 'ACCDAT desc'"),
       count: z.number().int().min(1).max(500).default(100).describe("Nombre max de lignes"),
     },
