@@ -89,7 +89,7 @@ export function oauthRouter(connectors, getKey) {
       store.setTokens(p.key, c.id, tokens, email);
       res.redirect("/");
     } catch (e) {
-      console.error(`[oauth] ${c.id} échec ${e.status ?? "réseau"} ${e.code ?? ""}`); // statut et code court seulement : jamais le corps du fournisseur ni la configuration
+      console.error(`[oauth] ${c.id} : échec de l'échange de jeton`); // rien de l'erreur n'est journalisé (le fournisseur peut y glisser des données) ; le statut est rendu au navigateur
       res.status(502).send(`Échec de la connexion ${c.label} (${e.status ?? "réseau"}) : réessayez depuis le portail.`);
     }
   });
