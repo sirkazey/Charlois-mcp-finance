@@ -445,3 +445,14 @@ test("Sage X3 : un délai dépassé (504) sur une représentation est bloquant, 
   const again = await fetch(`${hub.url}/api/test/sagex3`, { headers: { cookie: cookie2 } }).then((x) => x.json());
   assert.equal(again.ok, true, JSON.stringify(again)); assert.ok(!/en erreur côté Sage/.test(again.message), "le 504 n'a pas été retenu comme représentation en erreur");
 });
+
+test("En-têtes de sécurité HTTP sur le portail et l'API : CSP, nosniff, anti-clickjacking, pas de X-Powered-By", async () => {
+  for (const path of ["/", "/api/me", "/health"]) {
+    const r = await fetch(`${hub.url}${path}`);
+    assert.equal(r.headers.get("x-powered-by"), null, `${path} : X-Powered-By absent`);
+    assert.equal(r.headers.get("x-content-type-options"), "nosniff", path);
+    assert.equal(r.headers.get("x-frame-options"), "DENY", path);
+    assert.match(r.headers.get("content-security-policy"), /frame-ancestors 'none'/, path);
+    assert.equal(r.headers.get("referrer-policy"), "no-referrer", path);
+  }
+});

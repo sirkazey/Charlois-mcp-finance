@@ -129,7 +129,7 @@ comme un aléa d'exécution locale, à surveiller dans le CI (QA-02).
 ### Reste ouvert, décisions à prendre
 
 * Confirmer dans Security → Code scanning que l'alerte CodeQL de la PR est close après le dernier commit (non lisible depuis cette session).
-* Lancer une fois le workflow ZAP manuel et trier ses avertissements (en-têtes de sécurité HTTP probables : CSP, HSTS).
+* ZAP passif exécuté sur `main` (démo isolée) : 0 échec, 57 contrôles passés, 10 avertissements, tous liés aux en-têtes de sécurité HTTP absents et à l'annonce `X-Powered-By` → en-têtes ajoutés avec test (PR suivante). Les rapports n'avaient pas été produits (dossier non inscriptible par le conteneur ZAP) : corrigé dans le workflow.
 * OPS-03, dépôt public : historique contrôlé par Gitleaks, aucun secret publié ; décision à prendre sur la visibilité (privé, ou publication assumée).
 * Non traités ce soir, car ils demandent une décision ou un test humain : SEC-03 (périmètre d'accès au portail : reverse-proxy, VPN ou SSO), SEC-04 (comptes restreints), SEC-05 (exposition réseau du port 8080), QA-01, AI-01, SEC-09, SEC-10, QA-03, et le volet P2.
 * Les tests humains restent prioritaires sur tout scanner : compte restreint sur Sage X3 et Salesforce, révocation OAuth.
