@@ -4,6 +4,9 @@ Une section par version, trois lignes au plus par rubrique. La version est celle
 
 ## [Non publié]
 
+### Ajouté
+- SSO Microsoft Entra ID du portail (`SSO_MODE=entra`, OIDC code + PKCE via le routeur OAuth existant) : clé MCP liée à l'identité Entra, visiteur anonyme sans clé, SharePoint connecté sans interaction après le SSO (`prompt=none`) sinon parcours interactif ; `SSO_MODE=mock` sur la mire Entra du bouchon (Marie, Paul), interdit en production. Régénération de clé (`POST /api/key/rotate`) et déconnexion du portail. Guide § 5.
+
 ### Sécurité (revue indépendante, PR #1 et suite)
 - En-têtes de sécurité HTTP sur toutes les réponses (CSP, nosniff, anti-clickjacking, Referrer-Policy, Permissions-Policy, COOP/CORP), `X-Powered-By` retiré : les 10 avertissements du ZAP passif portaient sur ces en-têtes. Workflow ZAP : dossier de rapport inscriptible (les artefacts n'étaient pas produits).
 - Lambda Clevoa fermé par défaut (`CLEVOA_KEYS` vide → 503) ; redirections de téléchargement SharePoint limitées aux hôtes Microsoft en https ; réponses du routeur OAuth en texte brut ; outils Salesforce au nom d'écriture refusés avant transfert ; `POST /messages` exige la clé MCP et la session SSE doit lui appartenir ; AES-GCM avec longueur de tag explicite ; mire du bouchon validée et échappée.

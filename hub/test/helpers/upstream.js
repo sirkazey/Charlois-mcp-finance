@@ -89,10 +89,16 @@ export async function startUpstream() {
       return json(res, 200, { status: "active" });
     }
     // ---- OAuth2 Microsoft (Entra) ----
-    if (path === "/ms/common/oauth2/v2.0/token" && req.method === "POST") {
+    // Le code vaut « <prénom> » ou « <prénom>:<défaut> » ; l'id_token porte l'identité du prénom, et le défaut (aud, tid, iss, exp) une revendication falsifiée.
+    const ms = path.match(/^\/ms\/([^/]+)\/oauth2\/v2\.0\/token$/);
+    if (ms && req.method === "POST") {
       const p = new URLSearchParams(rawBody);
       if (p.get("grant_type") === "refresh_token") return json(res, 200, { access_token: "ms-token-refreshed", token_type: "Bearer" });
-      return json(res, 200, { access_token: `ms-token-${p.get("code")}`, refresh_token: `ms-refresh-${p.get("code")}`, token_type: "Bearer" });
+      const code = p.get("code"), [who, flaw] = code.split(":"), now = Math.floor(Date.now() / 1000);
+      const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+      const claims = { iss: flaw === "iss" ? `http://evil.example.invalid/${ms[1]}/v2.0` : `${base}/ms/${ms[1]}/v2.0`, aud: flaw === "aud" ? "other-app" : p.get("client_id"), tid: flaw === "tid" ? "other-tenant" : ms[1],
+        oid: `oid-${who}`, preferred_username: `${who}@charlois.example`, name: who[0].toUpperCase() + who.slice(1), iat: now, exp: flaw === "exp" ? now - 60 : now + 600 };
+      return json(res, 200, { access_token: `ms-token-${code}`, refresh_token: `ms-refresh-${code}`, token_type: "Bearer", id_token: [b64({ alg: "none" }), b64(claims), ""].join(".") });
     }
     // ---- OAuth2 Dropbox ----
     if (path === "/oauth2/token" && req.method === "POST") {
