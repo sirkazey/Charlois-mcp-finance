@@ -88,16 +88,19 @@ const prototype = (tok, rep) => get(tok, `$prototypes('${rep}.$query')`).then(pa
 export async function schema(tok) {
   const reps = mock ? Object.keys(MOCK) : REPRESENTATIONS;
   const fields = {};
-  for (const rep of reps) fields[rep] = await prototype(tok, rep).catch(() => undefined); // échec = non caché, réessayé en direct
-  return { representations: reps, fields };
+  // Représentation inconnue (404) ou interdite à l'utilisateur (403) : absente de la structure, sans bloquer les autres.
+  // Toute autre erreur (401 clé révoquée, réseau) remonte : rien n'est mis en cache.
+  for (const rep of reps) fields[rep] = await prototype(tok, rep).catch((e) => { if (e.status === 404 || e.status === 403) return undefined; throw e; });
+  return { representations: reps.filter((r) => fields[r]), missing: reps.filter((r) => !fields[r]), fields };
 }
 
 /** Test de connectivité (portail) : liste des tables via la structure. */
 export async function ping(tok, schema) {
-  if (!mock) await get(tok, `$prototypes('${REPRESENTATIONS[0]}.$query')`); // appel réel : une clé révoquée donne un voyant rouge
-  const { representations } = await schema();
+  const { representations, missing } = await schema(); // structure relue en direct : une clé révoquée (401) donne un voyant rouge
+  if (!representations.length) throw new Error(`Sage X3 : aucune des représentations configurées (${missing.join(", ")}) n'existe sur le dossier ${FOLDER} ou n'est accessible à cet utilisateur. Ajustez SAGE_REPRESENTATIONS.`);
   const how = tok.apiKey ? ` par clé d'API (${apiKeyMode})` : " par OAuth";
-  return { message: mock ? `Mode simulé actif · ${representations.length} tables en cache mémoire` : `Connecté à ${BASE} (dossier ${FOLDER})${how}`, tables: representations };
+  const absent = missing.length ? ` · absentes ou interdites sur ce dossier : ${missing.join(", ")}` : "";
+  return { message: mock ? `Mode simulé actif · ${representations.length} tables en cache mémoire` : `Connecté à ${BASE} (dossier ${FOLDER})${how} · ${representations.length} représentations${absent}`, tables: representations };
 }
 
 /** Retire les métadonnées Syracuse ($uuid, $etag, $url…) pour alléger la réponse. */
