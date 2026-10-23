@@ -1,6 +1,6 @@
 # Charlois AI Gateway · MCP Charlois
 
-La passerelle IA des outils du Groupe Charlois : un hub MCP **ultra-léger et en lecture seule** par lequel les assistants
+Passerelle IA des outils du Groupe Charlois : un hub MCP **ultra-léger et en lecture seule** par lequel les assistants
 IA (Claude Code, Claude Desktop, ChatGPT, Copilot) interrogent le CRM (Salesforce), l'ERP (Sage X3 24R1), les documents
 (SharePoint / OneDrive, Dropbox) et le reporting (MyReport) **avec les droits de chaque collaborateur** : le hub
 transmet son jeton personnel, il n'a aucun compte technique. Le portail web « Charlois AI Gateway » sert de guichet
