@@ -3,6 +3,7 @@
 // Salesforce applique le profil, les règles de partage et la sécurité au niveau des champs de ce collaborateur.
 // Verrou : SF_MCP_URL doit désigner un serveur de lecture ; un serveur d'écriture (sobject-all, mutations, deletes…) est refusé.
 import { z } from "zod";
+import { APP_ENV } from "../version.js";
 import { withMcp, callRemote } from "../mcpclient.js";
 
 const LOGIN = (process.env.SF_LOGIN_URL || "https://login.salesforce.com").replace(/\/$/, ""); // My Domain de l'org (serveur d'autorisation)
@@ -46,7 +47,7 @@ export const tools = [
     name: "salesforce_tools",
     description: "Outils du serveur MCP Salesforce SObject Reads (lecture des comptes, contacts, opportunités, objets personnalisés…) avec leur schéma d'arguments. À appeler avant salesforce_call.",
     input: {},
-    run: async (_tok, _a, schema) => (await schema()).tools,
+    run: async (_tok, _a, schema) => ({ instance: LOGIN, serveur_mcp: MCP_URL, environnement_hub: APP_ENV, outils: (await schema()).tools }), // instance (prod ou sandbox) visible du modèle
   },
   {
     name: "salesforce_call",

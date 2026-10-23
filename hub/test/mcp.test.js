@@ -92,6 +92,8 @@ test("SSE : sagex3_query et sagex3_get transmettent le Bearer Sage et les param�
 
     const one = text(await c.callTool({ name: "sagex3_get", arguments: { representation: "SINVOICE", key: "FAC-2025-000123" } }));
     assert.deepEqual(one, { NUM: "FAC-2025-000123", REP: "SINVOICE" });
+    const part = text(await c.callTool({ name: "sagex3_get", arguments: { representation: "SINVOICE", key: "FAC-2025-000123", champs: ["NUM", "ABSENT"] } }));
+    assert.deepEqual(part, { NUM: "FAC-2025-000123" }, "projection sur les champs demandés");
     const g = up.requests("SINVOICE('FAC-2025-000123')")[0];
     assert.ok(g, "le mock doit recevoir SINVOICE('FAC-2025-000123')");
     assert.equal(g.query.representation, "SINVOICE.$details");
@@ -157,15 +159,18 @@ test("Cache : la structure est chargée au premier appel avec le jeton de l'util
   up.reset();
   const c = await sseClient();
   try {
-    const tools = text(await c.callTool({ name: "salesforce_tools", arguments: {} }));
+    const sfInfo = text(await c.callTool({ name: "salesforce_tools", arguments: {} }));
+    assert.equal(sfInfo.instance, up.url, "l'instance Salesforce interrogée est visible du modèle");
+    const tools = sfInfo.outils;
     assert.deepEqual(tools.map((t) => t.name), ["list_sobjects", "describe_sobject", "query_records"]);
     assert.ok(sfCalls("tools/list").length === 1 && sfCalls().every((r) => r.headers.authorization === "Bearer sf-token-alice"));
     up.reset();
-    assert.equal(text(await c.callTool({ name: "salesforce_tools", arguments: {} })).length, 3);
+    assert.equal(text(await c.callTool({ name: "salesforce_tools", arguments: {} })).outils.length, 3);
     assert.equal(sfCalls().length, 0, "liste d'outils servie depuis le cache");
 
     const reps = text(await c.callTool({ name: "sagex3_representations", arguments: {} }));
-    assert.deepEqual(reps, ["BPCUSTOMER", "SINVOICE"]);
+    assert.deepEqual(reps.representations, ["BPCUSTOMER", "SINVOICE"]);
+    assert.equal(reps.dossier, "PROD"); assert.equal(reps.instance, up.url, "l'instance interrogée est visible du modèle");
     assert.ok(up.requests("$prototypes").every((r) => r.headers.authorization === "Bearer sage-token-alice"));
     up.reset();
     const sinv = text(await c.callTool({ name: "sagex3_describe", arguments: { representation: "SINVOICE" } }));
@@ -193,7 +198,7 @@ test("Cache : par utilisateur — Bob ne réutilise pas la structure d'Alice, il
   const c = await sseClient(KEY_NO_REFRESH);
   try {
     const reps = text(await c.callTool({ name: "sagex3_representations", arguments: {} }));
-    assert.deepEqual(reps, ["BPCUSTOMER", "SINVOICE"]);
+    assert.deepEqual(reps.representations, ["BPCUSTOMER", "SINVOICE"]);
     const calls = up.requests("$prototypes");
     assert.ok(calls.length > 0 && calls.every((r) => r.headers.authorization === "Bearer sage-token-bob"));
     const sf = await c.callTool({ name: "salesforce_tools", arguments: {} });

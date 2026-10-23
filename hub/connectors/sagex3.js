@@ -6,6 +6,7 @@
 // CLÉ D'API : alternative à OAuth, saisie par l'utilisateur dans le portail (users.json : sagex3.apiKey, sagex3.login).
 // Envoyée selon SAGE_APIKEY_MODE : "bearer" (Authorization: Bearer <clé>) ou "basic" (Authorization: Basic login:clé).
 import { z } from "zod";
+import { APP_ENV } from "../version.js";
 import { unreachable } from "../mcpclient.js";
 
 const BASE = (process.env.SAGE_URL || "").replace(/\/$/, "");
@@ -130,9 +131,12 @@ export const strip = (o) => Object.fromEntries(Object.entries(o).filter(([k]) =>
 export const tools = [
   {
     name: "sagex3_representations",
-    description: "Liste les représentations (tables/vues) Sage X3 disponibles.",
+    description: "Contexte et représentations (tables/vues) Sage X3 disponibles : instance et dossier interrogés (prod ou test), représentations utilisables, absentes ou en erreur.",
     input: {},
-    run: async (_tok, _args, schema) => (await schema()).representations,
+    run: async (_tok, _args, schema) => {
+      const { representations, missing, denied, broken } = await schema();
+      return { instance: mock ? "simulateur intégré (aucune donnée réelle)" : BASE, dossier: mock ? null : FOLDER, environnement_hub: APP_ENV, representations, absentes: missing, interdites: denied, en_erreur: broken };
+    },
   },
   {
     name: "sagex3_describe",
@@ -162,9 +166,11 @@ export const tools = [
   },
   {
     name: "sagex3_get",
-    description: "Détail d'un enregistrement Sage X3 par clé, ex. representation=SINVOICE key='FAC-2025-000123'.",
-    input: { representation: name, key: z.string() },
-    run: async (tok, { representation, key }) =>
-      strip(await get(tok, `${representation}('${encodeURIComponent(key.replace(/'/g, "''"))}')`, { representation: `${representation}.$details` })),
+    description: "Détail d'un enregistrement Sage X3 par clé, ex. representation=PINVOICE key='TO2192607FAF0006'. Une fiche complète pèse 60 à 130 000 caractères (blocs de lignes) : indiquer champs pour ne garder que l'utile, ex. ['NUM','AMTATI','TOTLINAMT','PIHPID'] (un nom de bloc garde tout le bloc).",
+    input: { representation: name, key: z.string(), champs: z.array(z.string().regex(/^\w+$/)).optional().describe("Champs ou blocs à conserver (voir champs_fiche de sagex3_describe) ; vide = fiche entière") },
+    run: async (tok, { representation, key, champs }) => {
+      const row = strip(await get(tok, `${representation}('${encodeURIComponent(key.replace(/'/g, "''"))}')`, { representation: `${representation}.$details` }));
+      return champs?.length ? Object.fromEntries(champs.filter((k) => k in row).map((k) => [k, row[k]])) : row;
+    },
   },
 ];
