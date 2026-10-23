@@ -121,6 +121,10 @@ ajouté (hub en pré-prod et production, bouchon) pour que toute régression fon
 | QA-02, QA-04 | Tests et scanners | — | Job CI de tests, scanners exécutés et triés (tableau ci-dessus) ; connecteurs Sage X3 et Salesforce inchangés dans leur logique métier |
 
 Tests : 63 hub (pré-prod et production), 9 bouchon, tous verts ; Semgrep local 1.181.1 : 0 signalement non justifié.
+CI vert sur le dernier commit de la PR (six contrôles). Un échec unique et non reproduit de deux tests du hub (révocation
+du refresh token, ligne Source) a été observé une fois en local lors de la vérification de la fusion dans `dev`, puis
+dix passages consécutifs (six isolés, quatre complets avec les cinq fichiers en parallèle) sont restés verts : traité
+comme un aléa d'exécution locale, à surveiller dans le CI (QA-02).
 
 ### Reste ouvert, décisions à prendre
 
