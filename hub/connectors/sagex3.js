@@ -60,7 +60,8 @@ function mockGet(path) {
 async function get(tok, path, params = {}) {
   if (mock) return mockGet(path);
   const u = new URL(`${BASE}/api1/x3/erp/${FOLDER}/${path}`);
-  u.search = new URLSearchParams(params);
+  // Pas URLSearchParams : il code les espaces en « + », que Syracuse refuse dans where/orderBy (« expected beginning of term »).
+  u.search = Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
   const r = await fetch(u, { headers: { Authorization: authHeader(tok), Accept: "application/json" }, signal: AbortSignal.timeout(TIMEOUT_MS) })
     .catch((e) => { throw e.name === "TimeoutError" ? Object.assign(new Error(`Sage X3 : pas de réponse en ${TIMEOUT_MS / 1000} s (${u.pathname})`), { status: 504 }) : unreachable("Sage X3", u, e); });
   if (!r.ok) throw Object.assign(new Error(`Sage X3 ${r.status}: ${await r.text()}`), { status: r.status });

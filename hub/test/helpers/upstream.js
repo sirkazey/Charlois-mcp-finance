@@ -68,7 +68,7 @@ export async function startUpstream() {
     const u = new URL(req.url, "http://mock");
     const path = decodeURIComponent(u.pathname);
     const query = Object.fromEntries(u.searchParams);
-    state.requests.push({ method: req.method, path, query, headers: req.headers, body: rawBody });
+    state.requests.push({ method: req.method, path, query, rawSearch: u.search, headers: req.headers, body: rawBody });
 
     const fi = state.failNext.findIndex((f) => path.includes(f.pathIncludes));
     if (fi !== -1) {
