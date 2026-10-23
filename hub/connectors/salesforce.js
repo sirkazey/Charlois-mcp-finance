@@ -32,7 +32,7 @@ export const identity = async (tok) => {
   if (r?.ok) return (await r.json()).email ?? null; // nécessite l'étendue openid
   // Sans openid : l'outil getUserInfo du serveur SObject Reads (présent sur la sandbox) ; l'email est extrait de sa réponse.
   // Champ "email" en priorité : le username d'une sandbox porte un suffixe (.preprod) et n'est pas une adresse valide.
-  return mcp(tok, async (c) => { const j = JSON.stringify(await callRemote(c, "getUserInfo", {})); return j.match(/"email"\s*:\s*"([^"]+@[^"]+)"/i)?.[1] ?? j.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/)?.[0] ?? null; }).catch(() => null);
+  return mcp(tok, async (c) => { const raw = await callRemote(c, "getUserInfo", {}), j = typeof raw === "string" ? raw : JSON.stringify(raw); return j.match(/"email"\s*:\s*"([^"]+@[^"]+)"/i)?.[1] ?? j.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/)?.[0] ?? null; }).catch(() => null);
 };
 
 /** Outils du serveur SObject Reads (structure en cache par utilisateur, expirée chaque nuit). */
