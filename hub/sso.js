@@ -48,7 +48,7 @@ export const connector = {
   /** Fin du flux : lie l'identité Entra à une clé MCP et renvoie la clé à poser dans le cookie.
    *  Une identité déjà connue retrouve SA clé, depuis n'importe quel navigateur ; une identité nouvelle s'approprie la clé
    *  du navigateur si elle est anonyme, sinon (poste partagé, navigateur déjà lié à quelqu'un d'autre) reçoit une clé neuve. */
-  login(browserKey, tokens) {
+  bindIdentity(browserKey, tokens) {
     const id = claims(tokens.id_token), current = store.get(browserKey);
     let key = store.findSso(id.sub, id.tid);
     if (!key) key = current && !current.sso ? browserKey : store.create();

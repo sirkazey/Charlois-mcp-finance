@@ -115,7 +115,7 @@ const SECURITY_HEADERS = {
 app.use((_req, res, next) => { res.set(SECURITY_HEADERS); next(); });
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(new URL("./public", import.meta.url).pathname));
-app.use("/auth/sso", limit("sso", 60)); // flux ouvert aux anonymes : borné par IP (clés temporaires et états en attente)
+app.use("/auth", limit("oauth", 60)); // départs et retours OAuth bornés par IP (le départ SSO est ouvert aux anonymes : clés temporaires, états en attente)
 app.use(oauthRouter(sso.MODE ? [...CONNECTORS, sso.connector] : CONNECTORS, cookieKey));
 
 // Portail : état de l'utilisateur (crée la clé au premier passage, sauf SSO : identité requise, le portail redirige vers /auth/sso) + configuration masquée.

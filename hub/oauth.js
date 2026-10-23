@@ -62,13 +62,13 @@ export function oauthRouter(connectors, getKey) {
   const byId = Object.fromEntries(connectors.map((c) => [c.id, c]));
   r.use((_req, res, next) => { res.type("text/plain"); next(); }); // toute erreur part en texte brut : un paramètre reflété (error_description) ne peut pas devenir du HTML
 
-  // Avec un SSO (connecteur `login`), les flux des systèmes exigent un navigateur déjà identifié ; sans SSO, une clé suffit.
+  // Avec un SSO (connecteur `bindIdentity`), les flux des systèmes exigent un navigateur déjà identifié ; sans SSO, une clé suffit.
   const identified = (u) => u && (!byId.sso || u.sso);
 
   r.get("/auth/:system", (req, res) => {
     const c = byId[req.params.system]; let key = getKey(req);
-    if (c?.login && !store.get(key)) { key = store.create(); res.setHeader("Set-Cookie", keyCookie(key)); } // SSO : clé temporaire, inutilisable tant que l'identité n'est pas liée
-    if (!c?.oauth || !store.get(key) || (!c.login && !identified(store.get(key)))) return res.status(400).send("Système inconnu ou session absente");
+    if (c?.bindIdentity && !store.get(key)) { key = store.create(); res.setHeader("Set-Cookie", keyCookie(key)); } // SSO : clé temporaire, inutilisable tant que l'identité n'est pas liée
+    if (!c?.oauth || !store.get(key) || (!c.bindIdentity && !identified(store.get(key)))) return res.status(400).send("Système inconnu ou session absente");
     if (!c.oauth.clientId) return res.status(500).send(`${c.label} : OAuth non configuré (variables d'environnement)`);
     for (const [s, p] of pending) if (p.exp < Date.now()) pending.delete(s); // purge des flux abandonnés
     const state = randomBytes(16).toString("hex"), verifier = randomBytes(32).toString("base64url"); // PKCE S256 sur tous les flux
@@ -94,7 +94,7 @@ export function oauthRouter(connectors, getKey) {
     }
     try {
       const tokens = await postToken(c.oauth, { grant_type: "authorization_code", code: req.query.code, redirect_uri: redirectUri(c.id), code_verifier: p.verifier });
-      if (c.login) { const key = await c.login(p.key, tokens); res.setHeader("Set-Cookie", keyCookie(key)); return res.redirect(c.next(key)); } // SSO : identité liée, jetons non conservés
+      if (c.bindIdentity) { const key = await c.bindIdentity(p.key, tokens); res.setHeader("Set-Cookie", keyCookie(key)); return res.redirect(c.next(key)); } // SSO : identité liée, jetons non conservés
       const email = c.identity ? await c.identity(tokens).catch(() => null) : null;
       store.setTokens(p.key, c.id, tokens, email);
       res.redirect("/");
