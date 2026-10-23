@@ -59,12 +59,12 @@ const call = (c, key, fn) => {
 };
 
 // ---------- Serveur MCP (un par connexion, lié à la clé de l'utilisateur) ----------
-/** Ligne de provenance jointe à chaque résultat : système, dossier ou instance, environnement du hub, horodatage, outil. */
-const provenance = (c, tool) => `Source : ${c.label} · ${c.source ? c.source() : c.label} · ${APP_ENV} · ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC · ${tool}`;
+/** Ligne de provenance jointe à chaque résultat : système, et dossier pour Sage X3. */
+const provenance = (c) => `Source : ${c.label}${c.source ? ` · ${c.source()}` : ""}`;
 function buildServer(key) {
   const server = new McpServer(
     { name: "charlois-finance", version: "1.0.0" },
-    { instructions: "Outils en LECTURE SEULE sur Salesforce, Sage X3, SharePoint, Dropbox et MyReport avec les droits de l'utilisateur connecté. Chaque résultat se termine par une ligne « Source : … » (système, dossier ou instance, environnement, horodatage, outil) : toujours la citer dans la réponse, pour que l'utilisateur sache d'où vient chaque donnée. Quand une question porte sur un client, un fournisseur, une commande ou une facture sans nommer le système, interroger Sage X3 ET Salesforce, puis dire ce que chacun renvoie. Salesforce : salesforce_tools puis salesforce_call (serveur MCP officiel SObject Reads). Sage X3 : sagex3_describe puis sagex3_query ; les montants sont dans la devise de l'ERP. Documents : sharepoint_search / sharepoint_read, dropbox_tools puis dropbox_call. Analyses MyReport : myreport_tools puis myreport_call." },
+    { instructions: "Outils en LECTURE SEULE sur Salesforce, Sage X3, SharePoint, Dropbox et MyReport avec les droits de l'utilisateur connecté. Chaque résultat se termine par une ligne « Source : … » (système, et dossier pour Sage X3) : toujours la citer dans la réponse, pour que l'utilisateur sache d'où vient chaque donnée. Quand une question porte sur un client, un fournisseur, une commande ou une facture sans nommer le système, interroger Sage X3 ET Salesforce, puis dire ce que chacun renvoie. Salesforce : salesforce_tools puis salesforce_call (serveur MCP officiel SObject Reads). Sage X3 : sagex3_describe puis sagex3_query ; les montants sont dans la devise de l'ERP. Documents : sharepoint_search / sharepoint_read, dropbox_tools puis dropbox_call. Analyses MyReport : myreport_tools puis myreport_call." },
   );
   for (const c of CONNECTORS) for (const t of c.tools) {
     server.registerTool(t.name, { description: t.description, inputSchema: t.input, annotations: { readOnlyHint: true } }, async (args) => {
@@ -74,7 +74,7 @@ function buildServer(key) {
         const out = await call(c, key, (tok, schema) => t.run(tok, args, schema));
         debug(`${t.name} ok ${Date.now() - t0} ms`); // jamais les arguments ni les résultats
         const body = out?.$content ? out.$content : [{ type: "text", text: typeof out === "string" ? out : JSON.stringify(out) }]; // $content : contenu MCP relayé tel quel (image, resource)
-        return { content: [...body, { type: "text", text: provenance(c, t.name) }] }; // traçabilité : d'où vient chaque donnée
+        return { content: [...body, { type: "text", text: provenance(c) }] }; // traçabilité : d'où vient chaque donnée
       } catch (e) {
         debug(`${t.name} erreur ${Date.now() - t0} ms : ${e.message.slice(0, 120)}`);
         return { isError: true, content: [{ type: "text", text: e.message }] };

@@ -366,17 +366,17 @@ test("Refresh token révoqué : message clair, jetons effacés, portail repassé
   } finally { await c.close(); }
 });
 
-test("Traçabilité : chaque résultat d'outil se termine par une ligne « Source : … » (système, instance, environnement, compte, outil, paramètres)", async () => {
+test("Traçabilité : chaque résultat d'outil se termine par une ligne « Source : … » (système, et dossier pour Sage X3)", async () => {
   const c = await sseClient();
   try {
     const r = await c.callTool({ name: "sagex3_query", arguments: { representation: "BPCUSTOMER", where: "(BPCNUM eq 'C0001')" } });
     assert.equal(r.content.length, 2);
     assert.doesNotThrow(() => JSON.parse(r.content[0].text), "les données restent en premier, inchangées");
     const src = r.content[1].text;
-    assert.match(src, /^Source : Sage X3 · dossier PROD · PRE-PROD · \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC · sagex3_query$/, src);
+    assert.equal(src, "Source : Sage X3 · dossier PROD");
     assert.ok(!/Bearer|sage-token|http|alice|C0001/.test(src), "ni jeton, ni adresse, ni compte, ni paramètres dans la source");
     const sf = await sfQuery(c, "SELECT Id FROM Account LIMIT 1"); // alice a pu être déconnectée de Salesforce par un test précédent
-    if (!sf.isError) assert.match(sf.content.at(-1).text, /^Source : Salesforce · org 127 · PRE-PROD · .* · salesforce_call$/);
+    if (!sf.isError) assert.equal(sf.content.at(-1).text, "Source : Salesforce");
     else assert.equal(sf.content.length, 1, "une erreur ne porte pas de ligne Source");
   } finally { await c.close(); }
 });

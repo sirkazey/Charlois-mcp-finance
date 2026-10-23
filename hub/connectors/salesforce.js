@@ -14,7 +14,6 @@ if (/sobject-all|mutations|deletes|write|crma|data-cloud/i.test(MCP_URL)) { cons
 
 export const id = "salesforce";
 export const label = "Salesforce";
-export const source = () => { const h = new URL(LOGIN).hostname; return /sandbox/.test(h) ? `sandbox ${h.split(".")[0]}` : `org ${h.split(".")[0]}`; }; // ex. sandbox charloisgroup--preprod
 export const maxPerMinute = Number(process.env.SF_MAX_PER_MIN ?? 0); // crédits Flex : plafond d'appels sortants par minute (0 = illimité)
 export const oauth = {
   authUrl: `${LOGIN}/services/oauth2/authorize`,
