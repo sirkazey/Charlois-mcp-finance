@@ -48,6 +48,8 @@ export const store = {
     if (email && !u.email) u.email = email; // la première identité OAuth fait foi
     save();
   },
+  /** Sièges : collaborateurs ayant connecté au moins un outil (jeton OAuth ou identifiant personnel), qu'ils s'en servent ou non. Un simple visiteur du portail ne compte pas. */
+  seats: () => Object.values(db.users).filter((u) => Object.values(u).some((v) => v && typeof v === "object" && (v.access_token || v.apiKey))).length,
   clearTokens(key, system) {
     const u = store.get(key); if (!u) return;
     delete u[system]; save();

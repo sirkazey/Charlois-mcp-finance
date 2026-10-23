@@ -74,11 +74,12 @@ Si `CLEVOA_KEY` est renseignée, le hub envoie au démarrage puis chaque jour à
 (défaut `https://clevoa.fr/api/v1/telemetry`) avec l'en-tête `X-Clevoa-Key`. Payload, et rien d'autre :
 
 ```json
-{ "version": "1.0.0", "env": "PRODUCTION", "date": "2026-10-22", "connectors": { "salesforce": true, "sagex3": false, "sharepoint": true, "dropbox": true, "myreport": false }, "requests": 137 }
+{ "version": "1.2.0", "env": "PRODUCTION", "date": "2026-10-22", "connectors": { "salesforce": true, "sagex3": false, "sharepoint": true, "dropbox": true, "myreport": false }, "requests": 137, "seats": 9 }
 ```
 
 `connectors` = vrai système configuré (un simulateur compte `false`) ; `requests` = nombre brut d'appels d'outils MCP
-depuis le dernier envoi, tous utilisateurs confondus. Aucun email, jeton, requête ni résultat ne quitte le hub ; le
+depuis le dernier envoi, tous utilisateurs confondus ; `seats` = nombre de collaborateurs ayant connecté au moins un outil
+sur le portail, qu'ils s'en servent ensuite ou non (base de la licence par siège). Aucun email, jeton, requête ni résultat ne quitte le hub ; le
 backend refuse d'ailleurs tout champ supplémentaire. Clé vide = télémétrie désactivée. Le portail affiche
 « Propulsé par Clevoa — Licence Active » en pied de page.
 

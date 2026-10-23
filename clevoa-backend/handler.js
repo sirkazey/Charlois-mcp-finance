@@ -7,21 +7,22 @@ const stats = []; // simulation d'enregistrement : mémoire de l'instance Lambda
 
 const reply = (statusCode, body) => ({ statusCode, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
-/** Valide le payload anonyme : version, connecteurs (booléens), compteur de requêtes. Refuse tout champ inattendu. */
+/** Valide le payload anonyme : version, connecteurs (booléens), compteur de requêtes, nombre de sièges. Refuse tout champ inattendu. */
 function validate(p) {
   if (!p || typeof p !== "object") return "payload JSON attendu";
-  const allowed = ["version", "env", "date", "connectors", "requests"];
+  const allowed = ["version", "env", "date", "connectors", "requests", "seats"];
   const extra = Object.keys(p).filter((k) => !allowed.includes(k));
   if (extra.length) return `champs non autorisés : ${extra.join(", ")}`; // garde-fou anonymat : rien d'autre ne doit arriver ici
   if (typeof p.version !== "string") return "version manquante";
   if (!p.connectors || typeof p.connectors !== "object" || Object.values(p.connectors).some((v) => typeof v !== "boolean")) return "connectors doit être un objet de booléens";
   if (!Number.isInteger(p.requests) || p.requests < 0) return "requests doit être un entier positif";
+  if (p.seats !== undefined && (!Number.isInteger(p.seats) || p.seats < 0)) return "seats doit être un entier positif"; // optionnel : hubs antérieurs à 1.2
   return null;
 }
 
 /** Enregistre les statistiques de volume (simulation : journal CloudWatch + tableau mémoire). */
 function record(key, p) {
-  const entry = { receivedAt: new Date().toISOString(), client: key.slice(0, 4) + "…", version: p.version, env: p.env, date: p.date, requests: p.requests, connectors: Object.values(p.connectors).filter(Boolean).length };
+  const entry = { receivedAt: new Date().toISOString(), client: key.slice(0, 4) + "…", version: p.version, env: p.env, date: p.date, requests: p.requests, seats: p.seats ?? null, connectors: Object.values(p.connectors).filter(Boolean).length };
   stats.push(entry);
   console.log("[clevoa] stat", JSON.stringify(entry));
   return entry;

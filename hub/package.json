@@ -1,6 +1,6 @@
 {
   "name": "charlois-mcp-hub",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "description": "Charlois AI Gateway : hub MCP en lecture seule vers Salesforce, Sage X3, SharePoint, Dropbox et MyReport, avec les droits de chaque collaborateur",

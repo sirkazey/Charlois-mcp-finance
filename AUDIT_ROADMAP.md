@@ -97,8 +97,9 @@ sur le fond, mais il omet l'intervention sur le volume et le nouveau bloc connec
 ### 1.3 Télémétrie Clevoa : est-elle vraiment anonyme ?
 
 **Ce qui part**, et rien d'autre : la version du hub, l'environnement (`PRODUCTION` ou `PRE-PROD`), la date du jour,
-cinq booléens (tel outil est configuré ou non) et un entier (nombre d'appels d'outils depuis le dernier envoi, tous
-collaborateurs confondus). Deux en-têtes : le type de contenu et `X-Clevoa-Key`.
+cinq booléens (tel outil est configuré ou non) et deux entiers (nombre d'appels d'outils depuis le dernier envoi, tous
+collaborateurs confondus ; nombre de sièges, c'est-à-dire de collaborateurs ayant connecté au moins un outil, base de la
+licence par siège depuis la 1.2.0). Deux en-têtes : le type de contenu et `X-Clevoa-Key`.
 
 **Ce qui ne peut pas partir** : email, jeton, question posée, résultat, identifiant de collaborateur, adresse IP de
 collaborateur. Le module de télémétrie ne lit aucune de ces informations ; le mode de logs détaillés n'enregistre

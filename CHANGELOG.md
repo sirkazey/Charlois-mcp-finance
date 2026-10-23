@@ -2,6 +2,11 @@
 
 Une section par version, trois lignes au plus par rubrique. La version est celle de `hub/version.js`, le tag Git `vX.Y.Z` et la Release GitHub portent le même numéro.
 
+## [1.2.0] – 2026-10-23
+
+### Ajouté
+- Télémétrie : `seats`, nombre de collaborateurs ayant connecté au moins un outil (un entier, aucune identité), base d'une licence par siège. Lambda Clevoa : champ optionnel validé (entier positif), les hubs antérieurs restent acceptés.
+
 ## [1.1.0] – 2026-10-23
 
 Première validation sur les systèmes réels : Sage X3 préproduction (4CAD Cloud, Syracuse 24R1) et Salesforce sandbox. Détail dans `JOURNAL_TESTS.md`, procédures dans `GUIDE_CONFIGURATION.md`, audit dans `AUDIT_ROADMAP.md` § 0.

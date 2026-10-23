@@ -10,7 +10,7 @@ aws configure                  # identifiants IAM avec droits CloudFormation / L
 cd clevoa-backend
 CLEVOA_KEYS=cle-charlois serverless deploy          # affiche l'URL https://xxxx.execute-api.eu-west-3.amazonaws.com
 curl -X POST "$URL/api/v1/telemetry" -H "X-Clevoa-Key: cle-charlois" -H "Content-Type: application/json" \
-  -d '{"version":"1.0.0","date":"2026-10-22","connectors":{"salesforce":true},"requests":12}'
+  -d '{"version":"1.2.0","date":"2026-10-22","connectors":{"salesforce":true},"requests":12,"seats":3}'
 serverless logs -f telemetry --tail
 serverless remove              # supprime toute la pile
 ```

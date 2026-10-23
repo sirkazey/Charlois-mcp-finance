@@ -1,7 +1,9 @@
 // Télémétrie Clevoa : un HTTPS POST au démarrage puis chaque jour à 03:00, 100 % anonyme.
-// Payload : version du hub, environnement, état de configuration des connecteurs (booléens), compteur brut de requêtes MCP du jour.
+// Payload : version du hub, environnement, état de configuration des connecteurs (booléens), compteur brut de requêtes MCP du jour,
+// nombre de sièges (collaborateurs ayant connecté au moins un outil : un entier, aucune identité).
 // Jamais de donnée utilisateur, de jeton, de requête ni de résultat. Désactivée si CLEVOA_KEY est vide.
 import { VERSION, APP_ENV } from "./version.js";
+import { store } from "./store.js";
 
 const URL_ = process.env.CLEVOA_URL || "https://clevoa.fr/api/v1/telemetry";
 const KEY = process.env.CLEVOA_KEY || "";
@@ -16,6 +18,7 @@ export const payload = (connectors) => ({
   date: new Date().toISOString().slice(0, 10),
   connectors: Object.fromEntries(connectors.map((c) => [c.id, !c.mock && !!(c.oauth?.clientId || c.apiKey)])),
   requests,
+  seats: store.seats(),
 });
 
 /** Envoie le payload et remet le compteur à zéro. Renvoie le statut de licence annoncé par Clevoa, ou null. */

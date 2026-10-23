@@ -22,14 +22,14 @@ test("Module : payload 100 % anonyme (version, date, booléens par connecteur, c
   try {
     tm.count(); tm.count(); tm.count();
     const env = process.env.APP_ENV === "production" ? "PRODUCTION" : "PRE-PROD";
-    assert.deepEqual(tm.payload(CONNECTORS), { version: VERSION, env, date: "2026-10-21", connectors: { salesforce: true, sagex3: false, sharepoint: false, dropbox: true, myreport: true }, requests: 3 });
+    assert.deepEqual(tm.payload(CONNECTORS), { version: VERSION, env, date: "2026-10-21", connectors: { salesforce: true, sagex3: false, sharepoint: false, dropbox: true, myreport: true }, requests: 3, seats: 0 });
 
     tm.start(CONNECTORS);
     await new Promise((r) => setImmediate(r));
     assert.equal(calls.length, 1, "envoi immédiat au démarrage");
     assert.equal(calls[0].url, "https://clevoa.test/api/v1/telemetry");
     assert.equal(calls[0].init.headers["X-Clevoa-Key"], "k-unit");
-    assert.deepEqual(Object.keys(calls[0].body).sort(), ["connectors", "date", "env", "requests", "version"], "aucun autre champ");
+    assert.deepEqual(Object.keys(calls[0].body).sort(), ["connectors", "date", "env", "requests", "seats", "version"], "aucun autre champ");
     assert.ok(!JSON.stringify(calls[0].body).match(/token|email|key|@/i), "rien d'identifiant");
     assert.equal(calls[0].body.requests, 3);
 
@@ -83,6 +83,8 @@ test("Lambda clevoa-backend : clé client exigée, payload validé, { status: 'a
   assert.equal((await lambda(ev("{pas du json"))).statusCode, 400);
   assert.equal((await lambda(ev({ ...ok, email: "x@y" }))).statusCode, 400, "tout champ hors payload anonyme est refusé");
   assert.equal((await lambda(ev({ ...ok, requests: -1 }))).statusCode, 400);
+  assert.equal((await lambda(ev({ ...ok, seats: 7 }))).statusCode, 200, "sièges : entier accepté");
+  assert.equal((await lambda(ev({ ...ok, seats: "7" }))).statusCode, 400, "sièges : jamais autre chose qu'un entier");
   assert.equal((await lambda(ev({ ...ok, connectors: { a: "oui" } }))).statusCode, 400);
   const b64 = await lambda({ headers: { "x-clevoa-key": "k" }, isBase64Encoded: true, body: Buffer.from(JSON.stringify(ok)).toString("base64") });
   assert.equal(b64.statusCode, 200, "corps encodé en base64 par API Gateway");
@@ -99,7 +101,8 @@ test("Hub → Clevoa : POST au démarrage avec la clé et un payload sans aucune
   assert.equal(t.length, 1, "un envoi au démarrage");
   assert.equal(t[0].headers["x-clevoa-key"], "clevoa-key-test");
   const body = JSON.parse(t[0].body);
-  assert.deepEqual(Object.keys(body).sort(), ["connectors", "date", "env", "requests", "version"]);
+  assert.deepEqual(Object.keys(body).sort(), ["connectors", "date", "env", "requests", "seats", "version"]);
+  assert.equal(body.seats, 1, "un siège : le collaborateur connecté du test ; aucune identité transmise");
   assert.match(body.version, /^\d+\.\d+\.\d+$/);
   assert.deepEqual(body.connectors, { salesforce: true, sagex3: true, sharepoint: true, dropbox: true, myreport: true });
   assert.equal(body.requests, 0);
