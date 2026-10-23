@@ -17,7 +17,9 @@ async function postToken(c, params) {
     body: new URLSearchParams({ client_id: c.clientId, ...(c.clientSecret ? { client_secret: c.clientSecret } : {}), ...params }), // secret optionnel (apps PKCE sans secret)
   });
   const body = await r.json().catch(() => ({}));
-  if (!r.ok) throw Object.assign(new Error(`OAuth ${c.tokenUrl}: ${r.status} ${JSON.stringify(body)}`), { status: r.status, code: /^[\w.-]{1,40}$/.test(body.error) ? body.error : "erreur" }); // code court du fournisseur (ex. invalid_grant), seule partie journalisée
+  // L'erreur ne porte ni l'URL du fournisseur, ni son corps brut, ni rien de la configuration : seulement le statut HTTP et un code court validé (ex. invalid_grant).
+  const code = /^[\w.-]{1,40}$/.test(body.error) ? body.error : "erreur";
+  if (!r.ok) throw Object.assign(new Error(`Échange de jeton OAuth refusé (${r.status} ${code})`), { status: r.status, code });
   return body;
 }
 const refreshing = new Map(); // "clé:système" -> promesse de refresh en cours, partagée entre appels concurrents
