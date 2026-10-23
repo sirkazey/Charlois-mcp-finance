@@ -146,7 +146,7 @@ export const tools = [
   },
   {
     name: "sagex3_query",
-    description: "Interroge une représentation Sage X3 en lecture seule avec les droits de l'utilisateur. Filtre SData, ex : (ACCDAT ge '2025-01-01') and (BPR eq 'C0001'). Pièges vérifiés sur PINVOICE/SINVOICE : le type de pièce n'est pas exposé, il est dans NUM (…FAF… facture, …AVF… avoir) ; les montants (AMTATI…) ne sont pas signés, un avoir compte positif : toujours distinguer factures et avoirs avant de totaliser ; INVNUM renseigné = avoir rattaché à cette facture d'origine.",
+    description: "Interroge une représentation Sage X3 en lecture seule avec les droits de l'utilisateur. Filtre SData, ex : (ACCDAT ge '2025-01-01') and (BPR eq 'C0001'). Pièges vérifiés sur PINVOICE/SINVOICE : le type de pièce n'est pas exposé, il est dans NUM (…FAF… facture, …AVF… avoir) ; les montants (AMTATI…) ne sont pas signés, un avoir compte positif : toujours distinguer factures et avoirs avant de totaliser ; INVNUM renseigné = avoir rattaché à cette facture d'origine. Sans tri ni filtre, les premières lignes peuvent être des enregistrements techniques (NUM 00000, date 0000-00-00) : toujours trier (orderBy 'ACCDAT desc') ou filtrer sur une date.",
     input: {
       representation: name.describe("Ex. SINVOICE"),
       where: z.string().optional().describe("Filtre SData sur tout champ d'en-tête (voir sagex3_describe) : (CHAMP op 'valeur') and (...)  — op : eq, ne, gt, ge, lt, le, like ; dates en 'AAAA-MM-JJ'"),
