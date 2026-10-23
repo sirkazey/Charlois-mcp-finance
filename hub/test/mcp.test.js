@@ -376,7 +376,13 @@ test("Traçabilité : chaque résultat d'outil se termine par une ligne « Sourc
     assert.equal(src, "Source : Sage X3 · dossier PROD");
     assert.ok(!/Bearer|sage-token|http|alice|C0001/.test(src), "ni jeton, ni adresse, ni compte, ni paramètres dans la source");
     const sf = await sfQuery(c, "SELECT Id FROM Account LIMIT 1"); // alice a pu être déconnectée de Salesforce par un test précédent
-    if (!sf.isError) assert.equal(sf.content.at(-1).text, "Source : Salesforce");
+    if (!sf.isError) assert.equal(sf.content.at(-1).text, "Source : Salesforce · production", "le mock n'est pas une sandbox");
     else assert.equal(sf.content.length, 1, "une erreur ne porte pas de ligne Source");
   } finally { await c.close(); }
+});
+
+test("Traçabilité Salesforce : une URL de connexion sandbox donne « sandbox <nom> », sinon « production »", async () => {
+  process.env.SF_LOGIN_URL = "https://charloisgroup--preprod.sandbox.my.salesforce.com";
+  const { source } = await import(`../connectors/salesforce.js?${Date.now()}`);
+  assert.equal(source(), "sandbox preprod");
 });
