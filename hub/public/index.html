@@ -149,7 +149,10 @@
   <section>
     <p class="eyebrow">Votre connecteur Claude <button class="copy" onclick="copy(document.getElementById('cfg').textContent)">Copier</button></p>
     <pre id="cfg">…</pre>
-    <p class="note">Claude Code, Claude Desktop, ChatGPT et Copilot : bloc JSON ci-dessus (URL <code id="mcp-url"></code> + en-tête <code>Authorization: Bearer</code>). La clé ne circule jamais dans l'URL. La clé est personnelle : ne la partagez pas.</p>
+    <p class="note">Claude Code (<code>.mcp.json</code>), ChatGPT, Copilot et tout client MCP HTTP : bloc ci-dessus (URL <code id="mcp-url"></code> + en-tête <code>Authorization: Bearer</code>). La clé ne circule jamais dans l'URL. La clé est personnelle : ne la partagez pas.</p>
+    <p class="eyebrow">Claude Desktop <button class="copy" onclick="copy(document.getElementById('cfg-desktop').textContent)">Copier</button></p>
+    <pre id="cfg-desktop">…</pre>
+    <p class="note">Claude Desktop n'accepte pas d'en-tête sur un serveur distant : le pont <code>mcp-remote</code> (Node.js requis sur le poste) le transmet. Paramètres → Développeur → Modifier la configuration, coller dans <code>claude_desktop_config.json</code>, puis redémarrer Claude Desktop.</p>
   </section>
 
   <section id="config-section" hidden>
@@ -275,6 +278,7 @@ async function load() {
       <div class="result" id="res-${esc(s.id)}"></div>
     </div>`).join("");
   $("#cfg").textContent = `{\n  "mcpServers": {\n    "charlois-finance": {\n      "type": "http",\n      "url": "${me.mcpUrl}",\n      "headers": { "Authorization": "Bearer ${me.key}" }\n    }\n  }\n}`;
+  $("#cfg-desktop").textContent = `{\n  "mcpServers": {\n    "charlois-finance": {\n      "command": "npx",\n      "args": ["-y", "mcp-remote", "${me.mcpUrl}", "--header", "Authorization:\${MCP_AUTH}"],\n      "env": { "MCP_AUTH": "Bearer ${me.key}" }\n    }\n  }\n}`;
   $("#mcp-url").textContent = me.mcpUrl;
   $("#config-section").hidden = !me.config;
   if (me.config) $("#config").innerHTML = me.config.map((v) => `<tr><td><i class="dot ${v.value ? "on" : ""}"></i>${esc(v.name)}</td><td>${v.value ? esc(v.value) : "— vide (défaut ou mode simulé)"}</td></tr>`).join("");

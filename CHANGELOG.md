@@ -7,6 +7,8 @@ Une section par version, trois lignes au plus par rubrique. La version est celle
 ### Corrigé
 - Sage X3 : lecture de la structure au format réel Syracuse 24R1 (vérifié sur l'instance de préproduction) : champs sous `$properties.$resources.$item.$properties`, libellés `{@n}` résolus via `$localization`, champs exclus/cachés ignorés, types sans le préfixe `application/x-`. Simulateur intégré, bouchon et mocks de test alignés.
 - Sage X3 : une représentation absente du dossier (404) ou interdite à l'utilisateur (403) n'empêche plus le diagnostic ni les outils ; elle est signalée comme absente. Une clé révoquée (401) reste bloquante.
+- Sage X3 : structure chargée en parallèle et délai max par requête (`SAGE_TIMEOUT_MS`, défaut 30 s) : le diagnostic ne reste plus « en cours » indéfiniment.
+- Portail : second bloc connecteur pour Claude Desktop via le pont `mcp-remote` (Claude Desktop n'accepte pas d'en-tête sur un serveur distant).
 
 ### Ajouté
 - Plafond d'appels sortants par connecteur : `MYREPORT_MAX_PER_MIN` (défaut 20, MyReport n'ayant qu'une production) et `SF_MAX_PER_MIN` (défaut illimité, crédits Flex).

@@ -261,7 +261,9 @@ marquées `simule: true`) pour les tests Docker Desktop, sans jeton ni réseau. 
    Dropbox par OAuth ; Sage X3 et MyReport par OAuth ou jeton personnel).
 2. Vérifier chaque connexion dans **Diagnostic & connectivité** (voyant vert).
 3. Copier le bloc JSON « Votre connecteur Claude » dans la configuration de votre assistant (`mcpServers`, en-tête
-   `Authorization: Bearer`).
+   `Authorization: Bearer`). Claude Desktop n'accepte pas d'en-tête sur un serveur distant : le portail fournit un second
+   bloc qui passe par le pont `mcp-remote` (Node.js sur le poste), à coller dans `claude_desktop_config.json`
+   (Paramètres → Développeur → Modifier la configuration), puis redémarrer Claude Desktop.
 4. Poser une question, ou partir d'une fiche du **Bar à prompts** (onglets Onboarding, Analyse de données,
    Contrôle de gestion) : *« CA facturé des 12 derniers mois par client »*.
 

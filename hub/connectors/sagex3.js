@@ -10,6 +10,7 @@ import { unreachable } from "../mcpclient.js";
 
 const BASE = (process.env.SAGE_URL || "").replace(/\/$/, "");
 const FOLDER = process.env.SAGE_FOLDER || "PROD";
+const TIMEOUT_MS = Number(process.env.SAGE_TIMEOUT_MS || 30000); // Syracuse ouvre une session X3 à chaque appel : parfois lent, jamais infini
 const REPRESENTATIONS = (process.env.SAGE_REPRESENTATIONS || "BPCUSTOMER,BPSUPPLIER,SINVOICE,PINVOICE,SORDER,PORDER,GACCENTRY,ITMMASTER").split(",").map((s) => s.trim());
 const name = z.string().regex(/^\w+$/, "nom de représentation invalide"); // bloque toute traversée de chemin
 
@@ -60,7 +61,8 @@ async function get(tok, path, params = {}) {
   if (mock) return mockGet(path);
   const u = new URL(`${BASE}/api1/x3/erp/${FOLDER}/${path}`);
   u.search = new URLSearchParams(params);
-  const r = await fetch(u, { headers: { Authorization: authHeader(tok), Accept: "application/json" } }).catch((e) => { throw unreachable("Sage X3", u, e); });
+  const r = await fetch(u, { headers: { Authorization: authHeader(tok), Accept: "application/json" }, signal: AbortSignal.timeout(TIMEOUT_MS) })
+    .catch((e) => { throw e.name === "TimeoutError" ? Object.assign(new Error(`Sage X3 : pas de réponse en ${TIMEOUT_MS / 1000} s (${u.pathname})`), { status: 504 }) : unreachable("Sage X3", u, e); });
   if (!r.ok) throw Object.assign(new Error(`Sage X3 ${r.status}: ${await r.text()}`), { status: r.status });
   return r.json();
 }
@@ -90,7 +92,8 @@ export async function schema(tok) {
   const fields = {};
   // Représentation inconnue (404) ou interdite à l'utilisateur (403) : absente de la structure, sans bloquer les autres.
   // Toute autre erreur (401 clé révoquée, réseau) remonte : rien n'est mis en cache.
-  for (const rep of reps) fields[rep] = await prototype(tok, rep).catch((e) => { if (e.status === 404 || e.status === 403) return undefined; throw e; });
+  const protos = await Promise.all(reps.map((rep) => prototype(tok, rep).catch((e) => { if (e.status === 404 || e.status === 403) return undefined; throw e; })));
+  reps.forEach((rep, i) => { fields[rep] = protos[i]; });
   return { representations: reps.filter((r) => fields[r]), missing: reps.filter((r) => !fields[r]), fields };
 }
 
