@@ -56,6 +56,7 @@ export async function withToken(connector, key, fn) {
 export function oauthRouter(connectors, getKey) {
   const r = Router();
   const byId = Object.fromEntries(connectors.map((c) => [c.id, c]));
+  r.use((_req, res, next) => { res.type("text/plain"); next(); }); // toute erreur part en texte brut : un paramètre reflété (error_description) ne peut pas devenir du HTML
 
   r.get("/auth/:system", (req, res) => {
     const c = byId[req.params.system]; const key = getKey(req);
@@ -75,7 +76,7 @@ export function oauthRouter(connectors, getKey) {
     // p.key === getKey(req) : le navigateur qui revient doit être celui qui a lancé le flux (anti login-CSRF).
     if (!p || !c?.oauth || p.system !== c.id || p.exp < Date.now() || p.key !== getKey(req)) return res.status(400).send("State OAuth invalide ou expiré");
     pending.delete(req.query.state); // consommé seulement par le bon navigateur ; un appel étranger ne le grille pas
-    if (req.query.error) return res.status(400).send(`Refus OAuth : ${req.query.error_description || req.query.error}`);
+    if (req.query.error) return res.status(400).send(`Refus OAuth : ${String(req.query.error_description || req.query.error).slice(0, 200)}`);
     try {
       const tokens = await postToken(c.oauth, { grant_type: "authorization_code", code: req.query.code, redirect_uri: redirectUri(c.id), code_verifier: p.verifier });
       const email = c.identity ? await c.identity(tokens).catch(() => null) : null;

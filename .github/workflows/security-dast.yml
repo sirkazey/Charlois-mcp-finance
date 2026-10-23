@@ -1,4 +1,6 @@
 name: Security - ZAP baseline (manual)
+# Analyse dynamique PASSIVE (zap-baseline : exploration et observation, aucune attaque) contre un hub de démonstration
+# démarré sur le runner GitHub, sans aucun système Charlois ni tiers. Déclenchement manuel uniquement.
 on:
   workflow_dispatch:
 permissions:
@@ -6,9 +8,10 @@ permissions:
 jobs:
   zap-baseline:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - name: Start isolated demo hub
+      - uses: actions/checkout@v7
+      - name: Start isolated demo hub (simulators only, no real system)
         run: |
           printf 'PUBLIC_URL=http://localhost:8080\nENCRYPTION_KEY=%s\nAPP_ENV=preprod\n' "$(openssl rand -hex 32)" > .env
           docker compose up --build -d
@@ -16,8 +19,9 @@ jobs:
           curl -fsS http://localhost:8080/health
       - name: ZAP baseline passive scan (no active attacks)
         run: |
-          docker run --rm --network host -v "${{ github.workspace }}:/zap/wrk/:rw" ghcr.io/zaproxy/zaproxy:stable zap-baseline.py -t http://localhost:8080 -m 2 -J zap.json -r zap.html -I || true
-      - uses: actions/upload-artifact@v4
+          docker run --rm --network host -v "${{ github.workspace }}:/zap/wrk/:rw" ghcr.io/zaproxy/zaproxy:2.16.1 \
+            zap-baseline.py -t http://localhost:8080 -m 2 -J zap.json -r zap.html -I
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: zap-baseline-report

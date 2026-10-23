@@ -142,10 +142,14 @@ test("Callback /auth/salesforce/callback : échange du code, stockage des jetons
 test("Callback : refus OAuth (error=access_denied) → 400, aucun échange de code", async () => {
   up.reset();
   const st = new URL((await fetch(`${hub.url}/auth/salesforce`, { headers: { cookie }, ...noFollow })).headers.get("location")).searchParams.get("state");
-  const r = await fetch(`${hub.url}/auth/salesforce/callback?error=access_denied&error_description=Refus&state=${st}`, { headers: { cookie }, ...noFollow });
+  const r = await fetch(`${hub.url}/auth/salesforce/callback?error=access_denied&error_description=${encodeURIComponent("<script>alert(1)</script>Refus")}&state=${st}`, { headers: { cookie }, ...noFollow });
   assert.equal(r.status, 400);
+  assert.match(r.headers.get("content-type"), /^text\/plain/, "une description d'erreur reflétée n'est jamais servie en HTML");
   assert.match(await r.text(), /Refus/);
   assert.equal(up.requests("/services/oauth2/token").length, 0);
+  const st2 = new URL((await fetch(`${hub.url}/auth/salesforce`, { headers: { cookie }, ...noFollow })).headers.get("location")).searchParams.get("state");
+  const bad = await fetch(`${hub.url}/auth/salesforce/callback?code=x&state=${st2}`, { headers: { cookie: "mcp_key=autre" }, ...noFollow });
+  assert.equal(bad.status, 400); assert.match(bad.headers.get("content-type"), /^text\/plain/);
 });
 
 test("Callback : échec de l'échange du code → 502", async () => {

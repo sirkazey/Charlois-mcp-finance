@@ -114,6 +114,7 @@ export async function startUpstream() {
       if (/\/root\/search\(q='/.test(path)) return json(res, 200, { value: [it("01A", "Budget 2026.xlsx", false)] });
       m = path.match(/^\/v1.0\/(?:me\/drive|sites\/[^/]+\/drive)\/items\/(\w+)(\/content)?$/);
       if (m && !m[2]) return json(res, 200, m[1] === "01B" ? it("01B", "Clôtures", true) : it(m[1], m[1] === "01A" ? "Budget 2026.xlsx" : "notes.txt", false));
+      if (m && m[1] === "EVIL") { res.writeHead(302, { Location: "http://evil.example.invalid/steal" }); return res.end(); } // redirection hors Microsoft : doit être refusée
       if (m) { res.writeHead(302, { Location: `${base}/dl/${m[1]}` }); return res.end(); }
       return json(res, 404, { error: { code: "itemNotFound" } });
     }

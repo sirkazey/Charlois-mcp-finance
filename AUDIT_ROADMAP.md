@@ -91,6 +91,46 @@ Chaque point ci-dessous est jugé à cette aune.
 
 ---
 
+## 0 ter. Exécution du backlog de la revue : analyses CI et corrections P0 (PR #1, même soir)
+
+Première exécution du CI de la PR #1, puis relecture du code pour chaque constat du backlog ci-dessus. Les identifiants
+renvoient au backlog (§ 0 bis).
+
+### Résultats des analyses
+
+| Outil | Résultat brut | Après relecture |
+|---|---|---|
+| Semgrep 1.146 | 2 signalements | **1 vrai durcissement** : `store.js` déchiffrait en AES-GCM sans longueur de tag explicite (un tag tronqué aurait pu passer) → `authTagLength: 16`. **1 faux positif** : mire OAuth du bouchon, `redirect_uri` reflétée dans un lien ; désormais validée (URL http(s) parsée) et échappée, marquée `nosemgrep` avec raison. |
+| Gitleaks 8.24 | 6 « fuites » dans l'historique | **6 faux positifs** : clés MCP et clé de chiffrement de la suite de tests, clé démo du portail, exemple de commande du README Clevoa. Aucun secret réel dans l'historique (dépôt **public**, vérifié). Liste blanche `.gitleaks.toml` par chemin, documentée. |
+| Trivy | Échec : `trivy-action@0.33.1` n'existe pas | Version corrigée (`v0.36.0`). Résultat à lire à la prochaine exécution. |
+| CodeQL | Vert | Alertes éventuelles à lire dans Security → Code scanning (non lisibles d'ici). |
+
+Workflows corrigés : actions `checkout@v7`, `upload-artifact@v7`, `setup-node@v6`, `codeql-action@v4` ; images
+`semgrep:1.181.1`, `gitleaks:v8.30.1`, `zaproxy:2.16.1` ; délais max, concurrence, permissions minimales ; **job de tests**
+ajouté (hub en pré-prod et production, bouchon) pour que toute régression fonctionnelle bloque la PR.
+
+### Constats traités : verdict et corrections
+
+| # | Constat de la revue | Verdict après lecture du code | Correction (toutes avec test de régression) |
+|---|---|---|---|
+| SEC-02 | Lambda Clevoa : `CLEVOA_KEYS` vide acceptait n'importe quelle clé | **Confirmé** (ouvert par défaut) | Fermé par défaut : `CLEVOA_KEYS` vide → 503, clé hors liste → 401 |
+| SEC-06 | Redirection de téléchargement SharePoint suivie sans contrôle | **Confirmé, faible exploitabilité** (il faudrait que Graph renvoie une redirection hostile ; le jeton n'était déjà pas transmis) | Seuls les hôtes Microsoft en https (`sharepoint.com`, `1drv.com`, `microsoft.com`, `windows.net`) ou l'origine Graph configurée sont suivis ; sinon erreur explicite |
+| SEC-07 | `error_description` OAuth reflétée dans une réponse HTML | **Confirmé** (XSS réfléchi, exploitable seulement via un lien de callback forgé avec un state valide, donc par le navigateur de la victime lui-même) | Toutes les réponses du routeur OAuth sont en `text/plain`, message tronqué à 200 caractères |
+| SEC-08 | Opérations Salesforce : aucun filtre de nom d'outil côté hub | **Risque théorique** (le serveur SObject Reads est en lecture seule et l'URL est verrouillée) | Défense en profondeur : tout outil dont le nom évoque une écriture (`create`, `update`, `delete`, `upsert`, `insert`, `execute`…) est refusé avant transfert |
+| SEC-01 | Sessions SSE : `POST /messages` sans clé, session identifiée par `sessionId` seul | **Confirmé, faible exploitabilité** (identifiant aléatoire de 122 bits) | `/messages` exige la clé MCP et la session doit avoir été ouverte par cette clé (403 sinon) |
+| QA-02, QA-04 | Tests et scanners | — | Job CI de tests, scanners exécutés et triés (tableau ci-dessus) ; connecteurs Sage X3 et Salesforce inchangés dans leur logique métier |
+
+Tests : 63 hub (pré-prod et production), 9 bouchon, tous verts ; Semgrep local 1.181.1 : 0 signalement non justifié.
+
+### Reste ouvert, décisions à prendre
+
+* Lire les alertes CodeQL dans l'onglet Security après l'exécution sur la branche (non accessibles depuis cette session).
+* Lire le rapport Trivy de la première exécution réussie ; une dépendance HIGH/CRITICAL corrigeable bloquera le CI.
+* Lancer une fois le workflow ZAP manuel et trier ses avertissements (en-têtes de sécurité HTTP probables : CSP, HSTS).
+* OPS-03, dépôt public : historique contrôlé par Gitleaks, aucun secret publié ; décision à prendre sur la visibilité (privé, ou publication assumée).
+* Non traités ce soir, car ils demandent une décision ou un test humain : SEC-03 (périmètre d'accès au portail : reverse-proxy, VPN ou SSO), SEC-04 (comptes restreints), SEC-05 (exposition réseau du port 8080), QA-01, AI-01, SEC-09, SEC-10, QA-03, et le volet P2.
+* Les tests humains restent prioritaires sur tout scanner : compte restreint sur Sage X3 et Salesforce, révocation OAuth.
+
 ## 1. Bilan de la simplicité (audit actualisé)
 
 ### 1.1 Un seul conteneur, cinq modules : est-ce étanche ?

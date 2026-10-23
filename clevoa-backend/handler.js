@@ -2,7 +2,8 @@
 // enregistre (simulation) les statistiques de volume et répond { status: "active" }.
 // Aucune dépendance : Node 20 natif. Le stockage réel (DynamoDB, S3) se branche dans `record()`.
 
-const KEYS = (process.env.CLEVOA_KEYS || "").split(",").map((k) => k.trim()).filter(Boolean); // clés clients acceptées ; vide = toute clé non vide
+/** Clés clients acceptées (lues à chaque appel). Liste vide = AUCUNE clé acceptée : la fonction refuse tout tant qu'elle n'est pas configurée. */
+const keys = () => (process.env.CLEVOA_KEYS || "").split(",").map((k) => k.trim()).filter(Boolean);
 const stats = []; // simulation d'enregistrement : mémoire de l'instance Lambda (perdue à chaque démarrage à froid)
 
 const reply = (statusCode, body) => ({ statusCode, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -31,7 +32,9 @@ function record(key, p) {
 export async function telemetry(event) {
   const headers = Object.fromEntries(Object.entries(event.headers || {}).map(([k, v]) => [k.toLowerCase(), v]));
   const key = headers["x-clevoa-key"];
-  if (!key || (KEYS.length && !KEYS.includes(key))) return reply(401, { status: "unauthorized", error: "clé client absente ou inconnue" });
+  const accepted = keys();
+  if (!accepted.length) return reply(503, { status: "misconfigured", error: "CLEVOA_KEYS non configurée : aucune clé acceptée" }); // fermé par défaut
+  if (!key || !accepted.includes(key)) return reply(401, { status: "unauthorized", error: "clé client absente ou inconnue" });
 
   let payload;
   try { payload = JSON.parse(event.isBase64Encoded ? Buffer.from(event.body, "base64").toString() : event.body || ""); } catch { return reply(400, { status: "invalid", error: "JSON invalide" }); }

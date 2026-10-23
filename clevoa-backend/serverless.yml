@@ -12,7 +12,7 @@ provider:
   timeout: 5                     # secondes avant qu'AWS n'interrompe la fonction
   architecture: arm64            # Graviton : moins cher que x86 à performance égale
   environment:
-    CLEVOA_KEYS: ${env:CLEVOA_KEYS, ""}   # clés clients autorisées, séparées par des virgules (vide = toute clé non vide)
+    CLEVOA_KEYS: ${env:CLEVOA_KEYS, ""}   # clés clients autorisées, séparées par des virgules (vide = la fonction refuse tout, 503)
   httpApi:
     cors: false                  # appelé par des serveurs (hubs), pas par des navigateurs
 
