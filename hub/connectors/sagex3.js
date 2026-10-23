@@ -18,7 +18,7 @@ const name = z.string().regex(/^\w+$/, "nom de représentation invalide"); // bl
 
 export const id = "sagex3";
 export const label = "Sage X3";
-export const source = () => (mock ? "simulateur intégré (aucune donnée réelle)" : `${BASE} · dossier ${FOLDER}`);
+export const source = () => (mock ? "simulateur intégré (aucune donnée réelle)" : `dossier ${FOLDER}`);
 export const mock = !BASE;
 export const apiKeyMode = process.env.SAGE_APIKEY_MODE === "basic" ? "basic" : "bearer";
 export const apiKey = { mode: apiKeyMode, label: "clé d'API Syracuse personnelle (sans expiration)" }; // saisie proposée par le portail

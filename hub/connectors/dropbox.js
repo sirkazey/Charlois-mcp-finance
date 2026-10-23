@@ -9,7 +9,7 @@ const READ_ONLY = ["who_am_i", "list_folder", "search", "get_file_metadata", "fe
 
 export const id = "dropbox";
 export const label = "Dropbox";
-export const source = () => `serveur MCP Dropbox ${MCP_URL}`;
+export const source = () => "compte Dropbox de l'utilisateur";
 export const oauth = {
   authUrl: `${(process.env.DROPBOX_AUTH_URL || "https://www.dropbox.com").replace(/\/$/, "")}/oauth2/authorize`,
   tokenUrl: `${(process.env.DROPBOX_API_URL || "https://api.dropboxapi.com").replace(/\/$/, "")}/oauth2/token`,
