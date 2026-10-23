@@ -34,9 +34,9 @@ export function authorizePage(sys, label) {
     const q = (u) => new URLSearchParams({ sys, user: u, redirect_uri: back.origin + back.pathname, state: state || "" });
     res.type("html").send(`<!doctype html><meta charset="utf-8"><title>Connexion ${label} (bouchon)</title>
 <body style="font:16px system-ui;max-width:420px;margin:60px auto"><h2>${label} — connexion simulée</h2>
-<p>Application : <code>${esc(client_id)}</code></p><p>Choisissez le collaborateur :</p>
+<!-- nosemgrep: javascript.express.security.injection.raw-html-format.raw-html-format -- mire de simulation : redirect_uri validée (URL http(s) parsée), client_id échappé --><p>Application : <code>${esc(client_id)}</code></p><p>Choisissez le collaborateur :</p>
 ${Object.entries(USERS).map(([u, p]) => `<p><a href="/_stub/approve?${q(u)}" style="display:block;padding:12px;border:1px solid #999;border-radius:8px;text-decoration:none;color:#111">${p.name} — ${p.role}<br><small>${u}</small></a></p>`).join("")}
-<p><a href="${esc(back.href)}">Refuser</a></p></body>`); // nosemgrep: javascript.express.security.injection.raw-html-format.raw-html-format -- redirect_uri validée (URL http(s) parsée) et échappée ; mire de simulation, jamais déployée en production
+<p><a href="${esc(back.href)}">Refuser</a></p></body>`);
   };
 }
 
