@@ -176,5 +176,5 @@ app.get("/health", (_req, res) => res.json({ ok: true }));
 
 app.listen(PORT, () => {
   console.log(`Hub MCP v${VERSION} · ENV: ${APP_ENV} · ${PUBLIC_URL} (port ${PORT})${sagex3.mock ? " · Sage X3 simulé" : ""}${myreport.mock ? " · MyReport simulé" : ""}${process.env.LOG_LEVEL === "debug" ? " · logs détaillés" : ""}`);
-  telemetry.start(CONNECTORS);
+  telemetry.start(CONNECTORS, store.seats);
 });
