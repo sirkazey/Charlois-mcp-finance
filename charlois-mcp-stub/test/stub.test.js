@@ -175,3 +175,10 @@ test("Télémétrie : le hub a envoyé son ping anonyme au bouchon Clevoa", asyn
   assert.equal(t[0].seats, 0, "ping de démarrage : aucun siège encore (Marie et Paul se connectent après) ; le champ est un entier, jamais une identité");
   assert.ok(!JSON.stringify(t).includes("marie"), "aucune identité dans la télémétrie");
 });
+
+test("Mire du bouchon : redirect_uri doit être une URL http(s) ; les paramètres sont échappés dans la page", async () => {
+  const bad = await fetch(`${stubUrl}/services/oauth2/authorize?client_id=x&redirect_uri=${encodeURIComponent("javascript:alert(1)")}`);
+  assert.equal(bad.status, 400);
+  const page = await fetch(`${stubUrl}/services/oauth2/authorize?client_id=${encodeURIComponent("<img src=x onerror=1>")}&redirect_uri=${encodeURIComponent("http://localhost:8080/auth/salesforce/callback")}`).then((x) => x.text());
+  assert.ok(!page.includes("<img src=x"), "client_id échappé"); assert.ok(page.includes("&lt;img src=x"));
+});

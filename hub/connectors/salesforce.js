@@ -11,6 +11,7 @@ const MCP_URL = process.env.SF_MCP_URL || ""; // ex. https://api.salesforce.com/
 const DEFAULT_LIMIT = Number(process.env.SF_DEFAULT_LIMIT || 200); // LIMIT ajouté aux SOQL qui n'en ont pas ("0" = désactivé) ; || car Compose transmet "" quand la variable est vide
 if (MCP_URL && !/\/sobject-reads\/?$/.test(MCP_URL)) { console.error(`[salesforce] SF_MCP_URL refusée : ${MCP_URL}. Seul le serveur de lecture « SObject Reads » (…/sobject-reads) est accepté ; un serveur d'écriture (SObject All, Mutations, Deletes…) ne l'est jamais.`); process.exit(1); }
 
+const WRITE_TOOL = /create|update|delete|upsert|insert|mutat|write|remove|merge|publish|send|execute|run/i; // tout outil au nom évocateur d'écriture est refusé avant transfert
 export const id = "salesforce";
 export const label = "Salesforce";
 /** Ligne Source : « sandbox <nom> » d'après l'URL (ex. charloisgroup--preprod.sandbox.my.salesforce.com), « production » en prod, sinon l'hôte (bouchon). */
@@ -65,6 +66,7 @@ export const tools = [
     description: `Appelle un outil du serveur MCP Salesforce avec les droits de l'utilisateur, ex. tool='soqlQuery', arguments={q:'SELECT Name FROM Account WHERE Industry = \\'Wine\\' LIMIT 20'} ; tool='getObjectSchema' sans argument pour l'index des objets, puis arguments={objects:'Account'} pour ses champs. Un soqlQuery sans LIMIT reçoit LIMIT ${DEFAULT_LIMIT} d'office.`,
     input: { tool: z.string().regex(/^[\w.-]+$/), arguments: z.record(z.string(), z.any()).default({}) },
     run: (tok, { tool, arguments: args }) => {
+      if (WRITE_TOOL.test(tool)) throw new Error(`Outil ${tool} refusé : le hub n'exécute que des lectures.`); // défense en profondeur, en plus de l'URL SObject Reads
       // Garde-fou volume : jamais une SOQL sans borne. LIMIT peut être suivi de OFFSET, ALL ROWS ou FOR VIEW/REFERENCE.
       const unbounded = tool === "soqlQuery" && DEFAULT_LIMIT && typeof args.q === "string" && !/\bLIMIT\s+\d+(\s+OFFSET\s+\d+)?(\s+ALL\s+ROWS)?(\s+FOR\s+(VIEW|REFERENCE))?\s*$/i.test(args.q.trim());
       if (unbounded) args = { ...args, q: `${args.q.trim()} LIMIT ${DEFAULT_LIMIT}` };

@@ -17,7 +17,9 @@ async function postToken(c, params) {
     body: new URLSearchParams({ client_id: c.clientId, ...(c.clientSecret ? { client_secret: c.clientSecret } : {}), ...params }), // secret optionnel (apps PKCE sans secret)
   });
   const body = await r.json().catch(() => ({}));
-  if (!r.ok) throw Object.assign(new Error(`OAuth ${c.tokenUrl}: ${r.status} ${JSON.stringify(body)}`), { status: r.status });
+  // L'erreur ne porte ni l'URL du fournisseur, ni son corps brut, ni rien de la configuration : seulement le statut HTTP et un code court validé (ex. invalid_grant).
+  const code = /^[\w.-]{1,40}$/.test(body.error) ? body.error : "erreur";
+  if (!r.ok) throw Object.assign(new Error(`Échange de jeton OAuth refusé (${r.status} ${code})`), { status: r.status, code });
   return body;
 }
 const refreshing = new Map(); // "clé:système" -> promesse de refresh en cours, partagée entre appels concurrents
@@ -56,6 +58,7 @@ export async function withToken(connector, key, fn) {
 export function oauthRouter(connectors, getKey) {
   const r = Router();
   const byId = Object.fromEntries(connectors.map((c) => [c.id, c]));
+  r.use((_req, res, next) => { res.type("text/plain"); next(); }); // toute erreur part en texte brut : un paramètre reflété (error_description) ne peut pas devenir du HTML
 
   r.get("/auth/:system", (req, res) => {
     const c = byId[req.params.system]; const key = getKey(req);
@@ -75,14 +78,19 @@ export function oauthRouter(connectors, getKey) {
     // p.key === getKey(req) : le navigateur qui revient doit être celui qui a lancé le flux (anti login-CSRF).
     if (!p || !c?.oauth || p.system !== c.id || p.exp < Date.now() || p.key !== getKey(req)) return res.status(400).send("State OAuth invalide ou expiré");
     pending.delete(req.query.state); // consommé seulement par le bon navigateur ; un appel étranger ne le grille pas
-    if (req.query.error) return res.status(400).send(`Refus OAuth : ${req.query.error_description || req.query.error}`);
+    if (req.query.error) { // rien de ce que renvoie le fournisseur n'est reflété au navigateur ni au journal : vocabulaire fixe
+      const denied = req.query.error === "access_denied";
+      console.error(`[oauth] ${c.id} ${denied ? "refus de l'utilisateur (access_denied)" : "erreur renvoyée par le fournisseur"}`);
+      return res.status(400).send(denied ? "Connexion refusée (access_denied) : réessayez depuis le portail." : "Le fournisseur OAuth a renvoyé une erreur : réessayez depuis le portail ou contactez l'administrateur.");
+    }
     try {
       const tokens = await postToken(c.oauth, { grant_type: "authorization_code", code: req.query.code, redirect_uri: redirectUri(c.id), code_verifier: p.verifier });
       const email = c.identity ? await c.identity(tokens).catch(() => null) : null;
       store.setTokens(p.key, c.id, tokens, email);
       res.redirect("/");
     } catch (e) {
-      res.status(502).send(`Échec OAuth ${c.label} : ${e.message}`);
+      console.error(`[oauth] ${c.id} : échec de l'échange de jeton`); // rien de l'erreur n'est journalisé (le fournisseur peut y glisser des données) ; le statut est rendu au navigateur
+      res.status(502).send(`Échec de la connexion ${c.label} (${e.status ?? "réseau"}) : réessayez depuis le portail.`);
     }
   });
   return r;

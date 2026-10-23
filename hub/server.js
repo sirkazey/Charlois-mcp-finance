@@ -149,17 +149,18 @@ app.get("/api/test/:system", limit("diag", 20), portalUser, async (req, res) => 
 });
 
 // Transport SSE (standard historique) : GET /sse ouvre le flux, POST /messages?sessionId= reçoit les requêtes.
-const sseSessions = new Map();
+const sseSessions = new Map(); // sessionId -> { transport, key } : une session n'est utilisable qu'avec la clé qui l'a ouverte
 app.get("/sse", mcpUser, async (req, res) => {
   const transport = new SSEServerTransport("/messages", res);
-  sseSessions.set(transport.sessionId, transport);
+  sseSessions.set(transport.sessionId, { transport, key: req.key });
   res.on("close", () => sseSessions.delete(transport.sessionId));
   await buildServer(req.key).connect(transport);
 });
-app.post("/messages", async (req, res) => {
-  const t = sseSessions.get(req.query.sessionId);
-  if (!t) return res.status(404).send("Session SSE inconnue");
-  await t.handlePostMessage(req, res, req.body);
+app.post("/messages", mcpUser, async (req, res) => {
+  const s = sseSessions.get(String(req.query.sessionId ?? ""));
+  if (!s) return res.status(404).json({ error: "Session SSE inconnue" });
+  if (s.key !== req.key) return res.status(403).json({ error: "Session SSE ouverte par une autre clé" });
+  await s.transport.handlePostMessage(req, res, req.body);
 });
 
 // Transport Streamable HTTP (sans état) : un serveur jetable par requête.

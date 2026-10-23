@@ -45,6 +45,95 @@ parallèle, fichiers physiques, pannes, charge), synthèse par l'agent principal
 **Fil conducteur** : la solution doit rester une petite machine que n'importe quel développeur Node lit en une heure.
 Chaque point ci-dessous est jugé à cette aune.
 
+## 0 bis. Backlog de remédiation issu de la revue indépendante (23/10/2026)
+
+**Portée** : revue statique du code, de l'architecture, des tests et de la commercialisation. Les vulnérabilités potentielles doivent être confirmées par tests ; les scanners n'ont pas encore été exécutés. Ce backlog complète les actions A–E existantes et n'annule pas les corrections déjà réalisées.
+
+**Décision provisoire** : démonstration sur données fictives autorisée ; pilote en préproduction sous conditions ; ne pas mettre en production avec des données financières réelles avant validation des contrôles critiques.
+
+### P0 — Vérifications et corrections prioritaires
+
+| ID | Constat et action | Validation attendue |
+|---|---|---|
+| SEC-01 | **Transport SSE historique** : `GET /sse` authentifie le collaborateur, mais `POST /messages` retrouve le transport via le seul `sessionId`. Vérifier le modèle de menace (identifiant de session aléatoire et confidentiel), puis imposer l'authentification et la correspondance entre clé personnelle et session, ou désactiver SSE si inutile. | Test négatif inter-utilisateurs, test session volée et test de compatibilité des clients MCP. |
+| SEC-02 | **Lambda de télémétrie** : si `CLEVOA_KEYS` est vide, la condition actuelle accepte toute clé non vide. Échouer en mode fermé et supprimer les valeurs de configuration dangereuses. | Tests sans variable, variable vide, clé invalide et clé valide. |
+| SEC-03 | **Portail et création de clés** : `/api/me` peut créer une clé personnelle sans SSO applicatif natif. Définir le périmètre d'accès via reverse-proxy, VPN et/ou authentification d'entreprise ; documenter révocation et départ. | Un visiteur non autorisé ne peut pas créer ou exploiter de clé. |
+| SEC-04 | **Droits métiers réels** : tester Sage X3 et Salesforce avec des comptes restreints et deux collaborateurs distincts. | Matrice d'accès signée par la DSI et les métiers ; aucune lecture hors habilitations. |
+| SEC-05 | **Exposition réseau** : le compose publie le port 8080 ; vérifier l'interface d'écoute, les règles réseau, le reverse-proxy, HTTPS et `TRUST_PROXY`. | Seul l'accès approuvé est possible ; test depuis réseau non autorisé. |
+| QA-01 | **Exactitude financière** : valider factures/avoirs, signes, devises, dates et rapprochements sur un jeu de référence. | Réponses attendues approuvées par la Finance, avec sources et limites. |
+| AI-01 | **Injection de prompts et réponses non fiables** : tester des contenus malveillants dans CRM, documents et résultats MCP. | Aucun accès supplémentaire ni exfiltration non autorisée ; cas négatifs documentés. |
+
+### P1 — Durcissement et qualification avant élargissement
+
+| ID | Constat et action | Validation attendue |
+|---|---|---|
+| SEC-06 | Redirections de téléchargement SharePoint : vérifier l'URL `Location` avant de la suivre ; bloquer les destinations non prévues et les schémas dangereux. | Tests redirections légitimes, domaine non autorisé, IP interne et HTTP. |
+| SEC-07 | OAuth : ne pas transmettre au navigateur les corps bruts d'erreur des fournisseurs ; limiter les diagnostics aux éléments non sensibles. | Aucun token, secret ou contenu sensible dans les erreurs. |
+| SEC-08 | Salesforce : confirmer que les outils appelables sont strictement en lecture seule ; si nécessaire ajouter une liste autorisée explicite en défense en profondeur. | Inventaire des outils, tests d'appel refusé, droits source conservés. |
+| SEC-09 | SharePoint/Graph : justifier les permissions déléguées `Files.Read.All` et `Sites.Read.All` ; valider les transferts vers les assistants IA. | Revue M365/DPO et documentation des flux. |
+| SEC-10 | Store chiffré : tester restauration du volume avec la clé et procédure de perte/révocation. | Restauration et procédure d'exploitation vérifiées. |
+| QA-02 | Exécuter les tests Node et tests d'intégration, ajouter les régressions pour chaque correction. | Résultats datés associés à un SHA de commit. |
+| QA-03 | Tester refresh OAuth, révocation, panne upstream, quotas, timeout et taille des réponses. | Scénarios positifs et négatifs documentés. |
+| QA-04 | Lancer Semgrep, CodeQL, Gitleaks, Trivy et un ZAP passif isolé ; qualifier chaque résultat. | Rapport avec preuve, sévérité, faux positifs et correctifs. |
+
+### P2 — Commercialisation et exploitation
+
+| ID | Constat et action | Validation attendue |
+|---|---|---|
+| COM-01 | Vérifier la propriété intellectuelle Clevoa / Charlois, les dépendances et les droits de réutilisation. | Conditions contractuelles validées. |
+| COM-02 | Formaliser licence, installation, maintenance, support, SLA, exclusions et coûts LLM/API. | Offre et responsabilités explicites. |
+| COM-03 | La télémétrie est agrégée mais une clé identifie l'installation : employer « agrégée / pseudonyme » plutôt que « totalement anonyme ». | Notice d'information cohérente avec les flux réels. |
+| OPS-01 | La Lambda garde les événements en mémoire : prévoir la persistance si les données servent à facturer ou auditer les sièges. | Données réconciliables et durables avant facturation à l'usage. |
+| OPS-02 | Distinguer socle multi-client et paramétrage Charlois ; vérifier l'absence de secrets ou noms internes dans les livrables. | Déploiement fictif chez un second client sans modification du socle. |
+| OPS-03 | Examiner historique Git et visibilité du dépôt ; ne pas confondre dépôt public et vulnérabilité, mais révoquer les secrets éventuellement publiés. | Décision documentée sur la visibilité, historique contrôlé. |
+
+**Règle de mise en œuvre** : correctifs localisés, tests de régression et simplicité. Ne pas introduire de microservices, de framework ou de base de données dans le Hub sans justification. La sévérité définitive dépend de l'exposition réelle et des tests.
+
+---
+
+## 0 ter. Exécution du backlog de la revue : analyses CI et corrections P0 (PR #1, même soir)
+
+Première exécution du CI de la PR #1, puis relecture du code pour chaque constat du backlog ci-dessus. Les identifiants
+renvoient au backlog (§ 0 bis).
+
+### Résultats des analyses
+
+| Outil | Résultat brut | Après relecture |
+|---|---|---|
+| Semgrep 1.146 | 2 signalements | **1 vrai durcissement** : `store.js` déchiffrait en AES-GCM sans longueur de tag explicite (un tag tronqué aurait pu passer) → `authTagLength: 16`. **1 faux positif** : mire OAuth du bouchon, `redirect_uri` reflétée dans un lien ; désormais validée (URL http(s) parsée) et échappée, marquée `nosemgrep` avec raison. |
+| Gitleaks 8.24 | 6 « fuites » dans l'historique | **6 faux positifs** : clés MCP et clé de chiffrement de la suite de tests, clé démo du portail, exemple de commande du README Clevoa. Aucun secret réel dans l'historique (dépôt **public**, vérifié). Liste blanche `.gitleaks.toml` par chemin, documentée. |
+| Trivy 0.36 | Vert après correction de la version d'action | 0 vulnérabilité HIGH/CRITICAL dans les deux `package-lock.json`, 0 mauvaise configuration dans les deux Dockerfile, 0 secret. |
+| CodeQL | Vert sur `main` ; sur la PR, 3 alertes nouvelles successives dans le routeur OAuth : reflected XSS (high), puis, sur mes propres lignes de journal, clear-text logging (high) et log injection (medium) | **Confirmées et corrigées** : plus aucune donnée du fournisseur ni du navigateur n'est reflétée ou journalisée ; le journal n'écrit qu'un vocabulaire fixe, un statut HTTP et un code court validé. |
+
+Workflows corrigés : actions `checkout@v7`, `upload-artifact@v7`, `setup-node@v6`, `codeql-action@v4` ; images
+`semgrep:1.181.1`, `gitleaks:v8.30.1`, `zaproxy:2.16.1` ; délais max, concurrence, permissions minimales ; **job de tests**
+ajouté (hub en pré-prod et production, bouchon) pour que toute régression fonctionnelle bloque la PR.
+
+### Constats traités : verdict et corrections
+
+| # | Constat de la revue | Verdict après lecture du code | Correction (toutes avec test de régression) |
+|---|---|---|---|
+| SEC-02 | Lambda Clevoa : `CLEVOA_KEYS` vide acceptait n'importe quelle clé | **Confirmé** (ouvert par défaut) | Fermé par défaut : `CLEVOA_KEYS` vide → 503, clé hors liste → 401 |
+| SEC-06 | Redirection de téléchargement SharePoint suivie sans contrôle | **Confirmé, faible exploitabilité** (il faudrait que Graph renvoie une redirection hostile ; le jeton n'était déjà pas transmis) | Seuls les hôtes Microsoft en https (`sharepoint.com`, `1drv.com`, `microsoft.com`, `windows.net`) ou l'origine Graph configurée sont suivis ; sinon erreur explicite |
+| SEC-07 | `error_description` OAuth reflétée dans une réponse HTML ; corps brut d'erreur du fournisseur renvoyé au navigateur | **Confirmé** (XSS réfléchi, exploitable seulement via un lien de callback forgé avec un state valide, donc par le navigateur de la victime lui-même) ; confirmé aussi par CodeQL (alerte « high » js/reflected-xss sur la PR) | Plus aucune donnée du fournisseur n'est reflétée : messages fixes au navigateur, détail dans le journal serveur ; routeur OAuth en `text/plain` |
+| SEC-08 | Opérations Salesforce : aucun filtre de nom d'outil côté hub | **Risque théorique** (le serveur SObject Reads est en lecture seule et l'URL est verrouillée) | Défense en profondeur : tout outil dont le nom évoque une écriture (`create`, `update`, `delete`, `upsert`, `insert`, `execute`…) est refusé avant transfert |
+| SEC-01 | Sessions SSE : `POST /messages` sans clé, session identifiée par `sessionId` seul | **Confirmé, faible exploitabilité** (identifiant aléatoire de 122 bits) | `/messages` exige la clé MCP et la session doit avoir été ouverte par cette clé (403 sinon) |
+| QA-02, QA-04 | Tests et scanners | — | Job CI de tests, scanners exécutés et triés (tableau ci-dessus) ; connecteurs Sage X3 et Salesforce inchangés dans leur logique métier |
+
+Tests : 63 hub (pré-prod et production), 9 bouchon, tous verts ; Semgrep local 1.181.1 : 0 signalement non justifié.
+CI vert sur le dernier commit de la PR (six contrôles). Un échec unique et non reproduit de deux tests du hub (révocation
+du refresh token, ligne Source) a été observé une fois en local lors de la vérification de la fusion dans `dev`, puis
+dix passages consécutifs (six isolés, quatre complets avec les cinq fichiers en parallèle) sont restés verts : traité
+comme un aléa d'exécution locale, à surveiller dans le CI (QA-02).
+
+### Reste ouvert, décisions à prendre
+
+* Confirmer dans Security → Code scanning que l'alerte CodeQL de la PR est close après le dernier commit (non lisible depuis cette session).
+* Lancer une fois le workflow ZAP manuel et trier ses avertissements (en-têtes de sécurité HTTP probables : CSP, HSTS).
+* OPS-03, dépôt public : historique contrôlé par Gitleaks, aucun secret publié ; décision à prendre sur la visibilité (privé, ou publication assumée).
+* Non traités ce soir, car ils demandent une décision ou un test humain : SEC-03 (périmètre d'accès au portail : reverse-proxy, VPN ou SSO), SEC-04 (comptes restreints), SEC-05 (exposition réseau du port 8080), QA-01, AI-01, SEC-09, SEC-10, QA-03, et le volet P2.
+* Les tests humains restent prioritaires sur tout scanner : compte restreint sur Sage X3 et Salesforce, révocation OAuth.
+
 ## 1. Bilan de la simplicité (audit actualisé)
 
 ### 1.1 Un seul conteneur, cinq modules : est-ce étanche ?

@@ -143,7 +143,9 @@ test("Clé MCP inconnue : 401 sur /sse et /mcp ; session SSE inconnue : 404 sur 
   const noKey = await fetch(`${hub.url}/mcp`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
   assert.equal(noKey.status, 401);
 
-  const msg = await fetch(`${hub.url}/messages?sessionId=inconnue`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+  const noAuth = await fetch(`${hub.url}/messages?sessionId=inconnue`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+  assert.equal(noAuth.status, 401, "/messages exige la clé MCP");
+  const msg = await fetch(`${hub.url}/messages?sessionId=inconnue`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${KEY}` }, body: "{}" });
   assert.equal(msg.status, 404);
 
   await assert.rejects(sseClient("nope"), /401/);
@@ -391,4 +393,28 @@ test("Traçabilité Salesforce : une URL de connexion sandbox donne « sandbox <
   process.env.SF_LOGIN_URL = "https://charloisgroup--preprod.sandbox.my.salesforce.com";
   const { source } = await import(`../connectors/salesforce.js?${Date.now()}`);
   assert.equal(source(), "sandbox preprod");
+});
+
+test("Session SSE liée à sa clé : une autre clé valide ne peut pas poster dans la session (403) ; outil Salesforce d'écriture refusé avant transfert", async () => {
+  const sessions = [];
+  const probe = await fetch(`${hub.url}/sse`, { headers: { Authorization: `Bearer ${KEY}`, Accept: "text/event-stream" } });
+  const reader = probe.body.getReader(); let buf = "";
+  while (!/sessionId=/.test(buf)) buf += new TextDecoder().decode((await reader.read()).value);
+  const sid = buf.match(/sessionId=([\w-]+)/)[1]; sessions.push(sid);
+  const body = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping" });
+  const other = await fetch(`${hub.url}/messages?sessionId=${sid}`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${KEY_CAROL}` }, body });
+  assert.equal(other.status, 403, "la session appartient à la clé qui l'a ouverte");
+  const mine = await fetch(`${hub.url}/messages?sessionId=${sid}`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${KEY}` }, body });
+  assert.ok([200, 202].includes(mine.status), `le propriétaire peut poster : ${mine.status}`);
+  await reader.cancel();
+
+  const c = await httpClient(KEY_CAROL); // Carol est connectée à Salesforce (alice a pu être déconnectée par un test précédent)
+  try {
+    up.reset();
+    for (const tool of ["deleteRecord", "createRecord", "updateRecords", "executeAnonymous"]) {
+      const r = await c.callTool({ name: "salesforce_call", arguments: { tool, arguments: {} } });
+      assert.equal(r.isError, true, tool); assert.match(r.content[0].text, /refusé : le hub n'exécute que des lectures/);
+    }
+    assert.equal(sfCalls("tools/call").length, 0, "aucun appel d'écriture ne part vers le serveur Salesforce");
+  } finally { await c.close(); }
 });
