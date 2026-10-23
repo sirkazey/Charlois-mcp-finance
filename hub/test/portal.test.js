@@ -393,13 +393,13 @@ test("Système injoignable : le diagnostic nomme le système, l'hôte et la caus
 });
 
 test("Sage X3 : une représentation absente du dossier (404) n'empêche pas le diagnostic ; aucune présente = erreur explicite", async () => {
-  const partial = await startHub({ upstreamUrl: up.url, env: { SAGE_REPRESENTATIONS: "NOPE,SINVOICE" } });
+  const partial = await startHub({ upstreamUrl: up.url, env: { SAGE_REPRESENTATIONS: "NOPE,SINVOICE,BROKEN" } });
   try {
     const cookie = `mcp_key=${(await fetch(`${partial.url}/api/me`)).headers.get("set-cookie").match(/mcp_key=([^;]+)/)[1]}`;
     await fetch(`${partial.url}/api/sagex3/apikey`, { method: "POST", headers: { cookie, "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: "syr-key-alice" }) });
     const d = await fetch(`${partial.url}/api/test/sagex3`, { headers: { cookie } }).then((x) => x.json());
     assert.equal(d.ok, true, JSON.stringify(d));
-    assert.match(d.message, /1 représentations · absentes de ce dossier \(404\) : NOPE/);
+    assert.match(d.message, /1 représentations · absentes de ce dossier \(404\) : NOPE · en erreur côté Sage \(5xx, à signaler à l'intégrateur\) : BROKEN/);
     assert.deepEqual(d.tables, ["SINVOICE"]);
   } finally { await partial.stop(); }
   const none = await startHub({ upstreamUrl: up.url, env: { SAGE_REPRESENTATIONS: "NOPE" } });

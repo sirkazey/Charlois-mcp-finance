@@ -183,6 +183,7 @@ export async function startUpstream() {
       let m = rest.match(/^\$prototypes\('(\w+)\.\$query'\)$/);
       if (m) {
         if (m[1] === "NOPE") return json(res, 404, { $diagnoses: [{ $severity: "error", $message: "unknown representation" }] });
+        if (m[1] === "BROKEN") return json(res, 500, { $diagnoses: [{ $severity: "error", $message: "Unexpected token < in JSON at position 0" }] });
         return json(res, 200, { // format réel Syracuse : champs sous $resources.$item, libellés via $localization, champ exclu ignoré
           $properties: { $resources: { $type: "application/x-array", $item: { $properties: {
             [`${m[1]}_NUM`]: { $type: "application/x-string", $title: "{@42}" },

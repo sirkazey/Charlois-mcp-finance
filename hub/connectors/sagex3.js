@@ -93,18 +93,22 @@ export async function schema(tok) {
   const fields = {};
   // Représentation inconnue (404) ou interdite à l'utilisateur (403) : absente de la structure, sans bloquer les autres.
   // Toute autre erreur (401 clé révoquée, réseau) remonte : rien n'est mis en cache.
-  const denied = [];
-  const protos = await Promise.all(reps.map((rep) => prototype(tok, rep).catch((e) => { if (e.status === 403) denied.push(rep); if (e.status === 404 || e.status === 403) return undefined; throw e; })));
+  const denied = [], broken = []; // 403 : interdite à l'utilisateur ; 5xx : la génération échoue côté Sage (constaté sur 24R1 : 500 « Unexpected token < »)
+  const protos = await Promise.all(reps.map((rep) => prototype(tok, rep).catch((e) => {
+    if (e.status === 403) denied.push(rep); else if (e.status >= 500) broken.push(rep); else if (e.status !== 404) throw e; // 401 / réseau : bloquant
+    return undefined;
+  })));
   reps.forEach((rep, i) => { fields[rep] = protos[i]; });
-  return { representations: reps.filter((r) => fields[r]), missing: reps.filter((r) => !fields[r] && !denied.includes(r)), denied, fields };
+  return { representations: reps.filter((r) => fields[r]), missing: reps.filter((r) => !fields[r] && !denied.includes(r) && !broken.includes(r)), denied, broken, fields };
 }
 
 /** Test de connectivité (portail) : liste des tables via la structure. */
 export async function ping(tok, schema) {
-  const { representations, missing, denied } = await schema(); // structure relue en direct : une clé révoquée (401) donne un voyant rouge
-  if (!representations.length) throw new Error(`Sage X3 : aucune des représentations configurées (${[...missing, ...denied].join(", ")}) n'existe sur le dossier ${FOLDER} ou n'est accessible à cet utilisateur. Ajustez SAGE_REPRESENTATIONS.`);
+  const { representations, missing, denied, broken } = await schema(); // structure relue en direct : une clé révoquée (401) donne un voyant rouge
+  if (!representations.length) throw new Error(`Sage X3 : aucune des représentations configurées (${[...missing, ...denied, ...broken].join(", ")}) n'est utilisable sur le dossier ${FOLDER} pour cet utilisateur. Ajustez SAGE_REPRESENTATIONS.`);
   const how = tok.apiKey ? ` par clé d'API (${apiKeyMode})` : " par OAuth";
-  const absent = (missing.length ? ` · absentes de ce dossier (404) : ${missing.join(", ")}` : "") + (denied.length ? ` · interdites à votre utilisateur X3 (403) : ${denied.join(", ")}` : "");
+  const absent = (missing.length ? ` · absentes de ce dossier (404) : ${missing.join(", ")}` : "") + (denied.length ? ` · interdites à votre utilisateur X3 (403) : ${denied.join(", ")}` : "")
+    + (broken.length ? ` · en erreur côté Sage (5xx, à signaler à l'intégrateur) : ${broken.join(", ")}` : "");
   return { message: mock ? `Mode simulé actif · ${representations.length} tables en cache mémoire` : `Connecté à ${BASE} (dossier ${FOLDER})${how} · ${representations.length} représentations${absent}`, tables: representations };
 }
 
