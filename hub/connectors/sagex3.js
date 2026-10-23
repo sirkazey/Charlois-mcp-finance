@@ -84,7 +84,15 @@ export function parsePrototype(p) {
   const props = p.$properties?.$resources?.$item?.$properties ?? p.$properties ?? {};
   // Tous les champs sont conservés : $isExcluded signifie « non affiché par défaut dans la grille », pas « indisponible »
   // (constaté sur 24R1 : FCY et BPR sont exclus de la grille PINVOICE mais filtrables et renvoyés par $query).
-  return Object.entries(props).map(([n, v]) => ({ name: n, type: String(v.$type || "").replace(/^application\/x-/, ""), label: label(v.$title) }));
+  // Un champ de base sans libellé reprend celui de son compagnon X_REF (le libellé « Fournisseur » est porté par BPR_REF).
+  // Les blocs répétés de la fiche ($details : lignes, échéances…) sont dépliés en BLOC.CHAMP.
+  const type = (v) => String(v.$type || "").replace(/^application\/x-/, "");
+  const walk = (entries, prefix = "") => entries.flatMap(([n, v]) => {
+    if (type(v) === "array" && v.$item?.$properties) return walk(Object.entries(v.$item.$properties), `${prefix}${n}.`);
+    const lab = label(v.$title) || label(props[`${n}_REF`]?.$title);
+    return [{ name: `${prefix}${n}`, type: type(v), label: lab }];
+  });
+  return walk(Object.entries(props));
 }
 const prototype = (tok, rep, facet = "query") => get(tok, `$prototypes('${rep}.$${facet}')`).then(parsePrototype);
 
@@ -127,9 +135,13 @@ export const tools = [
   },
   {
     name: "sagex3_describe",
-    description: "Champs d'une représentation Sage X3. Facette query (défaut) : colonnes de la liste, seules utilisables dans le where de sagex3_query ; les champs X_REF sont des libellés de référence (filtrer sur X, pas sur X_REF). Facette details : fiche complète renvoyée par sagex3_get.",
-    input: { representation: name.describe("Ex. SINVOICE, BPCUSTOMER"), facet: z.enum(["query", "details"]).default("query") },
-    run: async (tok, { representation, facet }, schema) => facet === "details" ? prototype(tok, representation, "details") : ((await schema()).fields[representation] ?? prototype(tok, representation)),
+    description: "Champs d'une représentation Sage X3 : colonnes_liste = colonnes renvoyées par sagex3_query (filtrer sur X, jamais sur X_REF qui n'est qu'un libellé) ; champs_fiche = fiche complète renvoyée par sagex3_get (blocs répétés dépliés en BLOC.CHAMP).",
+    input: { representation: name.describe("Ex. SINVOICE, BPCUSTOMER") },
+    run: async (tok, { representation }, schema) => ({
+      representation,
+      colonnes_liste: (await schema()).fields[representation] ?? await prototype(tok, representation),
+      champs_fiche: await prototype(tok, representation, "details").catch((e) => `indisponible : ${e.message}`),
+    }),
   },
   {
     name: "sagex3_query",

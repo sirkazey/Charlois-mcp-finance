@@ -167,21 +167,20 @@ test("Cache : la structure est chargée au premier appel avec le jeton de l'util
     assert.ok(up.requests("$prototypes").every((r) => r.headers.authorization === "Bearer sage-token-alice"));
     up.reset();
     const sinv = text(await c.callTool({ name: "sagex3_describe", arguments: { representation: "SINVOICE" } }));
-    assert.deepEqual(sinv, [
+    assert.deepEqual(sinv.colonnes_liste, [
       { name: "SINVOICE_NUM", type: "string", label: "Numéro" },
       { name: "AMTATI", type: "decimal", label: "Montant TTC" },
       { name: "RBPAADDLIG1", type: "string", label: "Ligne adresse 1" },
     ]);
-    assert.equal(up.state.requests.length, 0, `le mock ne doit pas être rappelé : ${JSON.stringify(up.state.requests.map((r) => r.path))}`);
+    assert.deepEqual(up.state.requests.map((r) => r.path), ["/api1/x3/erp/PROD/$prototypes('SINVOICE.$details')"], "colonnes servies du cache ; seule la fiche ($details) est relue");
 
     // Hors cache → appel direct avec le jeton de l'utilisateur
     const lead = text(await c.callTool({ name: "salesforce_call", arguments: { tool: "describe_sobject", arguments: { sobject: "Lead" } } }));
     assert.deepEqual(lead.fields[2], { name: "OwnerId", type: "reference", label: "Propriétaire", ref: ["User"] });
     assert.equal(sfCalls("tools/call").length, 1);
     const porder = text(await c.callTool({ name: "sagex3_describe", arguments: { representation: "PORDER" } }));
-    assert.equal(porder[0].name, "PORDER_NUM");
-    const det = text(await c.callTool({ name: "sagex3_describe", arguments: { representation: "PORDER", facet: "details" } }));
-    assert.deepEqual(det.map((f) => f.name), ["PORDER_NUM", "LINES"], "facette details lue en direct");
+    assert.equal(porder.colonnes_liste[0].name, "PORDER_NUM");
+    assert.deepEqual(porder.champs_fiche.map((f) => f.name), ["PORDER_NUM", "LINES.ITMREF"], "facette details lue en direct, bloc déplié");
     assert.equal(up.requests("$prototypes('PORDER.$details')").length, 1);
     assert.equal(up.requests("$prototypes('PORDER.$query')").length, 1);
   } finally { await c.close(); }

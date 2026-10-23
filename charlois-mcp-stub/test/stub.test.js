@@ -86,7 +86,8 @@ test("Sage X3 canin : factures Royal Canin Pro, axes analytiques race, YFAC en r
   const zv = text(await marie.mcp.callTool({ name: "sagex3_get", arguments: { representation: "ZVENTE", key: "ZV-000123" } }));
   assert.equal(zv.CONCOURS, "Agility Cup Lyon"); assert.equal(zv.$uuid, undefined, "métadonnées Syracuse retirées");
   const proto = text(await marie.mcp.callTool({ name: "sagex3_describe", arguments: { representation: "YFAC" } }));
-  assert.ok(proto.some((f) => f.name === "AXE_RACE" && f.label === "Axe analytique race"));
+  assert.ok(proto.colonnes_liste.some((f) => f.name === "AXE_RACE" && f.label === "Axe analytique race"));
+  assert.ok(proto.champs_fiche.some((f) => f.name === "AXE_RACE"), "fiche ($details) décrite aussi");
 
   // Paul : clé d'API personnelle en Basic (login:clé), droits restreints côté Sage
   const k = await fetch(`${hub.url}/api/sagex3/apikey`, { method: "POST", headers: { cookie: paul.cookie, "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: "SYR-PAUL-2026", login: "PMARTIN" }) });

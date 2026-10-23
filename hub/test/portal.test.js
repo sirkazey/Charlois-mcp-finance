@@ -339,7 +339,7 @@ test("Mode simulé Sage X3 : sans compte ni jeton, le diagnostic est vert et lis
     const body = (method, params = {}) => JSON.stringify({ jsonrpc: "2.0", id: 1, method, params });
     const rpc = (m, p) => fetch(`${sim.url}/mcp`, { method: "POST", headers: { Authorization: `Bearer ${c.slice(8)}`, "Content-Type": "application/json", Accept: "application/json, text/event-stream" }, body: body(m, p) }).then((x) => x.text()).then((t) => JSON.parse(t.match(/^data: (.*)$/m)?.[1] ?? t)); // réponse SSE ou JSON
     const fields = JSON.parse((await rpc("tools/call", { name: "sagex3_describe", arguments: { representation: "YFAC" } })).result.content[0].text);
-    assert.deepEqual(fields.map((f) => f.name), ["NUM", "BPR", "ACCDAT", "AMTATI"]);
+    assert.deepEqual(fields.colonnes_liste.map((f) => f.name), ["NUM", "BPR", "ACCDAT", "AMTATI"]);
     const rows = JSON.parse((await rpc("tools/call", { name: "sagex3_query", arguments: { representation: "ZVENTE" } })).result.content[0].text);
     assert.equal(rows[0].SOHNUM, "ZV-000123");
     const nope = (await rpc("tools/call", { name: "sagex3_query", arguments: { representation: "SINVOICE" } })).result;

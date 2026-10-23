@@ -168,7 +168,7 @@ app.use("/api1/x3/erp/:folder", (req, res) => {
     $localization: Object.fromEntries([["@1", SAGE[rep].title], ...SAGE[rep].props.map(([, v], i) => [`@${i + 2}`, v.$title])]),
   });
   const access = (rep) => !SAGE[rep] ? 404 : SAGE[rep].restricted && !USERS[u].achats ? 403 : 200;
-  let m = p.match(/^\$prototypes\('(\w+)\.\$query'\)$/);
+  let m = p.match(/^\$prototypes\('(\w+)\.\$(?:query|details)'\)$/); // même structure pour les deux facettes dans le bouchon
   if (m) { const s = access(m[1]); return s !== 200 ? deny(res, s, { $diagnoses: [{ $severity: "error", $message: s === 403 ? "Accès refusé à cette représentation" : "Représentation inconnue" }] }) : res.json(prototype(req, m[1])); }
   m = p.match(/^(\w+)\('(.+)'\)$/);
   if (m) { const s = access(m[1]); if (s !== 200) return deny(res, s, { $diagnoses: [{ $message: s === 403 ? "Accès refusé" : "Représentation inconnue" }] }); const row = lines(m[1]).find((r) => String(Object.values(strip(r))[0]) === m[2]); return row ? res.json(row) : deny(res, 404, { $diagnoses: [{ $message: "Enregistrement inconnu" }] }); }

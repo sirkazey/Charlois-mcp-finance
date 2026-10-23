@@ -59,8 +59,10 @@ test("Sage X3 : parsePrototype lit le format réel Syracuse 24R1 (champs sous $r
       RBPAADDLIG1: { $title: "{@50490}", $type: "application/x-string", $isExcluded: true },
       BPCTYP: { $title: "{@16094}", $type: "application/x-choice", $value: { $type: "application/x-integer" } },
       PTE_LEG_REF: { $title: "{@26213}", $type: "application/x-reference", $isHidden: true },
+      BPR: { $title: "", $type: "application/x-string" }, BPR_REF: { $title: "{@3680}", $type: "application/x-reference" },
+      LINES: { $type: "application/x-array", $item: { $properties: { ITMREF: { $title: "{@1}", $type: "application/x-string" } } } },
     } } } },
-    $localization: { "@1503": "Clients", "@188": "Actif", "@3662": "Client", "@1644": "Raison sociale", "@50490": "Ligne adresse 1", "@16094": "Type client", "@26213": "Législation" },
+    $localization: { "@1503": "Clients", "@188": "Actif", "@3662": "Client", "@1644": "Raison sociale", "@50490": "Ligne adresse 1", "@16094": "Type client", "@26213": "Législation", "@3680": "Fournisseur", "@1": "Article" },
   };
   assert.deepEqual(parsePrototype(real), [ // les champs $isExcluded / $isHidden restent listés : ils sont filtrables et renvoyés
     { name: "BPCSTA", type: "boolean", label: "Actif" },
@@ -69,6 +71,9 @@ test("Sage X3 : parsePrototype lit le format réel Syracuse 24R1 (champs sous $r
     { name: "RBPAADDLIG1", type: "string", label: "Ligne adresse 1" },
     { name: "BPCTYP", type: "choice", label: "Type client" },
     { name: "PTE_LEG_REF", type: "reference", label: "Législation" },
+    { name: "BPR", type: "string", label: "Fournisseur" }, // libellé repris du compagnon BPR_REF
+    { name: "BPR_REF", type: "reference", label: "Fournisseur" },
+    { name: "LINES.ITMREF", type: "string", label: "Article" }, // bloc répété déplié
   ]);
 });
 
