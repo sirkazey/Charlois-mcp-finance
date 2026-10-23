@@ -186,12 +186,18 @@ test("Cache : la structure est chargée au premier appel avec le jeton de l'util
     await sfQuery(c, "SELECT Id FROM Account LIMIT 5");
     const qs = sfCalls("tools/call").map((r) => JSON.parse(r.body).params.arguments.q);
     assert.deepEqual(qs.slice(-2), ["SELECT Id FROM Account WHERE Name = 'X' LIMIT 200", "SELECT Id FROM Account LIMIT 5"], "LIMIT 200 ajouté seulement quand il manque");
+    await sfQuery(c, "SELECT Id FROM Account LIMIT 200 OFFSET 200");
+    await sfQuery(c, "SELECT Id FROM Account WHERE IsDeleted = true LIMIT 10 ALL ROWS");
+    assert.deepEqual(sfCalls("tools/call").map((r) => JSON.parse(r.body).params.arguments.q).slice(-2), ["SELECT Id FROM Account LIMIT 200 OFFSET 200", "SELECT Id FROM Account WHERE IsDeleted = true LIMIT 10 ALL ROWS"], "LIMIT suivi d'OFFSET ou ALL ROWS reconnu");
     sfCalls("tools/call").length; up.reset();
     const lead = text(await c.callTool({ name: "salesforce_call", arguments: { tool: "getObjectSchema", arguments: { objects: "Lead" } } }));
     assert.deepEqual(lead.objects[0].fields[2], { name: "OwnerId", type: "reference", label: "Propriétaire", ref: ["User"] });
     assert.equal(sfCalls("tools/call").length, 1);
     const porder = text(await c.callTool({ name: "sagex3_describe", arguments: { representation: "PORDER" } }));
     assert.equal(porder.colonnes_liste[0].name, "PORDER_NUM");
+    assert.equal(porder.notes, undefined, "pas de piège connu sur PORDER");
+    const sinvNotes = text(await c.callTool({ name: "sagex3_describe", arguments: { representation: "SINVOICE" } })).notes;
+    assert.match(sinvNotes, /FAF… facture, …AVF… avoir/, "pièges factures/avoirs renvoyés comme données");
     assert.deepEqual(porder.champs_fiche.map((f) => f.name), ["PORDER_NUM", "LINES.ITMREF"], "facette details lue en direct, bloc déplié");
     assert.equal(up.requests("$prototypes('PORDER.$details')").length, 1);
     assert.equal(up.requests("$prototypes('PORDER.$query')").length, 1);

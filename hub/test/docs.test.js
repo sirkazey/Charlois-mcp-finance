@@ -107,7 +107,7 @@ test("MyReport : proxy MCP SSE avec le jeton personnel de l'utilisateur sur le G
   assert.equal(ko.isError, true, "erreur distante (argument manquant) remontée telle quelle");
 });
 
-test("MyReport : sans MYREPORT_MCP_URL, simulateur local (tests Docker Desktop) sans jeton ni réseau", async () => {
+test("MyReport : sans MYREPORT_MCP_URL, simulateur local (tests Docker Desktop) sans jeton ni réseau", { skip: process.env.APP_ENV === "production" && "en production un connecteur non configuré n'est pas exposé" }, async () => {
   up.reset();
   const sim = await startHub({ upstreamUrl: up.url, env: { MYREPORT_MCP_URL: "" } });
   try {
@@ -137,6 +137,21 @@ test("MyReport : plafond d'appels sortants (MYREPORT_MAX_PER_MIN) tous utilisate
     assert.match(rs[2].content[0].text, /plafond de 2 appels par minute/);
     const sse = up.requests("/myreport/sse", "GET").length;
     assert.equal(sse, 2, "le troisième appel n'a ouvert aucune session vers MyReport");
+    await c2.close();
+  } finally { await capped.stop(); }
+});
+
+test("Plafond MyReport : une variable vide (Compose) garde le défaut 20 ; le diagnostic du portail est compté dans le plafond", async () => {
+  const capped = await startHub({ upstreamUrl: up.url, users: { [KEY]: connectedUser(up.url) }, env: { MYREPORT_MAX_PER_MIN: "" } });
+  try {
+    const { maxPerMinute } = await import(`../connectors/myreport.js?${Date.now()}`); // même lecture d'environnement que le hub enfant
+    assert.equal(maxPerMinute, 20, "chaîne vide → défaut, pas 0 (illimité)");
+    const cookie = `mcp_key=${KEY}`;
+    const c2 = new Client({ name: "t", version: "1" });
+    await c2.connect(new StreamableHTTPClientTransport(new URL(`${capped.url}/mcp`), { requestInit: { headers: { Authorization: `Bearer ${KEY}` } } }));
+    for (let i = 0; i < 20; i++) await c2.callTool({ name: "myreport_call", arguments: { tool: "liste_indicateurs", arguments: {} } });
+    const d = await fetch(`${capped.url}/api/test/myreport`, { headers: { cookie } }).then((x) => x.json());
+    assert.equal(d.ok, false); assert.match(d.error, /plafond de 20 appels par minute/, "le 21e appel, via le diagnostic, est refusé");
     await c2.close();
   } finally { await capped.stop(); }
 });

@@ -17,8 +17,9 @@ ENCRYPTION_KEY=<32 caractères minimum, générés une fois, jamais changés ens
 
 * `ENCRYPTION_KEY` chiffre `users.json` (jetons et mots de passe des collaborateurs). La perdre = tous les collaborateurs
   se reconnectent. La changer = idem.
-* Une variable laissée vide = connecteur en mode simulateur (préprod) ou désactivé (prod). **Ne jamais mettre de commentaire
-  sur la même ligne qu'une valeur** : Compose le lirait comme la valeur.
+* Sage X3 et MyReport sans URL = simulateur intégré, données inventées et étiquetées comme telles ; en production, un
+  connecteur non configuré n'est pas exposé du tout. **Ne jamais mettre de commentaire sur la même ligne qu'une valeur** :
+  Compose le lirait comme la valeur.
 
 Après toute modification de `.env` :
 
@@ -67,7 +68,7 @@ SAGE_APIKEY_MODE=basic
 SAGE_REPRESENTATIONS=BPCUSTOMER,BPSUPPLIER,SINVOICE,PINVOICE,SORDER,PORDER,GACCENTRY,ITMMASTER
 ```
 
-Optionnel : `SAGE_LANG` (langue des libellés, défaut `fr-FR`), `SAGE_TIMEOUT_MS` (défaut 30000).
+Optionnel : `SAGE_LANG` (langue des libellés, défaut `fr-FR`). Délai max par requête Syracuse : 30 s, fixe.
 
 ### Étape 3 : connexion sur le portail
 
@@ -148,8 +149,9 @@ SF_CLIENT_ID=<clé consommateur>
 SF_CLIENT_SECRET=<secret consommateur>
 ```
 
-Optionnel : `SF_MCP_TOOLS` (liste blanche d'outils, vide = les six), `SF_DEFAULT_LIMIT` (LIMIT ajouté aux SOQL sans borne,
-défaut 200), `SF_MAX_PER_MIN` (plafond d'appels, défaut illimité ; utile en production, facturée en crédits Flex).
+Optionnel : `SF_DEFAULT_LIMIT` (LIMIT ajouté aux SOQL sans borne, défaut 200), `SF_MAX_PER_MIN` (plafond d'appels par
+minute, défaut illimité ; utile en production, facturée en crédits Flex). L'URL doit se terminer par `/sobject-reads` : toute
+autre est refusée au démarrage.
 
 ### Étape 3 : connexion sur le portail
 
@@ -175,7 +177,8 @@ après confirmation de l'intégrateur Salesforce. Fixer `SF_MAX_PER_MIN`.
 ### Claude Desktop (vérifié)
 
 Claude Desktop n'accepte pas d'en-tête d'autorisation sur un serveur distant : le portail fournit un bloc **Claude
-Desktop** qui passe par le pont `mcp-remote`. Prérequis : Node.js LTS installé sur le poste (`node -v`).
+Desktop** qui passe par le pont `mcp-remote` (version épinglée `0.15`). Prérequis : Node.js LTS installé sur le poste
+(`node -v`).
 
 1. Portail → bloc « Claude Desktop » → Copier.
 2. Claude Desktop → nom d'utilisateur en bas à gauche → Paramètres → Développeur → **Modifier la configuration** : ouvre le

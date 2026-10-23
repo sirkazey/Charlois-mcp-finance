@@ -1,7 +1,44 @@
 # Audit de clôture et feuille de route — Charlois AI Gateway
 
-**Périmètre** : version 1.0.0 et bouchon d'entreprise `charlois-mcp-stub/` (commit `20d6eb1`), 48 tests du hub verts en
-pré-prod et en production, 7 tests de bout en bout hub ↔ bouchon.
+**Périmètre** : version 1.1.0 et bouchon d'entreprise `charlois-mcp-stub/`, 62 tests du hub verts en pré-prod et en
+production, 8 tests de bout en bout hub ↔ bouchon, et la première validation sur les systèmes réels (Sage X3 préproduction,
+Salesforce sandbox) consignée dans `JOURNAL_TESTS.md`.
+
+## 0. Audit de clôture du 23 octobre 2026 (après les premiers tests réels)
+
+Trois revues indépendantes sur le code à `be9c90c`, après une journée de tests sur la préproduction Sage X3 et la sandbox
+Salesforce : un validateur (lecture seule, cloisonnement, injection), un testeur (crash-test hub ↔ bouchon, 42 vérifications
+en 6 secondes, toutes conformes) et un contrôleur de simplicité.
+
+**Verdict** : aucun point bloquant sur la lecture seule, le cloisonnement et l'injection. Quatre points importants, tous
+corrigés le jour même (commit suivant), avec un test de régression chacun :
+
+| # | Constat | Correction |
+|---|---------|------------|
+| 1 | Sous Docker, une variable vide (`MYREPORT_MAX_PER_MIN=`, `SF_DEFAULT_LIMIT=`) valait `0` : plafond et `LIMIT` par défaut désactivés en production, alors que les tests (variable absente) les voyaient actifs | `\|\|` au lieu de `??` ; test avec variable vide |
+| 2 | Le diagnostic du portail échappait au plafond d'appels (20 clics par minute et par adresse IP, hors compteur global) | Même compteur pour le diagnostic ; un utilisateur sans jeton ne consomme plus le quota |
+| 3 | `LIMIT` ajouté d'office cassait toute SOQL finissant par `OFFSET`, `ALL ROWS` ou `FOR VIEW` | Expression corrigée ; test avec `OFFSET` |
+| 4 | `SAGE_REPRESENTATIONS` absente du compose de base : non réglable en production | Ajoutée ; `SAGE_TIMEOUT_MS` retirée (constante 30 s) |
+
+Points mineurs traités dans la foulée : un délai dépassé n'est plus mis en cache comme « représentation en erreur » ;
+libellé du portail en mode `basic` (« identifiant et mot de passe Syracuse », plus « clé d'API ») ; ligne Source
+Salesforce « hôte … » hors sandbox et hors production (bouchon) ; `Object.hasOwn` sur les accès par nom ; corps d'erreur
+Syracuse tronqué à 300 caractères et journal d'erreur réduit au statut HTTP ; `SF_MCP_URL` acceptée seulement si elle
+désigne `…/sobject-reads` (liste blanche au lieu d'une liste noire) ; liste blanche `SF_MCP_TOOLS` supprimée (jamais
+exercée, redondante) ; `mcp-remote` épinglé en `0.15` dans le bloc Claude Desktop ; en production, un connecteur sans
+configuration n'est plus exposé (aucune donnée inventée possible en prod).
+
+**Simplicité** : le produit reste minimaliste, 870 lignes, trois dépendances, un fichier d'état chiffré, aucune
+abstraction. `sagex3.js` a doublé (90 → 180 lignes) de connaissance Syracuse vérifiée, pas de mécanique. Le poids avait
+glissé vers la périphérie : la configuration existait en quatre copies désaccordées (code, liste du portail, `.env.example`,
+compose). La liste codée en dur du portail est remplacée par un filtre sur l'environnement (une ligne, jamais en retard) ;
+les divergences sont corrigées ; les descriptions d'outils Sage sont raccourcies et les pièges métier (factures/avoirs)
+deviennent une donnée `notes` renvoyée par `sagex3_describe` ; les instructions du serveur MCP sont un tableau de phrases.
+Factorisation entre connecteurs proxy : refusée (gain nul, abstraction en plus), à revoir seulement si un quatrième proxy
+arrive (évolution 3.4).
+
+**Ce que l'audit ne couvre pas** : le cloisonnement sur les vrais systèmes n'a été observé qu'avec un compte administrateur.
+Le test avec un compte restreint reste le premier à faire (`JOURNAL_TESTS.md`, « Tests non encore réalisés »).
 **Méthode** : relecture indépendante du code par un agent validateur (faits cités fichier par fichier), crash-test en boîte
 noire du vrai hub branché sur le vrai bouchon par un agent testeur (expiration forcée des jetons, deux collaborateurs en
 parallèle, fichiers physiques, pannes, charge), synthèse par l'agent principal. Mise à jour du 22 octobre 2026.
@@ -77,8 +114,8 @@ sont pas typés côté Lambda. Une ligne de validation le fermerait (candidat po
 
 ### 1.4 Verdict global de simplicité
 
-Environ 650 lignes de code, trois dépendances, un conteneur, aucune opération d'exploitation récurrente, 48 tests qui
-tournent en moins de vingt secondes sans réseau. Le blindage de sécurité a coûté une variable d'environnement et une
+Environ 870 lignes de code, trois dépendances, un conteneur, aucune opération d'exploitation récurrente, 62 tests qui
+tournent en moins de trente secondes sans réseau. Le blindage de sécurité a coûté une variable d'environnement et une
 vingtaine de lignes. S'il fallait simplifier encore une chose : retirer le transport SSE historique (treize lignes, une
 structure en mémoire et un endpoint de moins) dès que les assistants utilisés sont confirmés sur Streamable HTTP.
 
@@ -145,8 +182,10 @@ minute pour tout un site derrière un NAT) ; une session MCP amont ouverte et fe
 Le bouchon valide le hub, pas les produits. Confiance : **Salesforce élevée** (endpoints et formes standard ; mini-SOQL
 limité), **Microsoft Graph élevée** (sans pagination), **Dropbox MCP élevée** sur les noms, arguments et réponses des
 outils, relevés sur le serveur officiel le 22/10/2026 (`fetch` par `id`, `get_file_metadata` imbriqué, `file_preview` →
-vignettes et liens, pas d'image MCP) mais acceptation du jeton d'une app tierce non vérifiée, **Sage X3 Syracuse moyenne
-à faible** (API « représentations » écrite de mémoire, non confrontée à une instance 24R1), **MyReport aucune** (pas de
+vignettes et liens, pas d'image MCP) mais acceptation du jeton d'une app tierce non vérifiée, **Sage X3 Syracuse élevée**
+depuis le 23/10/2026 (structure, filtres, fiches et codes d'erreur relevés sur la préproduction ; prototypes réels de
+PINVOICE en fixtures de test) ; **Salesforce élevée** sur les six outils réels de SObject Reads (noms, arguments et
+descriptions relevés sur la sandbox), **MyReport aucune** (pas de
 serveur MCP officiel connu : outils inventés, seule la plomberie SSE est prouvée). Détail dans `charlois-mcp-stub/README.md`.
 La première connexion réelle à chaque système reste le vrai test ; les boutons de diagnostic sont faits pour ça.
 
@@ -177,13 +216,13 @@ Tout ce qui est marqué **DSI Charlois** demande un accès administrateur aux ou
 
 | # | Outil | Action | Variables à renseigner dans Portainer |
 |---|-------|--------|---------------------------------------|
-| C1 | **Salesforce** | Créer une Connected App OAuth : scopes `openid`, `api`, `refresh_token`, `offline_access` ; callback `https://mcp.charlois.fr/auth/salesforce/callback` (et la version pré-prod) ; *Refresh Token Policy* = « valid until revoked » ; relâcher la restriction d'IP si l'org en a une | `SF_CLIENT_ID`, `SF_CLIENT_SECRET`, `SF_LOGIN_URL` (My Domain ou sandbox) |
-| C2 | **Sage X3 24R1** | Décider du mode : OAuth (déclarer un serveur OAuth2 dans Syracuse, rattacher les utilisateurs X3, créer l'app Entra correspondante avec un scope dédié) ou **clé d'API personnelle** (plus simple : chaque collaborateur saisit la sienne dans le portail). Vérifier avec le `curl` du README que Syracuse accepte le Bearer ou le Basic ; lister les représentations utiles | `SAGE_URL`, `SAGE_FOLDER`, `SAGE_APIKEY_MODE`, `SAGE_REPRESENTATIONS`, et les `SAGE_OAUTH_*` si OAuth |
+| C1 | **Salesforce** | **Fait en sandbox le 23/10** (`GUIDE_CONFIGURATION.md` § 2). Reste pour la production : créer l'application cliente externe dans l'org de production avec les mêmes réglages (étendues `mcp_api` + `refresh_token`, PKCE, JWT, secret exigé, callback du hub), relever l'URL SObject Reads de production, désactiver les serveurs MCP d'écriture après accord de l'intégrateur, fixer `SF_MAX_PER_MIN` | `SF_LOGIN_URL`, `SF_MCP_URL`, `SF_CLIENT_ID`, `SF_CLIENT_SECRET`, `SF_MAX_PER_MIN` |
+| C2 | **Sage X3 24R1** | **Fait en préproduction le 23/10** en mode `basic` (`GUIDE_CONFIGURATION.md` § 1). Reste : réponse 4CAD au ticket Redmine #31562 (publier SINVOICE, GACCENTRY, GACCDUDATE ; exposer le type de pièce), puis production : URL Syracuse de production, nom du point de connexion, liste de représentations, et un compte restreint pour le test de cloisonnement | `SAGE_URL`, `SAGE_FOLDER`, `SAGE_APIKEY_MODE=basic`, `SAGE_REPRESENTATIONS` |
 | C3 | **SharePoint / OneDrive** | Enregistrer une application Entra ID : permissions **déléguées** `User.Read`, `Files.Read.All`, `Sites.Read.All` avec consentement administrateur ; URI de redirection `https://mcp.charlois.fr/auth/sharepoint/callback` ; secret client ; identifier le site Finance | `MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET`, `SP_SITE` |
 | C4 | **Dropbox** | Créer une app Dropbox (App Console) avec les permissions `account_info.read`, `files.metadata.read`, `files.content.read`, `sharing.read` et l'URI de redirection ; vérifier avec le bouton « Tester Dropbox » que `mcp.dropbox.com` accepte le jeton de cette app | `DROPBOX_APP_KEY`, `DROPBOX_APP_SECRET` |
 | C5 | **MyReport** | Obtenir auprès de MyReport Server l'URL SSE de son serveur MCP et le format du jeton personnel ; chaque collaborateur saisit son jeton dans le portail ; après un premier « Tester MyReport », composer la liste blanche des outils de lecture | `MYREPORT_MCP_URL`, `MYREPORT_AUTH_HEADER`, `MYREPORT_TOOLS` |
 
-Tant qu'un outil n'est pas configuré, son bouton reste grisé et Sage X3 / MyReport tournent en simulateur : rien ne bloque les autres.
+Tant qu'un outil n'est pas configuré, son bouton reste grisé ; en pré-prod Sage X3 / MyReport tournent en simulateur, en production ils ne sont pas exposés : rien ne bloque les autres.
 
 ### D. Backend Clevoa (Clevoa, une heure)
 

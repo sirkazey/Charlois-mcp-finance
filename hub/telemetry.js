@@ -2,7 +2,6 @@
 // Payload : version du hub, environnement, état de configuration des connecteurs (booléens), compteur brut de requêtes MCP du jour.
 // Jamais de donnée utilisateur, de jeton, de requête ni de résultat. Désactivée si CLEVOA_KEY est vide.
 import { VERSION, APP_ENV } from "./version.js";
-export { VERSION };
 
 const URL_ = process.env.CLEVOA_URL || "https://clevoa.fr/api/v1/telemetry";
 const KEY = process.env.CLEVOA_KEY || "";

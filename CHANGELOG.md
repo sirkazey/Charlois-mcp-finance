@@ -2,13 +2,19 @@
 
 Une section par version, trois lignes au plus par rubrique. La version est celle de `hub/version.js`, le tag Git `vX.Y.Z` et la Release GitHub portent le même numéro.
 
-## [Non publié]
+## [1.1.0] – 2026-10-23
+
+Première validation sur les systèmes réels : Sage X3 préproduction (4CAD Cloud, Syracuse 24R1) et Salesforce sandbox. Détail dans `JOURNAL_TESTS.md`, procédures dans `GUIDE_CONFIGURATION.md`, audit dans `AUDIT_ROADMAP.md` § 0.
+
+### Corrigé (audit de clôture du 23/10)
+- Sous Docker, une variable vide désactivait `MYREPORT_MAX_PER_MIN` et `SF_DEFAULT_LIMIT` ; le diagnostic du portail échappait au plafond ; `LIMIT` par défaut cassait `OFFSET` / `ALL ROWS` ; `SAGE_REPRESENTATIONS` manquait au compose de base. Tous corrigés avec test.
+- Sage X3 : délai dépassé non mis en cache ; libellé « identifiant et mot de passe Syracuse » en mode basic ; erreurs tronquées. Salesforce : `SF_MCP_URL` doit désigner `…/sobject-reads` ; `SF_MCP_TOOLS` supprimée. Production : un connecteur sans configuration n'est pas exposé. Portail : liste des variables dérivée de l'environnement ; `mcp-remote@0.15` épinglé.
 
 ### Corrigé
-- Sage X3 : lecture de la structure au format réel Syracuse 24R1 (vérifié sur l'instance de préproduction) : champs sous `$properties.$resources.$item.$properties`, libellés `{@n}` résolus via `$localization`, champs exclus/cachés ignorés, types sans le préfixe `application/x-`. Simulateur intégré, bouchon et mocks de test alignés.
+- Sage X3 : lecture de la structure au format réel Syracuse 24R1 (vérifié sur l'instance de préproduction) : champs sous `$properties.$resources.$item.$properties`, libellés `{@n}` résolus via `$localization`, types sans le préfixe `application/x-`. Simulateur intégré, bouchon et mocks de test alignés.
 - Sage X3 : une représentation absente du dossier (404) ou interdite à l'utilisateur (403) n'empêche plus le diagnostic ni les outils ; elle est signalée comme absente. Une clé révoquée (401) reste bloquante.
-- Sage X3 : structure chargée en parallèle et délai max par requête (`SAGE_TIMEOUT_MS`, défaut 30 s) : le diagnostic ne reste plus « en cours » indéfiniment.
-- Sage X3 : en-tête `Accept-Language` (`SAGE_LANG`, défaut `fr-FR,fr`) : Syracuse traduit les libellés selon cet en-tête (capture en anglais sans lui). Prototypes réels de PINVOICE (liste et fiche, anonymisés) ajoutés comme fixtures de test.
+- Sage X3 : structure chargée en parallèle et délai max de 30 s par requête : le diagnostic ne reste plus « en cours » indéfiniment.
+- Sage X3 : en-tête `Accept-Language` (`SAGE_LANG`, défaut `fr-FR`) : Syracuse traduit les libellés selon cet en-tête (capture en anglais sans lui). Prototypes réels de PINVOICE (liste et fiche, anonymisés) ajoutés comme fixtures de test.
 - Traçabilité : chaque résultat d'outil se termine par une ligne « Source : <système> » (avec le dossier pour Sage X3, sandbox ou production pour Salesforce), que les instructions du serveur demandent au modèle de citer. Ces instructions demandent aussi d'interroger Sage X3 et Salesforce quand une question sur un tiers, une commande ou une facture ne nomme pas le système.
 - Salesforce : bouchon et mocks alignés sur les six outils réels du serveur SObject Reads et leurs arguments (`q`, `objects`, `sobject-name`, `id`, `relationship-path`) ; `LIMIT` ajouté d'office aux SOQL sans borne (`SF_DEFAULT_LIMIT`, défaut 200).
 - Salesforce : identité (email du portail) obtenue par l'outil `getUserInfo` du serveur SObject Reads quand `userinfo` est refusé (pas d'étendue openid) ; vérifié sur la sandbox. Noms réels des six outils du serveur hébergé documentés : find, getObjectSchema, getRelatedRecords, getUserInfo, listRecentSobjectRecords, soqlQuery.

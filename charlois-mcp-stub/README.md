@@ -26,7 +26,7 @@ automatique en conditions réelles. Les refresh tokens n'expirent pas. Aucune pe
 
 ```bash
 npm install && npm start          # http://localhost:4000 (page d'accueil : collaborateurs, clés, points d'entrée)
-npm test                          # 7 tests : le vrai hub branché sur le bouchon, flux OAuth via les mires, droits, télémétrie
+npm test                          # 8 tests : le vrai hub branché sur le bouchon, flux OAuth via les mires, droits, télémétrie
 ```
 
 Avec Docker : `docker compose -f docker-compose.dev.yml up -d --build` à la racine du dépôt lance le bouchon et le hub

@@ -21,12 +21,12 @@ services:
       SF_CLIENT_ID: ${SF_CLIENT_ID}
       SF_CLIENT_SECRET: ${SF_CLIENT_SECRET}
       SF_SCOPE: ${SF_SCOPE}
-      SF_MCP_TOOLS: ${SF_MCP_TOOLS}
       # Sage X3 24R1 — vide = mode simulé (YFAC, YCLIENT, ZVENTE). Callback = $PUBLIC_URL/auth/sagex3/callback
       SAGE_URL: ${SAGE_URL}
       SAGE_FOLDER: ${SAGE_FOLDER}
       SAGE_APIKEY_MODE: ${SAGE_APIKEY_MODE}      # bearer (défaut) ou basic : comment envoyer la clé d'API personnelle
-      SAGE_LANG: ${SAGE_LANG}                         # langue des libellés Syracuse ; défaut fr-FR,fr
+      SAGE_LANG: ${SAGE_LANG}                         # langue des libellés Syracuse ; défaut fr-FR
+      SAGE_REPRESENTATIONS: ${SAGE_REPRESENTATIONS}   # représentations exposées ; défaut : 8 standards (BPCUSTOMER, BPSUPPLIER, SINVOICE, PINVOICE, SORDER, PORDER, GACCENTRY, ITMMASTER)
       SAGE_OAUTH_AUTH_URL: ${SAGE_OAUTH_AUTH_URL}
       SAGE_OAUTH_TOKEN_URL: ${SAGE_OAUTH_TOKEN_URL}
       SAGE_OAUTH_USERINFO_URL: ${SAGE_OAUTH_USERINFO_URL}

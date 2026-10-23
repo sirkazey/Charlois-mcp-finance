@@ -1,11 +1,14 @@
 // Client MCP partagé par les connecteurs "proxy" (Dropbox, MyReport) : une session par appel, fermée ensuite.
 // `headers` porte l'autorisation de l'utilisateur ; `sse` choisit le transport SSE (sinon Streamable HTTP).
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { VERSION } from "./version.js";
+/** Première adresse e-mail d\'un texte (identité renvoyée par un serveur MCP). */
+export const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/;
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 
 export async function withMcp({ url, headers, sse = false, label = "MCP" }, fn) {
-  const client = new Client({ name: "charlois-finance-hub", version: "1.0.0" });
+  const client = new Client({ name: "charlois-finance-hub", version: VERSION });
   const opts = { requestInit: { headers } };
   const transport = sse ? new SSEClientTransport(new URL(url), opts) : new StreamableHTTPClientTransport(new URL(url), opts);
   try {

@@ -1,9 +1,9 @@
 {
   "name": "charlois-mcp-hub",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
-  "description": "Hub MCP lecture seule : Salesforce + Sage X3 24R1, jeton OAuth de l'utilisateur transmis tel quel.",
+  "description": "Charlois AI Gateway : hub MCP en lecture seule vers Salesforce, Sage X3, SharePoint, Dropbox et MyReport, avec les droits de chaque collaborateur",
   "scripts": {
     "start": "node server.js",
     "test": "node --test test/*.test.js"

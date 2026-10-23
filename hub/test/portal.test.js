@@ -253,7 +253,7 @@ test("Clé d'API Syracuse : POST /api/sagex3/apikey remplace OAuth, l'état pass
   up.reset();
   const d = await fetch(`${hub.url}/api/test/sagex3`, { headers: { cookie } }).then((x) => x.json());
   assert.equal(d.ok, true, JSON.stringify(d));
-  assert.match(d.message, /clé d'API \(bearer\)/);
+  assert.match(d.message, /par clé d'API · /);
   assert.ok(up.requests("$prototypes").every((q) => q.headers.authorization === "Bearer syr-key-alice"));
 
   // Une clé révoquée : voyant rouge « Sage X3 401 », aucun refresh OAuth tenté (le diagnostic relit la structure, jamais le cache)
@@ -322,7 +322,15 @@ test("index.html : chaque URL appelée (fetch / href) correspond à une route du
 });
 
 // ---------------------------------------------------------------- mode simulé Sage X3 (SAGE_URL vide)
-test("Mode simulé Sage X3 : sans compte ni jeton, le diagnostic est vert et liste YFAC, YCLIENT, ZVENTE ; les outils MCP répondent", async () => {
+test("Production : un connecteur sans configuration (simulateur) n'est ni listé par /api/me ni exposé comme outil MCP", { skip: !(process.env.APP_ENV === "production") && "comportement de production" }, async () => {
+  const prod = await startHub({ upstreamUrl: up.url, env: { SAGE_URL: "", MYREPORT_MCP_URL: "" } });
+  try {
+    const me = await fetch(`${prod.url}/api/me`).then((x) => x.json());
+    assert.deepEqual(me.systems.map((s) => s.id), ["salesforce", "sharepoint", "dropbox"], "Sage X3 et MyReport absents : jamais de données inventées en production");
+  } finally { await prod.stop(); }
+});
+
+test("Mode simulé Sage X3 : sans compte ni jeton, le diagnostic est vert et liste YFAC, YCLIENT, ZVENTE ; les outils MCP répondent", { skip: process.env.APP_ENV === "production" && "en production un connecteur non configuré n'est pas exposé" }, async () => {
   up.reset();
   const sim = await startHub({ upstreamUrl: up.url, env: { SAGE_URL: "" } });
   try {
@@ -421,4 +429,14 @@ test("Salesforce sans étendue openid : userinfo refusé (403) → email obtenu 
   const me = await fetch(`${hub.url}/api/me`, { headers: { cookie: c2 } }).then((x) => x.json());
   assert.equal(me.email, "alice@charlois.com", "email extrait de getUserInfo");
   assert.ok(up.requests("sobject-reads", "POST").length >= 1, "le serveur MCP a été appelé avec le jeton de l'utilisateur");
+});
+
+test("Sage X3 : un délai dépassé (504) sur une représentation est bloquant, rien n'est mis en cache (contrairement aux 5xx de génération)", async () => {
+  const cookie2 = `mcp_key=${(await fetch(`${hub.url}/api/me`)).headers.get("set-cookie").match(/mcp_key=([^;]+)/)[1]}`;
+  await fetch(`${hub.url}/api/sagex3/apikey`, { method: "POST", headers: { cookie: cookie2, "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: "syr-key-slow" }) });
+  up.failNext("$prototypes('BPCUSTOMER.$query')", 504);
+  const d = await fetch(`${hub.url}/api/test/sagex3`, { headers: { cookie: cookie2 } }).then((x) => x.json());
+  assert.equal(d.ok, false); assert.match(d.error, /Sage X3 504/);
+  const again = await fetch(`${hub.url}/api/test/sagex3`, { headers: { cookie: cookie2 } }).then((x) => x.json());
+  assert.equal(again.ok, true, JSON.stringify(again)); assert.ok(!/en erreur côté Sage/.test(again.message), "le 504 n'a pas été retenu comme représentation en erreur");
 });

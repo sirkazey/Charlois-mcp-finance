@@ -4,6 +4,7 @@ import { test, mock, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { startUpstream } from "./helpers/upstream.js";
 import { startHub, connectedUser, KEY } from "./helpers/hub.js";
+import { VERSION } from "../version.js";
 import { telemetry as lambda } from "../../clevoa-backend/handler.js";
 
 const CONNECTORS = [
@@ -21,7 +22,7 @@ test("Module : payload 100 % anonyme (version, date, booléens par connecteur, c
   try {
     tm.count(); tm.count(); tm.count();
     const env = process.env.APP_ENV === "production" ? "PRODUCTION" : "PRE-PROD";
-    assert.deepEqual(tm.payload(CONNECTORS), { version: tm.VERSION, env, date: "2026-10-21", connectors: { salesforce: true, sagex3: false, sharepoint: false, dropbox: true, myreport: true }, requests: 3 });
+    assert.deepEqual(tm.payload(CONNECTORS), { version: VERSION, env, date: "2026-10-21", connectors: { salesforce: true, sagex3: false, sharepoint: false, dropbox: true, myreport: true }, requests: 3 });
 
     tm.start(CONNECTORS);
     await new Promise((r) => setImmediate(r));

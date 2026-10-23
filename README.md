@@ -19,7 +19,7 @@ Assistant IA (Claude Code, Claude Desktop, ChatGPT, Copilot)
         ▼
 ┌─────────────────── mcp-hub (1 conteneur, Node 22) ───────────────────┐
 │ server.js      identité (clé) · outils MCP · portail · diagnostic    │
-│ oauth.js       flux OAuth2 code + refresh (Salesforce, Sage X3)      │
+│ oauth.js       flux OAuth2 code + PKCE + refresh, tous connecteurs   │
 │ cache.js       structure des tables en mémoire, par utilisateur,     │
 │                expirée chaque nuit à 03:00                           │
 │ mcpclient.js   client MCP partagé par les connecteurs proxy          │
@@ -27,7 +27,7 @@ Assistant IA (Claude Code, Claude Desktop, ChatGPT, Copilot)
 │ telemetry.js   télémétrie Clevoa anonyme, au démarrage puis à 03:00  │
 │ connectors/    salesforce (proxy MCP) · sagex3 · sharepoint · dropbox · myreport │
 │ public/        index.html  portail Charlois AI Gateway               │
-│ test/          node:test, amont mocké, 59 tests                      │
+│ test/          node:test, amont mocké, 62 tests                      │
 └───┬─────────────┬───────────────┬───────────────┬───────────────┬────┘
     │  (pré-prod : charlois-mcp-stub/ imite les cinq systèmes, 8 tests de bout en bout)
     ▼ MCP HTTP    ▼ REST Syracuse ▼ Graph (GET)   ▼ MCP HTTP      ▼ MCP SSE
@@ -35,7 +35,7 @@ Assistant IA (Claude Code, Claude Desktop, ChatGPT, Copilot)
  (SObject Reads) (ou simulateur) OneDrive      officiel)       (ou simulateur)
 ```
 
-* **Pas de framework** : `@modelcontextprotocol/sdk` + `express` + `zod`. Environ 850 lignes de code, 5 connecteurs de 60 à 180 lignes.
+* **Pas de framework** : `@modelcontextprotocol/sdk` + `express` + `zod`. Environ 870 lignes de code, 5 connecteurs de 50 à 180 lignes. En production, un connecteur sans configuration n'est pas exposé ; en pré-prod, Sage X3 et MyReport tournent en simulateur étiqueté.
 * **Données jamais cachées** : chaque question interroge l'outil en direct. Seule la *structure* (objets / champs)
   est gardée en mémoire, **par utilisateur** (donc selon ses propres droits), et expire chaque nuit.
 * **Lecture seule** : Salesforce via le serveur MCP hébergé `SObject Reads` uniquement ; Sage X3 `$query` / `$details` / `$prototypes` uniquement ;
@@ -88,12 +88,15 @@ derrière API Gateway, décrite par un `serverless.yml` commenté.
 ## Sécurité de l'accès MCP
 
 * La clé MCP personnelle se transmet **uniquement** dans l'en-tête `Authorization: Bearer <clé>` (Claude Code, Claude
-  Desktop, ChatGPT, Copilot). Le paramètre d'URL `?key=` est refusé : une clé dans l'URL finirait dans les journaux
+  Desktop, ChatGPT, Copilot). Le paramètre d'URL `?key=` est ignoré : une clé dans l'URL finirait dans les journaux
   du reverse-proxy. Conséquence : les connecteurs personnalisés de claude.ai web/mobile, qui ne posent pas d'en-tête,
   ne peuvent pas se connecter tant que le hub n'expose pas un serveur OAuth 2.1 (non implémenté, volontairement).
 * Limitation de débit en mémoire, par adresse IP et par minute : 20 diagnostics, 30 actions portail (jeton,
   déconnexion), 60 `/api/me`, et 20 échecs d'authentification MCP (force brute sur la clé) → `429`. `TRUST_PROXY`
   indique le nombre de reverse-proxys pour lire l'IP réelle.
+* Plafond d'appels sortants par connecteur, tous utilisateurs confondus, outils et diagnostic compris :
+  `MYREPORT_MAX_PER_MIN` (défaut 20, MyReport n'ayant qu'une production) et `SF_MAX_PER_MIN` (défaut illimité, crédits
+  Flex). Au-delà, l'outil répond une erreur claire sans rien envoyer au système.
 * Conteneur (pré-prod et prod) : utilisateur `node`, capacités retirées, `no-new-privileges`, système de fichiers en
   lecture seule hormis `/data` et `/tmp`.
 
@@ -125,7 +128,7 @@ docker compose up -d --build
 Sur le portail, la section **Diagnostic & Connectivité** permet de :
 * **Tester Salesforce** : session MCP vers le serveur hébergé `SObject Reads` avec votre jeton. Vert avec la liste des outils, rouge avec l'erreur.
 * **Tester le simulateur Sage X3** : sans `SAGE_URL`, le connecteur répond avec 3 tables fictives
-  (`YFAC`, `YCLIENT`, `ZVENTE`) servies depuis le cache mémoire. Voyant vert + liste des tables.
+  (`YFAC`, `YCLIENT`, `ZVENTE`) inventées, étiquetées « données inventées ». Voyant vert + liste des tables.
 * **Tester SharePoint** : `GET /me` sur Graph avec votre jeton. Vert avec votre identité, rouge avec l'erreur.
 * **Tester Dropbox** : session MCP vers `mcp.dropbox.com` avec votre jeton. Vert avec la liste des outils lecture seule.
 * **Tester MyReport** : session MCP SSE vers `MYREPORT_MCP_URL` avec votre jeton, ou simulateur local si l'URL est vide.
@@ -273,6 +276,6 @@ Outils : `salesforce_tools`, `salesforce_call` · `sagex3_representations`, `sag
 ```bash
 cd hub && npm install
 ENCRYPTION_KEY=$(openssl rand -hex 32) PUBLIC_URL=http://localhost:8080 SF_CLIENT_ID=… SF_CLIENT_SECRET=… node server.js   # Sage X3 en mode simulé
-npm test                    # 59 tests node:test (pré-prod)
+npm test                    # 62 tests node:test (pré-prod)
 APP_ENV=production npm test # même suite sous les verrous de production : transports, lecture seule, refresh, cache, OAuth, jetons personnels, portail, simulateurs, Graph, proxys MCP, télémétrie et Lambda Clevoa
 ```

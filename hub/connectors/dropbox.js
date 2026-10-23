@@ -2,7 +2,7 @@
 // Le hub se comporte en client MCP avec le jeton OAuth Dropbox de l'utilisateur ; Dropbox applique ses droits.
 // Lecture seule : scopes OAuth *.read uniquement ET liste blanche d'outils (jamais create/move/copy/delete).
 import { z } from "zod";
-import { withMcp, toolText, callRemote } from "../mcpclient.js";
+import { withMcp, toolText, callRemote, EMAIL } from "../mcpclient.js";
 
 const MCP_URL = process.env.DROPBOX_MCP_URL || "https://mcp.dropbox.com/mcp";
 const READ_ONLY = ["who_am_i", "list_folder", "search", "get_file_metadata", "fetch", "file_preview", "list_shared_links", "get_shared_link_metadata"];
@@ -25,7 +25,7 @@ export const schema = (tok) => mcp(tok, async (c) => ({
   tools: (await c.listTools()).tools.filter((t) => READ_ONLY.includes(t.name)).map(({ name, description, inputSchema }) => ({ name, description, inputSchema })),
 }));
 
-export const identity = (tok) => mcp(tok, async (c) => toolText(await c.callTool({ name: "who_am_i", arguments: {} })).match(/[\w.+-]+@[\w-]+\.[\w.-]+/)?.[0] ?? null);
+export const identity = (tok) => mcp(tok, async (c) => toolText(await c.callTool({ name: "who_am_i", arguments: {} })).match(EMAIL)?.[0] ?? null);
 
 export async function ping(_tok, schema) {
   const { tools } = await schema();

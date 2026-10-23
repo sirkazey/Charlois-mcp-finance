@@ -14,7 +14,7 @@ export const id = "myreport";
 export const label = "MyReport";
 export const mock = !MCP_URL;
 export const apiKey = { mode: "bearer", label: "jeton personnel MyReport Server" };
-export const maxPerMinute = Number(process.env.MYREPORT_MAX_PER_MIN ?? 20); // MyReport n'a qu'une production : plafond d'appels sortants, tous utilisateurs confondus (0 = illimité)
+export const maxPerMinute = Number(process.env.MYREPORT_MAX_PER_MIN || 20); // || : Compose transmet "" quand la variable est vide ; "0" = illimité // MyReport n'a qu'une production : plafond d'appels sortants, tous utilisateurs confondus (0 = illimité)
 
 const headers = (tok) => ({ [HEADER]: HEADER === "Authorization" ? `Bearer ${tok.apiKey}` : tok.apiKey });
 const mcp = (tok, fn) => withMcp({ url: MCP_URL, headers: headers(tok), sse: true, label: "MyReport MCP" }, fn);

@@ -19,14 +19,15 @@ const PORT = process.env.PORT || 8080;
 const debug = process.env.LOG_LEVEL === "debug" ? (...a) => console.log("[debug]", ...a) : () => {};
 // Verrou production : l'URL publique doit être en https (cookie Secure, callbacks OAuth), sauf test local.
 if (IS_PROD && !/^https:|^http:\/\/(localhost|127\.0\.0\.1)(:|$)/.test(PUBLIC_URL)) { console.error(`[prod] PUBLIC_URL doit être en https : ${PUBLIC_URL}`); process.exit(1); }
-const CONNECTORS = [salesforce, sagex3, sharepoint, dropbox, myreport];
+// En production, un connecteur sans configuration (simulateur) n'est pas exposé : jamais de données inventées en prod.
+const CONNECTORS = [salesforce, sagex3, sharepoint, dropbox, myreport].filter((c) => !(IS_PROD && c.mock));
 const byId = Object.fromEntries(CONNECTORS.map((c) => [c.id, c]));
-// Variables visibles dans le portail (les *SECRET* ne sont jamais renvoyées, seulement « défini / vide »).
-const ENV = ["PUBLIC_URL", "SF_LOGIN_URL", "SF_MCP_URL", "SF_CLIENT_ID", "SF_CLIENT_SECRET", "SF_SCOPE", "SAGE_URL", "SAGE_FOLDER", "SAGE_APIKEY_MODE", "SAGE_OAUTH_AUTH_URL", "SAGE_OAUTH_TOKEN_URL", "SAGE_OAUTH_USERINFO_URL", "SAGE_OAUTH_CLIENT_ID", "SAGE_OAUTH_CLIENT_SECRET", "SAGE_OAUTH_SCOPE",
-  "MS_TENANT_ID", "MS_CLIENT_ID", "MS_CLIENT_SECRET", "SP_SITE", "DROPBOX_APP_KEY", "DROPBOX_APP_SECRET", "MYREPORT_MCP_URL", "MYREPORT_AUTH_HEADER", "MYREPORT_TOOLS", "MYREPORT_MAX_PER_MIN", "SF_MAX_PER_MIN", "CLEVOA_URL", "CLEVOA_KEY", "ENCRYPTION_KEY"];
+// Variables visibles dans le portail : toutes celles des connecteurs et du hub présentes dans l'environnement (jamais la valeur des secrets).
+const ENV = Object.keys(process.env).filter((n) => /^(PUBLIC_URL|APP_ENV|LOG_LEVEL|TRUST_PROXY|ENCRYPTION_KEY|SF_|SAGE_|MS_|SP_|GRAPH_URL|DROPBOX_|MYREPORT_|CLEVOA_)/.test(n)).sort();
+const masked = (n) => (/SECRET|CLEVOA_KEY|ENCRYPTION_KEY/.test(n) ? "••••••••" : process.env[n]);
 
 // ---------- Limitation de débit (mémoire, par adresse IP) ----------
-// Protège le diagnostic, les jetons et les échecs d'authentification contre la force brute. Fenêtre glissante simple.
+// Protège le diagnostic, les jetons et les échecs d'authentification contre la force brute. Fenêtre fixe simple.
 const buckets = new Map(); // "règle:ip" -> { n, reset }
 function hit(rule, ip, max, windowMs = 60_000) {
   const id = `${rule}:${ip}`, now = Date.now();
@@ -53,18 +54,27 @@ const mcpUser = requireKey(mcpKey), portalUser = requireKey(cookieKey);
 
 /** Exécute un outil/ping d'un connecteur avec le jeton de l'utilisateur et sa structure en cache.
  *  Un connecteur peut plafonner ses appels sortants (maxPerMinute, tous utilisateurs confondus) pour ménager un système de production. */
+const capped = (c, key) => c.maxPerMinute && hasCredential(store.get(key)?.[c.id]) && hit(`upstream:${c.id}`, "*", c.maxPerMinute); // 1 appel d'outil ou de diagnostic = 1 unité
 const call = (c, key, fn) => {
-  if (c.maxPerMinute && hit(`upstream:${c.id}`, "*", c.maxPerMinute)) throw new Error(`${c.label} : plafond de ${c.maxPerMinute} appels par minute atteint, réessayez dans un instant.`);
+  if (capped(c, key)) throw new Error(`${c.label} : plafond de ${c.maxPerMinute} appels par minute atteint, réessayez dans un instant.`);
   return withToken(c, key, (tok) => fn(tok, () => cachedSchema(key, c.id, () => c.schema(tok))));
 };
 
 // ---------- Serveur MCP (un par connexion, lié à la clé de l'utilisateur) ----------
 /** Ligne de provenance jointe à chaque résultat : système, et dossier pour Sage X3. */
 const provenance = (c) => `Source : ${c.label}${c.source ? ` · ${c.source()}` : ""}`;
+const INSTRUCTIONS = [
+  "Outils en LECTURE SEULE sur Salesforce, Sage X3, SharePoint, Dropbox et MyReport avec les droits de l'utilisateur connecté.",
+  "Chaque résultat se termine par une ligne « Source : … » (système, dossier Sage X3, sandbox ou production Salesforce) : toujours la citer dans la réponse, pour que l'utilisateur sache d'où vient chaque donnée.",
+  "Question sur un client, un fournisseur, une commande ou une facture sans nommer le système : interroger Sage X3 ET Salesforce, puis dire ce que chacun renvoie.",
+  "Salesforce : salesforce_tools puis salesforce_call (serveur MCP officiel SObject Reads). Sage X3 : sagex3_describe puis sagex3_query ; les montants sont dans la devise de l'ERP.",
+  "Documents : sharepoint_search / sharepoint_read, dropbox_tools puis dropbox_call. Analyses MyReport : myreport_tools puis myreport_call.",
+].join(" ");
+
 function buildServer(key) {
   const server = new McpServer(
-    { name: "charlois-finance", version: "1.0.0" },
-    { instructions: "Outils en LECTURE SEULE sur Salesforce, Sage X3, SharePoint, Dropbox et MyReport avec les droits de l'utilisateur connecté. Chaque résultat se termine par une ligne « Source : … » (système, dossier Sage X3, sandbox ou production Salesforce) : toujours la citer dans la réponse, pour que l'utilisateur sache d'où vient chaque donnée. Quand une question porte sur un client, un fournisseur, une commande ou une facture sans nommer le système, interroger Sage X3 ET Salesforce, puis dire ce que chacun renvoie. Salesforce : salesforce_tools puis salesforce_call (serveur MCP officiel SObject Reads). Sage X3 : sagex3_describe puis sagex3_query ; les montants sont dans la devise de l'ERP. Documents : sharepoint_search / sharepoint_read, dropbox_tools puis dropbox_call. Analyses MyReport : myreport_tools puis myreport_call." },
+    { name: "charlois-finance", version: VERSION },
+    { instructions: INSTRUCTIONS },
   );
   for (const c of CONNECTORS) for (const t of c.tools) {
     server.registerTool(t.name, { description: t.description, inputSchema: t.input, annotations: { readOnlyHint: true } }, async (args) => {
@@ -76,7 +86,7 @@ function buildServer(key) {
         const body = out?.$content ? out.$content : [{ type: "text", text: typeof out === "string" ? out : JSON.stringify(out) }]; // $content : contenu MCP relayé tel quel (image, resource)
         return { content: [...body, { type: "text", text: provenance(c) }] }; // traçabilité : d'où vient chaque donnée
       } catch (e) {
-        debug(`${t.name} erreur ${Date.now() - t0} ms : ${e.message.slice(0, 120)}`);
+        debug(`${t.name} erreur ${Date.now() - t0} ms : ${e.status ?? "erreur"}`); // jamais le message (il peut citer une clé demandée)
         return { isError: true, content: [{ type: "text", text: e.message }] };
       }
     });
@@ -112,7 +122,7 @@ app.get("/api/me", limit("me", 60), (req, res) => {
     })),
     // Configuration visible en local (Docker Desktop) ou une fois l'utilisateur connecté à un système ; jamais aux anonymes d'un hub public.
     config: !PUBLIC_URL.startsWith("https") || CONNECTORS.some((c) => hasCredential(u[c.id]))
-      ? ENV.map((n) => ({ name: n, value: !process.env[n] ? null : /SECRET|CLEVOA_KEY|ENCRYPTION_KEY/.test(n) ? "••••••••" : process.env[n] })) : undefined,
+      ? ENV.map((n) => ({ name: n, value: process.env[n] ? masked(n) : null })) : undefined,
   });
 });
 app.post("/api/disconnect/:system", limit("portal", 30), portalUser, (req, res) => {
@@ -133,6 +143,7 @@ app.post("/api/:system/apikey", limit("portal", 30), portalUser, (req, res) => {
 app.get("/api/test/:system", limit("diag", 20), portalUser, async (req, res) => {
   const c = byId[req.params.system];
   if (!c) return res.sendStatus(404);
+  if (capped(c, req.key)) return res.json({ ok: false, error: `${c.label} : plafond de ${c.maxPerMinute} appels par minute atteint, réessayez dans un instant.` });
   try { res.json({ ok: true, ...(await withToken(c, req.key, (tok) => c.ping(tok, () => c.schema(tok)))) }); } // structure relue, pas le cache
   catch (e) { res.json({ ok: false, error: e.message.slice(0, 300) }); }
 });

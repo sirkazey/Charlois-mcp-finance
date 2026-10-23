@@ -59,7 +59,6 @@ export async function startHub({ upstreamUrl, users = {}, env = {} }) {
       ENCRYPTION_KEY,
       PORT: String(port), PUBLIC_URL: url, DATA_DIR: dataDir,
       SF_LOGIN_URL: upstreamUrl, SF_MCP_URL: `${upstreamUrl}/platform/mcp/v1/d/test/platform/sobject-reads`, SF_CLIENT_ID: "sf-client-id", SF_CLIENT_SECRET: "sf-client-secret",
-      SF_OBJECTS: "Account,Contact,Opportunity",
       SAGE_URL: upstreamUrl, SAGE_FOLDER: "PROD", SAGE_REPRESENTATIONS: "BPCUSTOMER,SINVOICE",
       SAGE_OAUTH_AUTH_URL: `${upstreamUrl}/oauth/authorize`, SAGE_OAUTH_TOKEN_URL: `${upstreamUrl}/oauth/token`,
       SAGE_OAUTH_USERINFO_URL: `${upstreamUrl}/oauth/userinfo`,

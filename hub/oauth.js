@@ -39,7 +39,7 @@ export async function withToken(connector, key, fn) {
     const current = store.get(key)?.[connector.id];
     if (current?.access_token && current.access_token !== tokens.access_token) return fn(current); // déjà rafraîchi par un appel concurrent
     const id = `${key}:${connector.id}`;
-    const pending = refreshing.get(id) ?? postToken(connector.oauth, { grant_type: "refresh_token", refresh_token: tokens.refresh_token })
+    const refresh = refreshing.get(id) ?? postToken(connector.oauth, { grant_type: "refresh_token", refresh_token: tokens.refresh_token })
       .then((fresh) => { store.setTokens(key, connector.id, fresh); return fresh; })
       .catch((re) => {
         if (re.status !== 400 && re.status !== 401) throw re;
@@ -47,8 +47,8 @@ export async function withToken(connector, key, fn) {
         throw new Error(`Session ${connector.label} expirée ou révoquée : reconnectez-vous sur le portail.`);
       })
       .finally(() => refreshing.delete(id));
-    refreshing.set(id, pending);
-    return fn({ ...tokens, ...(await pending) });
+    refreshing.set(id, refresh);
+    return fn({ ...tokens, ...(await refresh) });
   }
 }
 

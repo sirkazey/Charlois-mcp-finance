@@ -226,8 +226,8 @@ async function demoFetch(url, opts = {}) {
   const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { "Content-Type": "application/json" } });
   const ko = (l) => ({ ok: false, error: `Non connecté à ${l}. Ouvrez le portail et cliquez « Se connecter à ${l} ».` });
   if (url === "/api/me") return json(demoMe());
-  if (url === "/api/test/salesforce") return json(SIM.sf ? { ok: true, message: "Connecté à https://charlois.my.salesforce.com · API restante : 14 962 / 15 000" } : ko("Salesforce"));
-  if (url === "/api/test/sagex3") return json(SIM.sage === "mock" ? { ok: true, message: "Mode simulé actif · 3 tables en cache mémoire", tables: ["YFAC", "YCLIENT", "ZVENTE"] } : SIM.sageKey ? { ok: true, message: "Connecté à https://x3.charlois.local:8124 (dossier PROD) par clé d'API (bearer)", tables: ["BPCUSTOMER", "SINVOICE", "PINVOICE", "SORDER", "GACCENTRY"] } : ko("Sage X3"));
+  if (url === "/api/test/salesforce") return json(SIM.sf ? { ok: true, message: "Connecté au serveur MCP Salesforce (charloisgroup/platform/sobject-reads) · 6 outils en lecture seule", tables: ["find", "getObjectSchema", "getRelatedRecords", "getUserInfo", "listRecentSobjectRecords", "soqlQuery"] } : ko("Salesforce"));
+  if (url === "/api/test/sagex3") return json(SIM.sage === "mock" ? { ok: true, message: "Mode simulé actif · 3 tables (données inventées)", tables: ["YFAC", "YCLIENT", "ZVENTE"] } : SIM.sageKey ? { ok: true, message: "Connecté à https://x3.charlois.local:8124 (dossier PROD) par clé d'API (bearer)", tables: ["BPCUSTOMER", "SINVOICE", "PINVOICE", "SORDER", "GACCENTRY"] } : ko("Sage X3"));
   if (url === "/api/test/sharepoint") return json(SIM.sp ? { ok: true, message: `Connecté à Microsoft Graph en tant que ${SIM.email} · site charlois.sharepoint.com:/sites/Finance` } : ko("SharePoint"));
   if (url === "/api/test/dropbox") return json(SIM.dbx ? { ok: true, message: "Connecté au serveur MCP Dropbox (https://mcp.dropbox.com/mcp) · 8 outils en lecture seule", tables: ["who_am_i", "list_folder", "search", "get_file_metadata", "fetch", "file_preview", "list_shared_links", "get_shared_link_metadata"] } : ko("Dropbox"));
   if (url === "/api/test/myreport") return json(SIM.mr === "mock" ? { ok: true, message: "Mode simulé actif · 2 outils MyReport fictifs", tables: ["liste_indicateurs", "valeur_indicateur"] } : SIM.mrKey ? { ok: true, message: "Proxy SSE connecté à https://myreport.charlois.local/mcp/sse · 2 / 4 outils autorisés (MYREPORT_TOOLS)", tables: ["liste_indicateurs", "valeur_indicateur", "planifier_export ✕", "purger_cache ✕"] } : ko("MyReport"));
@@ -278,7 +278,7 @@ async function load() {
       <div class="result" id="res-${esc(s.id)}"></div>
     </div>`).join("");
   $("#cfg").textContent = `{\n  "mcpServers": {\n    "charlois-finance": {\n      "type": "http",\n      "url": "${me.mcpUrl}",\n      "headers": { "Authorization": "Bearer ${me.key}" }\n    }\n  }\n}`;
-  $("#cfg-desktop").textContent = `{\n  "mcpServers": {\n    "charlois-finance": {\n      "command": "npx",\n      "args": ["-y", "mcp-remote", "${me.mcpUrl}", "--header", "Authorization:\${MCP_AUTH}"],\n      "env": { "MCP_AUTH": "Bearer ${me.key}" }\n    }\n  }\n}`;
+  $("#cfg-desktop").textContent = `{\n  "mcpServers": {\n    "charlois-finance": {\n      "command": "npx",\n      "args": ["-y", "mcp-remote@0.15", "${me.mcpUrl}", "--header", "Authorization:\${MCP_AUTH}"],\n      "env": { "MCP_AUTH": "Bearer ${me.key}" }\n    }\n  }\n}`;
   $("#mcp-url").textContent = me.mcpUrl;
   $("#config-section").hidden = !me.config;
   if (me.config) $("#config").innerHTML = me.config.map((v) => `<tr><td><i class="dot ${v.value ? "on" : ""}"></i>${esc(v.name)}</td><td>${v.value ? esc(v.value) : "— vide (défaut ou mode simulé)"}</td></tr>`).join("");
