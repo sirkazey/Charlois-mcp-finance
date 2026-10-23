@@ -108,8 +108,10 @@ export async function ping(tok, schema) {
   return { message: mock ? `Mode simulé actif · ${representations.length} tables en cache mémoire` : `Connecté à ${BASE} (dossier ${FOLDER})${how} · ${representations.length} représentations${absent}`, tables: representations };
 }
 
-/** Retire les métadonnées Syracuse ($uuid, $etag, $url…) pour alléger la réponse. */
-const strip = (o) => Object.fromEntries(Object.entries(o).filter(([k]) => !k.startsWith("$")));
+/** Retire les métadonnées Syracuse ($uuid, $etag, $url…) et aplatit les références ({ $title, $description } → libellé),
+ *  format constaté sur 24R1 : BPR_REF: { "$title": "404/210", "$description": "ENGIE" } devient BPR_REF: "ENGIE". */
+export const strip = (o) => Object.fromEntries(Object.entries(o).filter(([k]) => !k.startsWith("$"))
+  .map(([k, v]) => [k, v && typeof v === "object" && !Array.isArray(v) && ("$description" in v || "$title" in v) ? (v.$description || v.$title || "") : v]));
 
 export const tools = [
   {

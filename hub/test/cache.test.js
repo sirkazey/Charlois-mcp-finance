@@ -69,3 +69,10 @@ test("Sage X3 : parsePrototype lit le format réel Syracuse 24R1 (champs sous $r
     { name: "BPCTYP", type: "choice", label: "Type client" },
   ]);
 });
+
+test("Sage X3 : strip retire les métadonnées $ et aplatit les références au format réel 24R1", async () => {
+  const { strip } = await import("../connectors/sagex3.js");
+  const row = { $uuid: "1a0e", $etag: "2026-07-06T12:15:34Z", NUM: "TO2192607FAF0005", ACCDAT: "2026-07-04", FCY: "TO219",
+    FCY_REF: { $title: "", $description: "DOREAU L'ATELIER" }, BPR: "T005664", BPR_REF: { $title: "404/210", $description: "ENGIE" }, PTE_LEG_REF: { $title: "" }, AMT: 12.5, LINES: [{ L: 1 }] };
+  assert.deepEqual(strip(row), { NUM: "TO2192607FAF0005", ACCDAT: "2026-07-04", FCY: "TO219", FCY_REF: "DOREAU L'ATELIER", BPR: "T005664", BPR_REF: "ENGIE", PTE_LEG_REF: "", AMT: 12.5, LINES: [{ L: 1 }] });
+});
