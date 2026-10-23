@@ -82,10 +82,11 @@ export function parsePrototype(p) {
   const loc = p.$localization || {};
   const label = (t) => String(t ?? "").replace(/\{@([^}]+)\}/g, (_, k) => loc[`@${k}`] ?? k);
   const props = p.$properties?.$resources?.$item?.$properties ?? p.$properties ?? {};
-  return Object.entries(props).filter(([, v]) => !v.$isExcluded && !v.$isHidden)
-    .map(([n, v]) => ({ name: n, type: String(v.$type || "").replace(/^application\/x-/, ""), label: label(v.$title) }));
+  // Tous les champs sont conservés : $isExcluded signifie « non affiché par défaut dans la grille », pas « indisponible »
+  // (constaté sur 24R1 : FCY et BPR sont exclus de la grille PINVOICE mais filtrables et renvoyés par $query).
+  return Object.entries(props).map(([n, v]) => ({ name: n, type: String(v.$type || "").replace(/^application\/x-/, ""), label: label(v.$title) }));
 }
-const prototype = (tok, rep) => get(tok, `$prototypes('${rep}.$query')`).then(parsePrototype);
+const prototype = (tok, rep, facet = "query") => get(tok, `$prototypes('${rep}.$${facet}')`).then(parsePrototype);
 
 /** Structure mise en cache (par utilisateur, expirée chaque nuit) : champs des représentations configurées. */
 export async function schema(tok) {
@@ -126,9 +127,9 @@ export const tools = [
   },
   {
     name: "sagex3_describe",
-    description: "Champs d'une représentation Sage X3.",
-    input: { representation: name.describe("Ex. SINVOICE, BPCUSTOMER") },
-    run: async (tok, { representation }, schema) => (await schema()).fields[representation] ?? prototype(tok, representation),
+    description: "Champs d'une représentation Sage X3. Facette query (défaut) : colonnes de la liste, seules utilisables dans le where de sagex3_query ; les champs X_REF sont des libellés de référence (filtrer sur X, pas sur X_REF). Facette details : fiche complète renvoyée par sagex3_get.",
+    input: { representation: name.describe("Ex. SINVOICE, BPCUSTOMER"), facet: z.enum(["query", "details"]).default("query") },
+    run: async (tok, { representation, facet }, schema) => facet === "details" ? prototype(tok, representation, "details") : ((await schema()).fields[representation] ?? prototype(tok, representation)),
   },
   {
     name: "sagex3_query",

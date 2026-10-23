@@ -180,7 +180,9 @@ export async function startUpstream() {
     if (path.startsWith("/api1/x3/erp/PROD/")) {
       if (!/^(Bearer|Basic) \S+$/.test(req.headers.authorization || "")) return json(res, 401, { $diagnoses: [{ $severity: "error", $message: "no bearer" }] });
       const rest = path.slice("/api1/x3/erp/PROD/".length);
-      let m = rest.match(/^\$prototypes\('(\w+)\.\$query'\)$/);
+      let m = rest.match(/^\$prototypes\('(\w+)\.\$details'\)$/);
+      if (m) return json(res, 200, { $properties: { [`${m[1]}_NUM`]: { $type: "application/x-string", $title: "{@42}" }, LINES: { $type: "application/x-array", $title: "{@9}" } }, $localization: { "@42": "Numéro", "@9": "Lignes" } });
+      m = rest.match(/^\$prototypes\('(\w+)\.\$query'\)$/);
       if (m) {
         if (m[1] === "NOPE") return json(res, 404, { $diagnoses: [{ $severity: "error", $message: "unknown representation" }] });
         if (m[1] === "BROKEN") return json(res, 500, { $diagnoses: [{ $severity: "error", $message: "Unexpected token < in JSON at position 0" }] });

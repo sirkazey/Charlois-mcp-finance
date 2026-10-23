@@ -48,7 +48,7 @@ test("cachedSchema : un échec de chargement n'est pas mis en cache", async (t) 
   assert.deepEqual(await cachedSchema("dave", "sf", load), { ok: true });
 });
 
-test("Sage X3 : parsePrototype lit le format réel Syracuse 24R1 (champs sous $resources.$item, libellés {@n}, exclus ignorés)", async () => {
+test("Sage X3 : parsePrototype lit le format réel Syracuse 24R1 (champs sous $resources.$item, libellés {@n}, exclus conservés)", async () => {
   const { parsePrototype } = await import("../connectors/sagex3.js");
   const real = { // extrait réel de $prototypes('BPCUSTOMER.$query') sur une instance 24R1
     $actxUser: "ACHEB", $actxFolder: "CHREC", $representation: "BPCUSTOMER", $title: "{@1503}", $itemsPerPage: 300,
@@ -62,11 +62,13 @@ test("Sage X3 : parsePrototype lit le format réel Syracuse 24R1 (champs sous $r
     } } } },
     $localization: { "@1503": "Clients", "@188": "Actif", "@3662": "Client", "@1644": "Raison sociale", "@50490": "Ligne adresse 1", "@16094": "Type client", "@26213": "Législation" },
   };
-  assert.deepEqual(parsePrototype(real), [
+  assert.deepEqual(parsePrototype(real), [ // les champs $isExcluded / $isHidden restent listés : ils sont filtrables et renvoyés
     { name: "BPCSTA", type: "boolean", label: "Actif" },
     { name: "BPCNUM", type: "string", label: "Client" },
     { name: "BPCNAM", type: "string", label: "Raison sociale" },
+    { name: "RBPAADDLIG1", type: "string", label: "Ligne adresse 1" },
     { name: "BPCTYP", type: "choice", label: "Type client" },
+    { name: "PTE_LEG_REF", type: "reference", label: "Législation" },
   ]);
 });
 

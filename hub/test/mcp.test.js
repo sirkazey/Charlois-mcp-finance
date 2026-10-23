@@ -170,6 +170,7 @@ test("Cache : la structure est chargée au premier appel avec le jeton de l'util
     assert.deepEqual(sinv, [
       { name: "SINVOICE_NUM", type: "string", label: "Numéro" },
       { name: "AMTATI", type: "decimal", label: "Montant TTC" },
+      { name: "RBPAADDLIG1", type: "string", label: "Ligne adresse 1" },
     ]);
     assert.equal(up.state.requests.length, 0, `le mock ne doit pas être rappelé : ${JSON.stringify(up.state.requests.map((r) => r.path))}`);
 
@@ -179,6 +180,9 @@ test("Cache : la structure est chargée au premier appel avec le jeton de l'util
     assert.equal(sfCalls("tools/call").length, 1);
     const porder = text(await c.callTool({ name: "sagex3_describe", arguments: { representation: "PORDER" } }));
     assert.equal(porder[0].name, "PORDER_NUM");
+    const det = text(await c.callTool({ name: "sagex3_describe", arguments: { representation: "PORDER", facet: "details" } }));
+    assert.deepEqual(det.map((f) => f.name), ["PORDER_NUM", "LINES"], "facette details lue en direct");
+    assert.equal(up.requests("$prototypes('PORDER.$details')").length, 1);
     assert.equal(up.requests("$prototypes('PORDER.$query')").length, 1);
   } finally { await c.close(); }
 });
