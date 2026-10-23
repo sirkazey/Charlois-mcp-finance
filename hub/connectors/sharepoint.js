@@ -20,11 +20,20 @@ export const oauth = {
   scope: "openid offline_access User.Read Files.Read.All Sites.Read.All", // permissions déléguées, lecture seule
 };
 
+// Hôtes de téléchargement pré-authentifié renvoyés par Graph (SharePoint, OneDrive, stockage Azure). Toute autre destination est refusée :
+// une redirection ne doit jamais emmener le hub vers un hôte arbitraire (SSRF), ni en http.
+const DOWNLOAD_HOSTS = /(^|\.)(sharepoint\.com|sharepoint-df\.com|1drv\.com|microsoft\.com|windows\.net)$/i;
+function downloadUrl(location) {
+  let l; try { l = new URL(location); } catch { l = null; }
+  if (l && (l.origin === new URL(GRAPH).origin || (l.protocol === "https:" && DOWNLOAD_HOSTS.test(l.hostname)))) return l;
+  throw Object.assign(new Error(`SharePoint : redirection de téléchargement refusée vers ${l?.host || "une URL invalide"}`), { status: 502 });
+}
+
 async function get(tok, path, params = {}, raw = false) {
   const u = new URL(GRAPH + path);
   u.search = new URLSearchParams(params);
   let r = await fetch(u, { headers: { Authorization: `Bearer ${tok.access_token}`, Accept: "application/json" }, redirect: "manual" }).catch((e) => { throw unreachable("SharePoint", u, e); });
-  if (r.status === 302) r = await fetch(r.headers.get("location")); // URL de téléchargement pré-authentifiée : jamais le jeton
+  if (r.status === 302) r = await fetch(downloadUrl(r.headers.get("location"))); // URL de téléchargement pré-authentifiée : jamais le jeton, hôte contrôlé
   if (!r.ok) throw Object.assign(new Error(`SharePoint ${r.status}: ${(await r.text()).slice(0, 300)}`), { status: r.status });
   return raw ? r : r.json();
 }

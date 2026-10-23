@@ -13,13 +13,13 @@ mkdirSync(DIR, { recursive: true });
 
 /** Chiffre un texte : "enc1:<iv>:<tag>:<données>" en base64. IV aléatoire à chaque écriture. */
 function encrypt(text) {
-  const iv = randomBytes(12), c = createCipheriv("aes-256-gcm", MASTER, iv);
+  const iv = randomBytes(12), c = createCipheriv("aes-256-gcm", MASTER, iv, { authTagLength: 16 });
   const data = Buffer.concat([c.update(text, "utf8"), c.final()]);
   return ["enc1", iv, c.getAuthTag(), data].map((p, i) => (i ? p.toString("base64") : p)).join(":");
 }
 function decrypt(blob) {
   const [, iv, tag, data] = blob.split(":").map((p, i) => (i ? Buffer.from(p, "base64") : p));
-  const d = createDecipheriv("aes-256-gcm", MASTER, iv); d.setAuthTag(tag);
+  const d = createDecipheriv("aes-256-gcm", MASTER, iv, { authTagLength: 16 }); d.setAuthTag(tag); // tag de 16 octets exigé : un tag tronqué est refusé
   return Buffer.concat([d.update(data), d.final()]).toString("utf8");
 }
 

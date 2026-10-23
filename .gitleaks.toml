@@ -1,0 +1,16 @@
+# Gitleaks : règles par défaut, plus une liste blanche des constantes de test et de démonstration.
+# Ces valeurs ne sont pas des secrets : clés MCP de test, clé de chiffrement de la suite de tests, jetons du bouchon,
+# exemple de commande dans un README. Tout autre secret trouvé dans l'historique doit faire échouer l'analyse.
+title = "Charlois AI Gateway"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Constantes de test et de démonstration (jamais des secrets réels)"
+paths = [
+  '''^hub/test/.*''',
+  '''^charlois-mcp-stub/.*''',
+  '''^clevoa-backend/README\.md$''',
+  '''^hub/public/index\.html$''',
+]

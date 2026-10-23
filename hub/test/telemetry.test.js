@@ -71,8 +71,13 @@ test("Lambda clevoa-backend : clé client exigée, payload validé, { status: 'a
   const ev = (body, headers = { "X-Clevoa-Key": "cle-charlois", "content-type": "application/json" }) => ({ headers, body: typeof body === "string" ? body : JSON.stringify(body) });
   const ok = { version: "1.0.0", date: "2026-10-22", connectors: { salesforce: true, sagex3: false }, requests: 42 };
 
+  delete process.env.CLEVOA_KEYS;
+  const closed = await lambda(ev(ok));
+  assert.equal(closed.statusCode, 503, "CLEVOA_KEYS vide : fermé par défaut, aucune clé acceptée"); assert.equal(JSON.parse(closed.body).status, "misconfigured");
+  process.env.CLEVOA_KEYS = "cle-charlois, cle-autre";
   const noKey = await lambda(ev(ok, {}));
   assert.equal(noKey.statusCode, 401); assert.equal(JSON.parse(noKey.body).status, "unauthorized");
+  assert.equal((await lambda(ev(ok, { "X-Clevoa-Key": "cle-inconnue" }))).statusCode, 401, "clé hors liste refusée");
 
   const r = await lambda(ev(ok));
   assert.equal(r.statusCode, 200); assert.equal(r.headers["Content-Type"], "application/json");
@@ -86,7 +91,7 @@ test("Lambda clevoa-backend : clé client exigée, payload validé, { status: 'a
   assert.equal((await lambda(ev({ ...ok, seats: 7 }))).statusCode, 200, "sièges : entier accepté");
   assert.equal((await lambda(ev({ ...ok, seats: "7" }))).statusCode, 400, "sièges : jamais autre chose qu'un entier");
   assert.equal((await lambda(ev({ ...ok, connectors: { a: "oui" } }))).statusCode, 400);
-  const b64 = await lambda({ headers: { "x-clevoa-key": "k" }, isBase64Encoded: true, body: Buffer.from(JSON.stringify(ok)).toString("base64") });
+  const b64 = await lambda({ headers: { "x-clevoa-key": "cle-autre" }, isBase64Encoded: true, body: Buffer.from(JSON.stringify(ok)).toString("base64") });
   assert.equal(b64.statusCode, 200, "corps encodé en base64 par API Gateway");
 });
 

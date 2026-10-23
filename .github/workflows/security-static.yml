@@ -1,0 +1,102 @@
+name: Security - static analysis
+# Analyses statiques à chaque PR et push sur main/dev : tests du hub et du bouchon, Semgrep, CodeQL, Gitleaks, Trivy.
+# Aucune de ces analyses ne touche un système réel. Versions figées et vérifiées le 23/10/2026.
+on:
+  pull_request:
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: security-static-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  tests:
+    name: Tests hub (pré-prod et production) et bouchon
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - run: npm ci --prefix hub
+      - run: npm ci --prefix charlois-mcp-stub
+      - name: Hub, pré-prod
+        run: npm test --prefix hub
+      - name: Hub, verrous de production
+        run: APP_ENV=production npm test --prefix hub
+      - name: Bouchon de bout en bout
+        run: npm test --prefix charlois-mcp-stub
+  semgrep:
+    name: Semgrep community rules
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run Semgrep
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/src" -w /src semgrep/semgrep:1.181.1 \
+            semgrep scan --config p/javascript --config p/nodejs --config p/security-audit --error --json --output /src/semgrep.json .
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: semgrep-results
+          path: semgrep.json
+          if-no-files-found: ignore
+  codeql:
+    name: CodeQL JavaScript
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+      - uses: github/codeql-action/analyze@v4
+  gitleaks:
+    name: Gitleaks history
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Scan repository history
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/repo" -w /repo ghcr.io/gitleaks/gitleaks:v8.30.1 \
+            git --config /repo/.gitleaks.toml --redact --exit-code 1 --report-format json --report-path /repo/gitleaks.json .
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: gitleaks-results
+          path: gitleaks.json
+          if-no-files-found: ignore
+  trivy:
+    name: Trivy dependencies and configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Scan filesystem
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,misconfig,secret
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          format: json
+          output: trivy.json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: trivy-results
+          path: trivy.json
+          if-no-files-found: ignore
