@@ -188,3 +188,65 @@ test("Verrous de démarrage : mock interdit en production ; entra exige login.mi
     assert.match(h.logs(), /SSO entra/);
   } finally { await h.stop(); }
 });
+
+// ---------------------------------------------------------------- cloisonnement des clés entre collaborateurs
+/** Flux SSO où le code est émis par la page d'autorisation du mock (PKCE S256 vérifié au /token), comme chez Entra. */
+async function ssoViaAuthorize(browserKey, who, { cookieForCallback, stateFrom } = {}) {
+  const start = await fetch(`${hub.url}/auth/sso`, { headers: browserKey ? { cookie: `mcp_key=${browserKey}` } : {}, ...noFollow });
+  const tmp = cookieOf(start) ?? browserKey, loc = new URL(start.headers.get("location"));
+  loc.searchParams.set("mock_user", who);
+  const issued = new URL((await fetch(loc, noFollow)).headers.get("location")); // le mock renvoie vers /auth/sso/callback?code=&state=
+  if (stateFrom) issued.searchParams.set("state", stateFrom);
+  const cb = await fetch(issued, { headers: { cookie: `mcp_key=${cookieForCallback ?? tmp}` }, ...noFollow });
+  return { tmp, code: issued.searchParams.get("code"), state: issued.searchParams.get("state"), cb, key: cookieOf(cb) };
+}
+
+test("Cloisonnement : Marie ne peut pas obtenir la clé de Paul en manipulant cookies, states, codes ou sessions, et inversement", async () => {
+  const mk = await me(marie), pk = await me(paul);
+  assert.equal(mk.key, marie); assert.equal(pk.key, paul);
+  // 1. L'API ne révèle jamais la clé ni l'identité d'un autre : chaque réponse ne contient que la clé de l'appelant
+  for (const [mine, other] of [[mk, paul], [pk, marie]]) assert.ok(!JSON.stringify(mine).includes(other), "la clé d'un autre n'apparaît jamais dans /api/me");
+  assert.ok(!JSON.stringify(mk).includes("paul@") && !JSON.stringify(pk).includes("marie@"));
+  // 2. Cookie manipulé : clé voisine, clé vide, nom de propriété spécial → aucune session, aucune clé posée
+  for (const forged of [paul.slice(0, -1) + (paul.endsWith("a") ? "b" : "a"), "", "__proto__", "constructor", encodeURIComponent(paul + " ")]) {
+    const r = await fetch(`${hub.url}/api/me`, { headers: { cookie: `mcp_key=${forged}` } });
+    assert.equal((await r.json()).key, null, `cookie ${forged.slice(0, 12)}…`); assert.equal(r.headers.get("set-cookie"), null);
+    assert.equal((await mcpPost(forged)).status, 401);
+  }
+  // 3. Rejeu d'un callback : un state consommé est mort, même pour le bon navigateur
+  const first = await ssoViaAuthorize(null, "marie");
+  assert.equal(first.key, marie);
+  const replay = await fetch(`${hub.url}/auth/sso/callback?code=${first.code}&state=${first.state}`, { headers: { cookie: `mcp_key=${first.tmp}` }, ...noFollow });
+  assert.equal(replay.status, 400); assert.equal(cookieOf(replay), undefined);
+  // 4. Code volé : Paul lance un SSO ; Marie présente son code (et son state) avec son propre cookie → state lié au navigateur de Paul
+  const paulStart = await fetch(`${hub.url}/auth/sso`, noFollow);
+  const paulLoc = new URL(paulStart.headers.get("location")); paulLoc.searchParams.set("mock_user", "paul");
+  const paulIssued = new URL((await fetch(paulLoc, noFollow)).headers.get("location"));
+  const steal = await fetch(paulIssued, { headers: { cookie: `mcp_key=${marie}` }, ...noFollow });
+  assert.equal(steal.status, 400); assert.equal(cookieOf(steal), undefined);
+  // 5. Code volé, state propre : Marie lance son SSO et échange le code de Paul → PKCE refuse (code_verifier d'un autre départ), rien ne change
+  const marieStart = await fetch(`${hub.url}/auth/sso`, { headers: { cookie: `mcp_key=${marie}` }, ...noFollow });
+  const marieState = new URL(marieStart.headers.get("location")).searchParams.get("state");
+  up.reset();
+  const swap = await fetch(`${hub.url}/auth/sso/callback?code=${paulIssued.searchParams.get("code")}&state=${marieState}`, { headers: { cookie: `mcp_key=${marie}` }, ...noFollow });
+  assert.equal(swap.status, 502, await swap.text()); assert.equal(cookieOf(swap), undefined);
+  assert.ok(up.requests("/oauth2/v2.0/token", "POST").length === 1, "l'échange a bien été tenté et refusé par le fournisseur");
+  assert.equal(hub.readUsers()[marie].sso.sub, "oid-marie"); assert.equal(hub.readUsers()[paul].sso.sub, "oid-paul");
+  assert.equal((await me(marie)).key, marie, "Marie garde sa clé, n'a pas celle de Paul");
+  // 6. Session SSE de Paul : la clé de Marie ne peut pas y poster (403)
+  const ac = new AbortController();
+  const sse = await fetch(`${hub.url}/sse`, { headers: { Authorization: `Bearer ${paul}` }, signal: ac.signal });
+  const reader = sse.body.getReader(); let buf = "";
+  while (!/sessionId=/.test(buf)) buf += new TextDecoder().decode((await reader.read()).value);
+  const sessionId = buf.match(/sessionId=([\w-]+)/)[1];
+  const post = (k) => fetch(`${hub.url}/messages?sessionId=${sessionId}`, { method: "POST", headers: { Authorization: `Bearer ${k}`, "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping" }) });
+  assert.equal((await post(marie)).status, 403); assert.equal((await post(paul)).status, 202);
+  ac.abort();
+  // 7. Rotation : Paul régénère sa clé, celle de Marie est intacte ; l'ancienne clé de Paul ne donne rien à personne
+  const rot = await fetch(`${hub.url}/api/key/rotate`, { method: "POST", headers: { cookie: `mcp_key=${paul}` } }).then((r) => r.json());
+  assert.equal((await me(paul)).key, null); assert.equal((await me(marie)).key, marie);
+  assert.equal((await me(rot.key)).email, "paul@charlois.example");
+  paul = rot.key;
+  // 8. Aucune clé dans les journaux du hub
+  for (const k of [marie, paul, rot.key, first.tmp]) assert.ok(!hub.logs().includes(k), "clé absente des journaux");
+});

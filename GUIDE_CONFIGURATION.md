@@ -255,7 +255,7 @@ conteneur `mcp-stub` propose Marie Dupont (DAF) et Paul Martin (commercial), san
 émet un `id_token` au même format qu'Entra et honore `prompt=none` + `login_hint`, ce qui exerce la connexion SharePoint
 silencieuse. Le code du hub est le même qu'en mode `entra` ; seules les adresses changent. Le hub refuse de démarrer en
 `mock` si `APP_ENV=production` ou si `MS_LOGIN_URL` pointe vers Microsoft. Tests : `hub/test/sso.test.js` (anonymes,
-usurpation, séparation, révocation, verrous) et `charlois-mcp-stub/test/stub.test.js` (bout en bout).
+usurpation, séparation, cloisonnement des clés : cookies manipulés, rejeu de callback, code volé refusé par PKCE, sessions SSE, rotation ; révocation, verrous) et `charlois-mcp-stub/test/stub.test.js` (bout en bout, PKCE vérifié par le bouchon).
 
 ### Ce que le SSO transparent ne fait pas
 

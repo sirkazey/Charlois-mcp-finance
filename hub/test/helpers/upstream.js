@@ -6,6 +6,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { z } from "zod";
+import { createHash } from "node:crypto";
 
 /** Serveur MCP Dropbox simulé : 2 outils lecture + 1 outil d'écriture (qui ne doit jamais être atteignable via le hub). */
 function dropboxMcp() {
@@ -60,6 +61,7 @@ export async function startUpstream() {
     failNext: [],   // { pathIncludes, status, body } consommés à la première requête correspondante
     rotate: false, rotations: 0, // jetons Salesforce rafraîchis uniques quand rotate = true
     expired: new Set(), // jetons d'accès déclarés expirés : 401 systématique, quel que soit l'ordre des requêtes
+    codes: new Map(),   // codes d'autorisation Entra émis par la page d'autorisation simulée : { who, challenge }
   };
   let base = "";
 
@@ -89,12 +91,30 @@ export async function startUpstream() {
       return json(res, 200, { status: "active" });
     }
     // ---- OAuth2 Microsoft (Entra) ----
-    // Le code vaut « <prénom> » ou « <prénom>:<défaut> » ; l'id_token porte l'identité du prénom, et le défaut (aud, tid, iss, exp) une revendication falsifiée.
+    // Autorisation : comme Entra, émet un code lié au code_challenge (PKCE) pour l'utilisateur de login_hint (ou ?mock_user=), vers redirect_uri.
+    const msAuth = path.match(/^\/ms\/([^/]+)\/oauth2\/v2\.0\/authorize$/);
+    if (msAuth && req.method === "GET") {
+      const who = query.login_hint?.split("@")[0] || query.mock_user;
+      if (!who) return json(res, 400, { error: "mock: login_hint ou mock_user requis" });
+      const code = `issued-${state.codes.size + 1}`;
+      state.codes.set(code, { who, challenge: query.code_challenge });
+      const back = new URL(query.redirect_uri); back.searchParams.set("code", code); back.searchParams.set("state", query.state);
+      res.writeHead(302, { Location: back.href }); return res.end();
+    }
+    // Jeton : un code émis ci-dessus exige le code_verifier correspondant (S256) et n'est valable qu'une fois ; sinon le code vaut
+    // « <prénom> » ou « <prénom>:<défaut> » (tests directs), l'id_token portant l'identité du prénom et, pour le défaut (aud, tid, iss, exp), une revendication falsifiée.
     const ms = path.match(/^\/ms\/([^/]+)\/oauth2\/v2\.0\/token$/);
     if (ms && req.method === "POST") {
       const p = new URLSearchParams(rawBody);
       if (p.get("grant_type") === "refresh_token") return json(res, 200, { access_token: "ms-token-refreshed", token_type: "Bearer" });
-      const code = p.get("code"), [who, flaw] = code.split(":"), now = Math.floor(Date.now() / 1000);
+      let code = p.get("code");
+      const issued = state.codes.get(code);
+      if (issued) {
+        state.codes.delete(code);
+        if (createHash("sha256").update(p.get("code_verifier") || "").digest("base64url") !== issued.challenge) return json(res, 400, { error: "invalid_grant", error_description: "PKCE: code_verifier invalide" });
+        code = issued.who;
+      } else if (code.startsWith("issued-")) return json(res, 400, { error: "invalid_grant", error_description: "code inconnu ou déjà utilisé" });
+      const [who, flaw] = code.split(":"), now = Math.floor(Date.now() / 1000);
       const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
       const claims = { iss: flaw === "iss" ? `http://evil.example.invalid/${ms[1]}/v2.0` : `${base}/ms/${ms[1]}/v2.0`, aud: flaw === "aud" ? "other-app" : p.get("client_id"), tid: flaw === "tid" ? "other-tenant" : ms[1],
         oid: `oid-${who}`, preferred_username: `${who}@charlois.example`, name: who[0].toUpperCase() + who.slice(1), iat: now, exp: flaw === "exp" ? now - 60 : now + 600 };
