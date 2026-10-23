@@ -12,6 +12,7 @@ const MAX_TEXT = 200_000;
 
 export const id = "sharepoint";
 export const label = "SharePoint";
+export const source = () => `Microsoft Graph ${GRAPH}${SITE ? ` · site ${SITE}` : " · OneDrive de l'utilisateur"}`;
 export const oauth = {
   authUrl: `${LOGIN}/${TENANT}/oauth2/v2.0/authorize`,
   tokenUrl: `${LOGIN}/${TENANT}/oauth2/v2.0/token`,

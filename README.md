@@ -269,6 +269,10 @@ marquées `simule: true`) pour les tests Docker Desktop, sans jeton ni réseau. 
 
 Le serveur MCP s'annonce aux assistants sous le nom `charlois-finance` (clé du bloc `mcpServers`).
 
+Chaque résultat d'outil se termine par une ligne **« Source : … »** (système, instance ou dossier interrogé, environnement du hub,
+compte utilisé, horodatage, outil et paramètres). L'assistant est instruit de la citer : l'utilisateur sait ainsi d'où vient
+chaque donnée, et distingue une lecture de production d'une lecture de recette ou du simulateur.
+
 Outils : `salesforce_tools`, `salesforce_call` · `sagex3_representations`, `sagex3_describe`, `sagex3_query`, `sagex3_get`
 · `sharepoint_sites`, `sharepoint_list`, `sharepoint_search`, `sharepoint_read` · `dropbox_tools`, `dropbox_call` · `myreport_tools`, `myreport_call`.
 

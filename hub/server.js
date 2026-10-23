@@ -59,10 +59,16 @@ const call = (c, key, fn) => {
 };
 
 // ---------- Serveur MCP (un par connexion, lié à la clé de l'utilisateur) ----------
+/** Ligne de provenance jointe à chaque résultat : système, instance/dossier, environnement, compte, horodatage, outil et paramètres. */
+function provenance(c, key, tool, args) {
+  const u = store.get(key) || {}, who = u.email || u[c.id]?.login || "compte connecté sur le portail";
+  const params = JSON.stringify(args ?? {}); // paramètres tels que reçus (jamais de jeton)
+  return `Source : ${c.label} · ${c.source ? c.source() : c.label} · environnement hub ${APP_ENV} · compte ${who} · ${new Date().toISOString()} · ${tool} ${params.length > 300 ? `${params.slice(0, 300)}…` : params}`;
+}
 function buildServer(key) {
   const server = new McpServer(
     { name: "charlois-finance", version: "1.0.0" },
-    { instructions: "Outils en LECTURE SEULE sur Salesforce, Sage X3, SharePoint, Dropbox et MyReport avec les droits de l'utilisateur connecté. Salesforce : salesforce_tools puis salesforce_call (serveur MCP officiel SObject Reads). Sage X3 : sagex3_describe puis sagex3_query ; les montants sont dans la devise de l'ERP. Documents : sharepoint_search / sharepoint_read, dropbox_tools puis dropbox_call. Analyses MyReport : myreport_tools puis myreport_call." },
+    { instructions: "Outils en LECTURE SEULE sur Salesforce, Sage X3, SharePoint, Dropbox et MyReport avec les droits de l'utilisateur connecté. Chaque résultat se termine par une ligne « Source : … » (système, instance ou dossier, environnement, compte, horodatage, outil et paramètres) : toujours la citer dans la réponse à l'utilisateur, pour qu'il sache d'où vient chaque donnée. Salesforce : salesforce_tools puis salesforce_call (serveur MCP officiel SObject Reads). Sage X3 : sagex3_describe puis sagex3_query ; les montants sont dans la devise de l'ERP. Documents : sharepoint_search / sharepoint_read, dropbox_tools puis dropbox_call. Analyses MyReport : myreport_tools puis myreport_call." },
   );
   for (const c of CONNECTORS) for (const t of c.tools) {
     server.registerTool(t.name, { description: t.description, inputSchema: t.input, annotations: { readOnlyHint: true } }, async (args) => {
@@ -71,8 +77,8 @@ function buildServer(key) {
       try {
         const out = await call(c, key, (tok, schema) => t.run(tok, args, schema));
         debug(`${t.name} ok ${Date.now() - t0} ms`); // jamais les arguments ni les résultats
-        if (out?.$content) return { content: out.$content }; // contenu MCP relayé tel quel (image, resource) par un connecteur proxy
-        return { content: [{ type: "text", text: typeof out === "string" ? out : JSON.stringify(out) }] };
+        const body = out?.$content ? out.$content : [{ type: "text", text: typeof out === "string" ? out : JSON.stringify(out) }]; // $content : contenu MCP relayé tel quel (image, resource)
+        return { content: [...body, { type: "text", text: provenance(c, key, t.name, args) }] }; // traçabilité : d'où vient chaque donnée
       } catch (e) {
         debug(`${t.name} erreur ${Date.now() - t0} ms : ${e.message.slice(0, 120)}`);
         return { isError: true, content: [{ type: "text", text: e.message }] };
