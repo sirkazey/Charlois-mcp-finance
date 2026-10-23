@@ -60,9 +60,9 @@ test("Sage X3 : parsePrototype lit le format réel Syracuse 24R1 (champs sous $r
       BPCTYP: { $title: "{@16094}", $type: "application/x-choice", $value: { $type: "application/x-integer" } },
       PTE_LEG_REF: { $title: "{@26213}", $type: "application/x-reference", $isHidden: true },
       BPR: { $title: "", $type: "application/x-string" }, BPR_REF: { $title: "{@3680}", $type: "application/x-reference" },
-      LINES: { $type: "application/x-array", $item: { $properties: { ITMREF: { $title: "{@1}", $type: "application/x-string" } } } },
+      LINES: { $type: "application/x-array", $item: { $properties: { ITMREF: { $title: "{@1}", $type: "application/x-string" }, UOM: { $title: "", $type: "application/x-string" }, UOM_REF: { $title: "{@2}", $type: "application/x-reference" } } } },
     } } } },
-    $localization: { "@1503": "Clients", "@188": "Actif", "@3662": "Client", "@1644": "Raison sociale", "@50490": "Ligne adresse 1", "@16094": "Type client", "@26213": "Législation", "@3680": "Fournisseur", "@1": "Article" },
+    $localization: { "@1503": "Clients", "@188": "Actif", "@3662": "Client", "@1644": "Raison sociale", "@50490": "Ligne adresse 1", "@16094": "Type client", "@26213": "Législation", "@3680": "Fournisseur", "@1": "Article", "@2": "Unité" },
   };
   assert.deepEqual(parsePrototype(real), [ // les champs $isExcluded / $isHidden restent listés : ils sont filtrables et renvoyés
     { name: "BPCSTA", type: "boolean", label: "Actif" },
@@ -74,6 +74,8 @@ test("Sage X3 : parsePrototype lit le format réel Syracuse 24R1 (champs sous $r
     { name: "BPR", type: "string", label: "Fournisseur" }, // libellé repris du compagnon BPR_REF
     { name: "BPR_REF", type: "reference", label: "Fournisseur" },
     { name: "LINES.ITMREF", type: "string", label: "Article" }, // bloc répété déplié
+    { name: "LINES.UOM", type: "string", label: "Unité" }, // libellé repris du compagnon UOM_REF du même bloc
+    { name: "LINES.UOM_REF", type: "reference", label: "Unité" },
   ]);
 });
 
@@ -97,6 +99,7 @@ test("Sage X3 : prototypes réels 24R1 de PINVOICE (capture anonymisée) : 6 col
   const names = fiche.map((f) => f.name);
   assert.ok(names.includes("AMTATI") && names.includes("BPRVCR"), "champs d'en-tête présents");
   assert.ok(names.includes("PIHPID.ITMREF"), "lignes (PIHPID) dépliées en BLOC.CHAMP");
+  assert.equal(fiche.find((f) => f.name === "PIHPID.ITMREF").label, "Product", "libellé de ligne repris du compagnon ITMREF_REF du bloc");
   assert.equal(fiche.find((f) => f.name === "AMTATI").label, "Total including tax");
   assert.ok(fiche.length > 150, `fiche dépliée : ${fiche.length} champs`);
   assert.ok(fiche.every((f) => typeof f.label === "string" && !/\{@/.test(f.label)), "aucun libellé {@n} non résolu");

@@ -10,7 +10,7 @@ import { unreachable } from "../mcpclient.js";
 
 const BASE = (process.env.SAGE_URL || "").replace(/\/$/, "");
 const FOLDER = process.env.SAGE_FOLDER || "PROD";
-const LANG = process.env.SAGE_LANG || "fr-FR,fr"; // Syracuse traduit les libellés selon Accept-Language (constaté : sans en-tête, anglais possible)
+const LANG = process.env.SAGE_LANG || "fr-FR"; // Syracuse traduit les libellés selon Accept-Language ; une seule étiquette (« fr-FR,fr » a donné de l'anglais sur 24R1)
 const TIMEOUT_MS = Number(process.env.SAGE_TIMEOUT_MS || 30000); // Syracuse ouvre une session X3 à chaque appel : parfois lent, jamais infini
 const REPRESENTATIONS = (process.env.SAGE_REPRESENTATIONS || "BPCUSTOMER,BPSUPPLIER,SINVOICE,PINVOICE,SORDER,PORDER,GACCENTRY,ITMMASTER").split(",").map((s) => s.trim());
 const name = z.string().regex(/^\w+$/, "nom de représentation invalide"); // bloque toute traversée de chemin
@@ -88,12 +88,12 @@ export function parsePrototype(p) {
   // Un champ de base sans libellé reprend celui de son compagnon X_REF (le libellé « Fournisseur » est porté par BPR_REF).
   // Les blocs répétés de la fiche ($details : lignes, échéances…) sont dépliés en BLOC.CHAMP.
   const type = (v) => String(v.$type || "").replace(/^application\/x-/, "");
-  const walk = (entries, prefix = "") => entries.flatMap(([n, v]) => {
-    if (type(v) === "array" && v.$item?.$properties) return walk(Object.entries(v.$item.$properties), `${prefix}${n}.`);
-    const lab = label(v.$title) || label(props[`${n}_REF`]?.$title);
+  const walk = (map, prefix = "") => Object.entries(map).flatMap(([n, v]) => {
+    if (type(v) === "array" && v.$item?.$properties) return walk(v.$item.$properties, `${prefix}${n}.`);
+    const lab = label(v.$title) || label(map[`${n}_REF`]?.$title); // compagnon _REF cherché au même niveau (blocs compris)
     return [{ name: `${prefix}${n}`, type: type(v), label: lab }];
   });
-  return walk(Object.entries(props));
+  return walk(props);
 }
 const prototype = (tok, rep, facet = "query") => get(tok, `$prototypes('${rep}.$${facet}')`).then(parsePrototype);
 
@@ -146,7 +146,7 @@ export const tools = [
   },
   {
     name: "sagex3_query",
-    description: "Interroge une représentation Sage X3 en lecture seule avec les droits de l'utilisateur. Filtre SData, ex : (ACCDAT ge '2025-01-01') and (BPR eq 'C0001')",
+    description: "Interroge une représentation Sage X3 en lecture seule avec les droits de l'utilisateur. Filtre SData, ex : (ACCDAT ge '2025-01-01') and (BPR eq 'C0001'). Pièges vérifiés sur PINVOICE/SINVOICE : le type de pièce n'est pas exposé, il est dans NUM (…FAF… facture, …AVF… avoir) ; les montants (AMTATI…) ne sont pas signés, un avoir compte positif : toujours distinguer factures et avoirs avant de totaliser ; INVNUM renseigné = avoir rattaché à cette facture d'origine.",
     input: {
       representation: name.describe("Ex. SINVOICE"),
       where: z.string().optional().describe("Filtre SData sur tout champ d'en-tête (voir sagex3_describe) : (CHAMP op 'valeur') and (...)  — op : eq, ne, gt, ge, lt, le, like ; dates en 'AAAA-MM-JJ'"),
