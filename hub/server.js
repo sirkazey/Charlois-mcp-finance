@@ -96,7 +96,20 @@ function buildServer(key) {
 
 // ---------- HTTP ----------
 const app = express();
+app.disable("x-powered-by"); // pas d'annonce « Express » dans les réponses
 app.set("trust proxy", Number(process.env.TRUST_PROXY ?? 1)); // adresse IP réelle derrière un reverse-proxy (1 saut)
+// En-têtes de sécurité HTTP (signalés par ZAP). Le portail est un fichier unique avec scripts et styles en ligne, d'où 'unsafe-inline' ;
+// aucune ressource externe, jamais d'iframe, pas de capteur. Le proxy MCP (/mcp, /sse) n'en est pas affecté.
+const SECURITY_HEADERS = {
+  "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "no-referrer",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+  "Cross-Origin-Opener-Policy": "same-origin",
+  "Cross-Origin-Resource-Policy": "same-origin",
+};
+app.use((_req, res, next) => { res.set(SECURITY_HEADERS); next(); });
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(new URL("./public", import.meta.url).pathname));
 app.use(oauthRouter(CONNECTORS, cookieKey));

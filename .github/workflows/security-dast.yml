@@ -19,15 +19,16 @@ jobs:
           curl -fsS http://localhost:8080/health
       - name: ZAP baseline passive scan (no active attacks)
         run: |
-          docker run --rm --network host -v "${{ github.workspace }}:/zap/wrk/:rw" ghcr.io/zaproxy/zaproxy:2.16.1 \
+          mkdir -p zap-report && chmod 777 zap-report   # le conteneur ZAP tourne sous un autre utilisateur : dossier de rapport inscriptible
+          docker run --rm --network host -v "${{ github.workspace }}/zap-report:/zap/wrk/:rw" ghcr.io/zaproxy/zaproxy:2.16.1 \
             zap-baseline.py -t http://localhost:8080 -m 2 -J zap.json -r zap.html -I
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: zap-baseline-report
           path: |
-            zap.json
-            zap.html
+            zap-report/zap.json
+            zap-report/zap.html
           if-no-files-found: ignore
       - name: Stop demo
         if: always()
