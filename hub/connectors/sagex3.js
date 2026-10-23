@@ -10,6 +10,7 @@ import { unreachable } from "../mcpclient.js";
 
 const BASE = (process.env.SAGE_URL || "").replace(/\/$/, "");
 const FOLDER = process.env.SAGE_FOLDER || "PROD";
+const LANG = process.env.SAGE_LANG || "fr-FR,fr"; // Syracuse traduit les libellés selon Accept-Language (constaté : sans en-tête, anglais possible)
 const TIMEOUT_MS = Number(process.env.SAGE_TIMEOUT_MS || 30000); // Syracuse ouvre une session X3 à chaque appel : parfois lent, jamais infini
 const REPRESENTATIONS = (process.env.SAGE_REPRESENTATIONS || "BPCUSTOMER,BPSUPPLIER,SINVOICE,PINVOICE,SORDER,PORDER,GACCENTRY,ITMMASTER").split(",").map((s) => s.trim());
 const name = z.string().regex(/^\w+$/, "nom de représentation invalide"); // bloque toute traversée de chemin
@@ -62,7 +63,7 @@ async function get(tok, path, params = {}) {
   const u = new URL(`${BASE}/api1/x3/erp/${FOLDER}/${path}`);
   // Pas URLSearchParams : il code les espaces en « + », que Syracuse refuse dans where/orderBy (« expected beginning of term »).
   u.search = Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
-  const r = await fetch(u, { headers: { Authorization: authHeader(tok), Accept: "application/json" }, signal: AbortSignal.timeout(TIMEOUT_MS) })
+  const r = await fetch(u, { headers: { Authorization: authHeader(tok), Accept: "application/json", "Accept-Language": LANG }, signal: AbortSignal.timeout(TIMEOUT_MS) })
     .catch((e) => { throw e.name === "TimeoutError" ? Object.assign(new Error(`Sage X3 : pas de réponse en ${TIMEOUT_MS / 1000} s (${u.pathname})`), { status: 504 }) : unreachable("Sage X3", u, e); });
   if (!r.ok) throw Object.assign(new Error(`Sage X3 ${r.status}: ${await r.text()}`), { status: r.status });
   return r.json();

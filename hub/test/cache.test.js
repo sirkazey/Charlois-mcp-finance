@@ -83,3 +83,21 @@ test("Sage X3 : strip retire les métadonnées $ et aplatit les références au 
     FCY_REF: { $title: "", $description: "DOREAU L'ATELIER" }, BPR: "T005664", BPR_REF: { $title: "404/210", $description: "ENGIE" }, PTE_LEG_REF: { $title: "" }, AMT: 12.5, LINES: [{ L: 1 }] };
   assert.deepEqual(strip(row), { NUM: "TO2192607FAF0005", ACCDAT: "2026-07-04", FCY: "TO219", FCY_REF: "DOREAU L'ATELIER", BPR: "T005664", BPR_REF: "ENGIE", PTE_LEG_REF: "", AMT: 12.5, LINES: [{ L: 1 }] });
 });
+
+test("Sage X3 : prototypes réels 24R1 de PINVOICE (capture anonymisée) : 6 colonnes de liste, fiche de 108 champs avec blocs dépliés", async () => {
+  const { parsePrototype } = await import("../connectors/sagex3.js");
+  const { readFileSync } = await import("node:fs");
+  const fx = (f) => JSON.parse(readFileSync(new URL(`./fixtures/${f}`, import.meta.url), "utf8"));
+  const cols = parsePrototype(fx("PINVOICE.query.prototype.json"));
+  assert.deepEqual(cols.map((c) => [c.name, c.type, c.label]), [
+    ["NUM", "string", "Entry number"], ["FCY", "string", "Invoicing site"], ["FCY_REF", "reference", "Invoicing site"],
+    ["BPR", "string", "Supplier"], ["BPR_REF", "reference", "Supplier"], ["ACCDAT", "date", "Accounting date"],
+  ]); // FCY et BPR : exclus de la grille mais listés, libellé repris du compagnon _REF
+  const fiche = parsePrototype(fx("PINVOICE.details.prototype.json"));
+  const names = fiche.map((f) => f.name);
+  assert.ok(names.includes("AMTATI") && names.includes("BPRVCR"), "champs d'en-tête présents");
+  assert.ok(names.includes("PIHPID.ITMREF"), "lignes (PIHPID) dépliées en BLOC.CHAMP");
+  assert.equal(fiche.find((f) => f.name === "AMTATI").label, "Total including tax");
+  assert.ok(fiche.length > 150, `fiche dépliée : ${fiche.length} champs`);
+  assert.ok(fiche.every((f) => typeof f.label === "string" && !/\{@/.test(f.label)), "aucun libellé {@n} non résolu");
+});

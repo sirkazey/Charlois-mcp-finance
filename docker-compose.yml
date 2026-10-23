@@ -26,6 +26,7 @@ services:
       SAGE_URL: ${SAGE_URL}
       SAGE_FOLDER: ${SAGE_FOLDER}
       SAGE_APIKEY_MODE: ${SAGE_APIKEY_MODE}      # bearer (défaut) ou basic : comment envoyer la clé d'API personnelle
+      SAGE_LANG: ${SAGE_LANG}                         # langue des libellés Syracuse ; défaut fr-FR,fr
       SAGE_OAUTH_AUTH_URL: ${SAGE_OAUTH_AUTH_URL}
       SAGE_OAUTH_TOKEN_URL: ${SAGE_OAUTH_TOKEN_URL}
       SAGE_OAUTH_USERINFO_URL: ${SAGE_OAUTH_USERINFO_URL}
