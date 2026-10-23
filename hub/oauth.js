@@ -17,7 +17,7 @@ async function postToken(c, params) {
     body: new URLSearchParams({ client_id: c.clientId, ...(c.clientSecret ? { client_secret: c.clientSecret } : {}), ...params }), // secret optionnel (apps PKCE sans secret)
   });
   const body = await r.json().catch(() => ({}));
-  if (!r.ok) throw Object.assign(new Error(`OAuth ${c.tokenUrl}: ${r.status} ${JSON.stringify(body)}`), { status: r.status });
+  if (!r.ok) throw Object.assign(new Error(`OAuth ${c.tokenUrl}: ${r.status} ${JSON.stringify(body)}`), { status: r.status, code: /^[\w.-]{1,40}$/.test(body.error) ? body.error : "erreur" }); // code court du fournisseur (ex. invalid_grant), seule partie journalisée
   return body;
 }
 const refreshing = new Map(); // "clé:système" -> promesse de refresh en cours, partagée entre appels concurrents
@@ -76,9 +76,10 @@ export function oauthRouter(connectors, getKey) {
     // p.key === getKey(req) : le navigateur qui revient doit être celui qui a lancé le flux (anti login-CSRF).
     if (!p || !c?.oauth || p.system !== c.id || p.exp < Date.now() || p.key !== getKey(req)) return res.status(400).send("State OAuth invalide ou expiré");
     pending.delete(req.query.state); // consommé seulement par le bon navigateur ; un appel étranger ne le grille pas
-    if (req.query.error) { // rien de ce que renvoie le fournisseur n'est reflété au navigateur : message fixe, détail dans le journal
-      console.error(`[oauth] ${c.id} refus : ${String(req.query.error).slice(0, 60)}`);
-      return res.status(400).send(req.query.error === "access_denied" ? "Connexion refusée (access_denied) : réessayez depuis le portail." : "Le fournisseur OAuth a renvoyé une erreur : réessayez depuis le portail ou contactez l'administrateur.");
+    if (req.query.error) { // rien de ce que renvoie le fournisseur n'est reflété au navigateur ni au journal : vocabulaire fixe
+      const denied = req.query.error === "access_denied";
+      console.error(`[oauth] ${c.id} ${denied ? "refus de l'utilisateur (access_denied)" : "erreur renvoyée par le fournisseur"}`);
+      return res.status(400).send(denied ? "Connexion refusée (access_denied) : réessayez depuis le portail." : "Le fournisseur OAuth a renvoyé une erreur : réessayez depuis le portail ou contactez l'administrateur.");
     }
     try {
       const tokens = await postToken(c.oauth, { grant_type: "authorization_code", code: req.query.code, redirect_uri: redirectUri(c.id), code_verifier: p.verifier });
@@ -86,7 +87,7 @@ export function oauthRouter(connectors, getKey) {
       store.setTokens(p.key, c.id, tokens, email);
       res.redirect("/");
     } catch (e) {
-      console.error(`[oauth] ${c.id} échec ${e.status ?? "réseau"} : ${e.message.slice(0, 300)}`); // le corps brut du fournisseur reste côté serveur
+      console.error(`[oauth] ${c.id} échec ${e.status ?? "réseau"} ${e.code ?? ""}`); // statut et code court seulement : jamais le corps du fournisseur ni la configuration
       res.status(502).send(`Échec de la connexion ${c.label} (${e.status ?? "réseau"}) : réessayez depuis le portail.`);
     }
   });
