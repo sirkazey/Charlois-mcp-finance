@@ -87,6 +87,8 @@ test("SSE : sagex3_query et sagex3_get transmettent le Bearer Sage et les param√
     assert.equal(q.headers.authorization, "Bearer sage-token-alice");
     assert.deepEqual(q.query, { representation: "BPCUSTOMER.$query", count: "5", where: "(BPRNUM eq 'C0001')", orderBy: "BPRNUM desc" });
     assert.ok(!q.rawSearch.includes("+") && q.rawSearch.includes("%20"), `espaces cod√©s %20, jamais + (Syracuse les refuse) : ${q.rawSearch}`);
+    await c.callTool({ name: "sagex3_query", arguments: { representation: "BPCUSTOMER", where: "(ACCDAT ge '2026-01-01') and (BPR eq 'T013037')" } });
+    assert.equal(up.requests("BPCUSTOMER").at(-1).query.where, "(ACCDAT ge @2026-01-01@) and (BPR eq 'T013037')", "date entre apostrophes convertie en @date@, les autres valeurs intactes");
 
     const one = text(await c.callTool({ name: "sagex3_get", arguments: { representation: "SINVOICE", key: "FAC-2025-000123" } }));
     assert.deepEqual(one, { NUM: "FAC-2025-000123", REP: "SINVOICE" });

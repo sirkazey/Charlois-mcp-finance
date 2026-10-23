@@ -149,13 +149,13 @@ export const tools = [
     description: "Interroge une représentation Sage X3 en lecture seule avec les droits de l'utilisateur. Filtre SData, ex : (ACCDAT ge '2025-01-01') and (BPR eq 'C0001'). Pièges vérifiés sur PINVOICE/SINVOICE : le type de pièce n'est pas exposé, il est dans NUM (…FAF… facture, …AVF… avoir) ; les montants (AMTATI…) ne sont pas signés, un avoir compte positif : toujours distinguer factures et avoirs avant de totaliser ; INVNUM renseigné = avoir rattaché à cette facture d'origine. Sans tri ni filtre, les premières lignes peuvent être des enregistrements techniques (NUM 00000, date 0000-00-00) : toujours trier (orderBy 'ACCDAT desc') ou filtrer sur une date.",
     input: {
       representation: name.describe("Ex. SINVOICE"),
-      where: z.string().optional().describe("Filtre SData sur tout champ d'en-tête (voir sagex3_describe) : (CHAMP op 'valeur') and (...)  — op : eq, ne, gt, ge, lt, le, like ; dates en 'AAAA-MM-JJ'"),
+      where: z.string().optional().describe("Filtre SData sur tout champ d'en-tête (voir sagex3_describe) : (CHAMP op 'valeur') and (...)  — op : eq, ne, gt, ge, lt, le, like ; dates SANS apostrophes, entre arobases : (ACCDAT ge @2026-01-01@) — une date entre apostrophes fait échouer le moteur X3"),
       orderBy: z.string().optional().describe("Ex. 'ACCDAT desc'"),
       count: z.number().int().min(1).max(500).default(100).describe("Nombre max de lignes"),
     },
     run: async (tok, { representation, where, orderBy, count }) => {
       const params = { representation: `${representation}.$query`, count };
-      if (where) params.where = where;
+      if (where) params.where = where.replace(/'(\d{4}-\d{2}-\d{2})'/g, "@$1@"); // date entre apostrophes → @date@ (seule syntaxe acceptée par X3, vérifié : l'autre donne un 500)
       if (orderBy) params.orderBy = orderBy;
       return ((await get(tok, representation, params)).$resources || []).map(strip);
     },
