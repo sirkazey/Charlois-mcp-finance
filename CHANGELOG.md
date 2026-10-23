@@ -5,7 +5,8 @@ Une section par version, trois lignes au plus par rubrique. La version est celle
 ## [Non publié]
 
 ### Ajouté
-- SSO Microsoft Entra ID du portail (`SSO_MODE=entra`, OIDC code + PKCE via le routeur OAuth existant) : clé MCP liée à l'identité Entra, visiteur anonyme sans clé, SharePoint connecté sans interaction après le SSO (`prompt=none`) sinon parcours interactif ; `SSO_MODE=mock` sur la mire Entra du bouchon (Marie, Paul), interdit en production. Régénération de clé (`POST /api/key/rotate`) et déconnexion du portail. Guide § 5.
+- SSO Microsoft Entra ID du portail (`SSO_MODE=entra`, OIDC code + PKCE via le routeur OAuth existant) : clé MCP liée à l'identité Entra, visiteur anonyme sans clé, SharePoint connecté sans interaction après le SSO (`prompt=none`) sinon parcours interactif ; `SSO_MODE=mock` sur la mire Entra du bouchon (Marie, Paul), interdit en production. Régénération de clé (`POST /api/key/rotate`) et déconnexion du portail enchaînant sur la déconnexion Microsoft. Guide § 5.
+- Audit indépendant du SSO (sécurité, simplicité) : clé toujours fraîche à la première liaison (ni fixation de session, ni clé antérieure au SSO reprise) ; jetons SharePoint acceptés seulement pour le compte Microsoft de l'identité ; POST du portail refusés depuis une autre origine ; clés temporaires jamais persistées et purgées ; limite de 60 requêtes/min par IP sur `/auth` (aussi sans SSO) ; bouchon vérifiant PKCE et honorant `prompt=none`.
 
 ### Sécurité (revue indépendante, PR #1 et suite)
 - En-têtes de sécurité HTTP sur toutes les réponses (CSP, nosniff, anti-clickjacking, Referrer-Policy, Permissions-Policy, COOP/CORP), `X-Powered-By` retiré : les 10 avertissements du ZAP passif portaient sur ces en-têtes. Workflow ZAP : dossier de rapport inscriptible (les artefacts n'étaient pas produits).

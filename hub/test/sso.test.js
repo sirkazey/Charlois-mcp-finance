@@ -54,7 +54,7 @@ test("SSO actif : un anonyme n'obtient ni clé ni liste des systèmes ; portail,
 });
 
 let marie, paul;
-test("Connexion SSO : redirection Entra (PKCE, openid profile email, sans prompt), callback → identité liée, clé posée, puis SharePoint tenté sans interaction", async () => {
+test("Connexion SSO : redirection Entra (S256, openid profile email, sans prompt), callback → identité liée à une clé fraîche, puis SharePoint tenté sans interaction", async () => {
   up.reset();
   const { loc, tmp, cb, key } = await sso(null, { code: "marie" });
   assert.equal(loc.pathname, "/ms/common/oauth2/v2.0/authorize");
@@ -64,7 +64,8 @@ test("Connexion SSO : redirection Entra (PKCE, openid profile email, sans prompt
   assert.equal(loc.searchParams.get("prompt"), null);
   assert.equal(cb.status, 302, await cb.text());
   assert.equal(cb.headers.get("location"), "/auth/sharepoint?silent=1");
-  assert.equal(key, tmp, "première identité : la clé du navigateur devient la sienne");
+  assert.ok(key && key !== tmp, "première identité : clé fraîche, jamais celle que le navigateur portait avant l'authentification");
+  assert.equal(hub.readUsers()[tmp], undefined); assert.equal((await mcpPost(tmp)).status, 401, "la clé temporaire est morte");
   marie = key;
   const tok = up.requests("/oauth2/v2.0/token", "POST")[0];
   assert.ok(tok.body.includes("code_verifier=") && tok.body.includes("client_secret=ms-client-secret"), tok.body);
@@ -72,7 +73,7 @@ test("Connexion SSO : redirection Entra (PKCE, openid profile email, sans prompt
   assert.equal(m.sso, "mock"); assert.equal(m.email, "marie@charlois.example"); assert.equal(m.key, marie); assert.equal(m.systems.length, 5);
   const u = hub.readUsers()[marie];
   assert.deepEqual([u.sso.sub, u.sso.tid, u.sso.upn, u.sso.name], ["oid-marie", "common", "marie@charlois.example", "Marie"]);
-  assert.equal(u.sso.access_token, undefined); assert.equal(u.sso.id_token, undefined, "aucun jeton SSO conservé");
+  assert.ok(!JSON.stringify(u).includes("ms-token-") && !JSON.stringify(u).includes("ms-refresh-"), "aucun jeton SSO conservé");
   assert.ok((await listTools(marie)).includes("sagex3_query"), "la clé liée sert les clients MCP");
 
   // Connexion SharePoint silencieuse : prompt=none + login_hint, puis jetons Graph délégués stockés comme pour le bouton
@@ -83,6 +84,7 @@ test("Connexion SSO : redirection Entra (PKCE, openid profile email, sans prompt
   const spCb = await fetch(`${hub.url}/auth/sharepoint/callback?code=marie&state=${spLoc.searchParams.get("state")}`, { headers: { cookie: `mcp_key=${marie}` }, ...noFollow });
   assert.equal(spCb.status, 302); assert.equal(spCb.headers.get("location"), "/");
   assert.equal(hub.readUsers()[marie].sharepoint.access_token, "ms-token-marie");
+  assert.equal(hub.readUsers()[marie].sharepoint.id_token, undefined, "l'id_token SharePoint n'est pas conservé"); assert.equal(hub.readUsers()[marie].sso.sub, "oid-marie", "le flux SharePoint ne touche pas l'identité");
   assert.ok((await me(marie)).systems.find((s) => s.id === "sharepoint").connected);
   // Déjà connecté à SharePoint : un nouveau SSO revient directement au portail
   assert.equal((await sso(marie, { code: "marie" })).cb.headers.get("location"), "/");
@@ -137,19 +139,21 @@ test("Usurpation : id_token d'un autre locataire, d'une autre application, d'un 
     assert.equal((await me(tmp)).key, null);
   }
   assert.ok(!Object.values(hub.readUsers()).some((u) => u.sso?.sub === "oid-eve"), "Eve n'existe pas dans le store");
-  assert.ok(!hub.logs().includes("evil.example"), "rien du jeton n'est journalisé");
+  for (const s of ["evil.example", "other-tenant", "other-app"]) assert.ok(!hub.logs().includes(s), "rien du jeton n'est journalisé");
+  const noid = await sso(null, { code: "eve:noid" }); assert.equal(noid.cb.status, 400, "revendications absentes → 400"); assert.equal(noid.key, undefined);
   // State lancé par un navigateur, callback présenté par un autre
   const start = await fetch(`${hub.url}/auth/sso`, noFollow);
   const state = new URL(start.headers.get("location")).searchParams.get("state");
   const other = await fetch(`${hub.url}/auth/sso/callback?code=marie&state=${state}`, { headers: { cookie: `mcp_key=${paul}` }, ...noFollow });
   assert.equal(other.status, 400); assert.equal(cookieOf(other), undefined);
   assert.equal(hub.readUsers()[paul].sso.sub, "oid-paul", "Paul n'a pas été relié à Marie");
-  // Callback d'un connecteur sans login avec un code : jamais d'identité liée (le flux SharePoint ne touche pas u.sso)
-  assert.equal((await fetch(`${hub.url}/auth/sso/callback?code=marie&state=inconnu`, noFollow)).status, 400);
+  assert.equal((await fetch(`${hub.url}/auth/sso/callback?code=marie&state=inconnu`, noFollow)).status, 400, "state inconnu");
 });
 
 test("Révocation : régénérer la clé rend l'ancienne inutilisable (portail et /mcp), la nouvelle porte identité et jetons ; se déconnecter efface le cookie sans révoquer", async () => {
-  const r = await fetch(`${hub.url}/api/key/rotate`, { method: "POST", headers: { cookie: `mcp_key=${marie}` } });
+  const evil = await fetch(`${hub.url}/api/key/rotate`, { method: "POST", headers: { cookie: `mcp_key=${marie}`, Origin: "https://evil.charlois.example" } });
+  assert.equal(evil.status, 403, "formulaire d'un site frère : refusé"); assert.equal((await me(marie)).key, marie);
+  const r = await fetch(`${hub.url}/api/key/rotate`, { method: "POST", headers: { cookie: `mcp_key=${marie}`, Origin: hub.url } });
   assert.equal(r.status, 200);
   const fresh = (await r.json()).key;
   assert.ok(fresh && fresh !== marie); assert.equal(cookieOf(r), fresh);
@@ -164,7 +168,9 @@ test("Révocation : régénérer la clé rend l'ancienne inutilisable (portail e
   assert.equal((await sso(null, { code: "marie" })).key, marie, "le SSO retrouve la nouvelle clé");
 
   const out = await fetch(`${hub.url}/api/logout`, { method: "POST", headers: { cookie: `mcp_key=${marie}` } });
-  assert.equal(out.status, 204); assert.match(out.headers.get("set-cookie"), /^mcp_key=; .*Max-Age=0$/);
+  assert.equal(out.status, 200); assert.match(out.headers.get("set-cookie"), /^mcp_key=; .*Max-Age=0$/);
+  const next = new URL((await out.json()).next);
+  assert.equal(next.pathname, "/ms/common/oauth2/v2.0/logout", "le portail enchaîne sur la déconnexion Microsoft"); assert.equal(next.searchParams.get("post_logout_redirect_uri"), `${hub.url}/?sso=off`);
   assert.equal((await mcpPost(marie)).status, 200, "la clé reste valide pour les clients MCP");
 });
 
@@ -175,8 +181,9 @@ test("Verrous de démarrage : mock interdit en production ; entra exige login.mi
   await refuse({ APP_ENV: "production", SSO_MODE: "mock" }, /SSO_MODE=mock est interdit en production/);
   await refuse({ SSO_MODE: "entra" }, /exige MS_LOGIN_URL vide/); // MS_LOGIN_URL pointe vers le mock
   await refuse({ SSO_MODE: "entra", MS_LOGIN_URL: "https://login.microsoftonline.com" }, /ID de l'annuaire \(GUID\), jamais common/);
-  await refuse({ SSO_MODE: "entra", MS_LOGIN_URL: "https://login.microsoftonline.com", MS_TENANT_ID: "3f2504e0-4f89-11d3-9a0c-0305e82c3301", MS_CLIENT_SECRET: "" }, /exige MS_CLIENT_ID et MS_CLIENT_SECRET/);
+  await refuse({ SSO_MODE: "entra", MS_LOGIN_URL: "https://login.microsoftonline.com", MS_TENANT_ID: "3f2504e0-4f89-11d3-9a0c-0305e82c3301", MS_CLIENT_SECRET: "" }, /exige MS_TENANT_ID, MS_CLIENT_ID et MS_CLIENT_SECRET/);
   await refuse({ SSO_MODE: "mock", MS_LOGIN_URL: "https://login.microsoftonline.com" }, /jamais login\.microsoftonline\.com/);
+  await refuse({ SSO_MODE: "mock", MS_TENANT_ID: "" }, /exige MS_TENANT_ID/);
   await refuse({ SSO_MODE: "oauth2-proxy" }, /SSO_MODE doit être vide, mock ou entra/);
   // Mode entra correctement configuré : démarre, et /auth/sso part bien vers Microsoft avec le locataire
   const h = await startHub({ upstreamUrl: up.url, env: { APP_ENV: "preprod", SSO_MODE: "entra", MS_LOGIN_URL: "https://login.microsoftonline.com", MS_TENANT_ID: "3f2504e0-4f89-11d3-9a0c-0305e82c3301" } });
@@ -249,4 +256,38 @@ test("Cloisonnement : Marie ne peut pas obtenir la clé de Paul en manipulant co
   paul = rot.key;
   // 8. Aucune clé dans les journaux du hub
   for (const k of [marie, paul, rot.key, first.tmp]) assert.ok(!hub.logs().includes(k), "clé absente des journaux");
+});
+
+test("Poste partagé : fixation de session impossible, clé antérieure au SSO jamais reprise, jetons d'un autre compte Microsoft jamais liés", async () => {
+  // 1. Fixation : l'attaquant lit la clé temporaire posée par un départ SSO abandonné ; la victime s'authentifie ensuite sur ce navigateur
+  const start = await fetch(`${hub.url}/auth/sso`, noFollow);
+  const known = cookieOf(start), state = new URL(start.headers.get("location")).searchParams.get("state");
+  const victim = await fetch(`${hub.url}/auth/sso/callback?code=lea&state=${state}`, { headers: { cookie: `mcp_key=${known}` }, ...noFollow });
+  assert.equal(victim.status, 302); assert.ok(cookieOf(victim) && cookieOf(victim) !== known, "la victime reçoit une clé fraîche");
+  assert.equal((await mcpPost(known)).status, 401, "la clé connue de l'attaquant ne donne rien"); assert.equal(hub.readUsers()[known], undefined);
+  // 2. Clé antérieure au SSO portant les jetons d'un autre : jamais adoptée, supprimée avec ses jetons
+  const { connectedUser, KEY } = await import("./helpers/hub.js");
+  const h = await startHub({ upstreamUrl: up.url, users: { [KEY]: connectedUser(up.url) }, env: { APP_ENV: "preprod", SSO_MODE: "mock" } });
+  try {
+    assert.equal((await fetch(`${h.url}/mcp`, { method: "POST", headers: { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json", Accept: "application/json, text/event-stream" }, body: "{}" })).status, 401, "clé sans identité inutilisable dès l'activation du SSO");
+    const s = await fetch(`${h.url}/auth/sso`, { headers: { cookie: `mcp_key=${KEY}` }, ...noFollow });
+    const st = new URL(s.headers.get("location")).searchParams.get("state");
+    const cb = await fetch(`${h.url}/auth/sso/callback?code=alice&state=${st}`, { headers: { cookie: `mcp_key=${KEY}` }, ...noFollow });
+    const fresh = cookieOf(cb);
+    assert.ok(fresh && fresh !== KEY, "clé fraîche, pas la clé héritée");
+    const users = h.readUsers();
+    assert.equal(users[KEY], undefined, "la clé héritée et ses jetons disparaissent");
+    assert.equal(users[fresh].sagex3, undefined); assert.equal(users[fresh].salesforce, undefined, "aucun jeton hérité");
+    assert.equal(cb.headers.get("location"), "/auth/sharepoint?silent=1");
+  } finally { await h.stop(); }
+  // 3. SharePoint interactif avec un autre compte Microsoft ouvert dans le navigateur : refusé, rien n'est stocké
+  const sp = await fetch(`${hub.url}/auth/sharepoint`, { headers: { cookie: `mcp_key=${paul}` }, ...noFollow });
+  const spState = new URL(sp.headers.get("location")).searchParams.get("state");
+  const other = await fetch(`${hub.url}/auth/sharepoint/callback?code=marie&state=${spState}`, { headers: { cookie: `mcp_key=${paul}` }, ...noFollow });
+  assert.equal(other.status, 400, await other.text()); assert.equal(hub.readUsers()[paul].sharepoint, undefined);
+  const sp2 = await fetch(`${hub.url}/auth/sharepoint`, { headers: { cookie: `mcp_key=${paul}` }, ...noFollow });
+  const own = await fetch(`${hub.url}/auth/sharepoint/callback?code=paul&state=${new URL(sp2.headers.get("location")).searchParams.get("state")}`, { headers: { cookie: `mcp_key=${paul}` }, ...noFollow });
+  assert.equal(own.status, 302); assert.equal(hub.readUsers()[paul].sharepoint.access_token, "ms-token-paul");
+  // 4. Les clés temporaires des départs abandonnés ne sont jamais écrites sur le disque
+  assert.ok(Object.values(hub.readUsers()).every((u) => u.sso), "users.json ne contient que des collaborateurs identifiés");
 });

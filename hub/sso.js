@@ -6,8 +6,7 @@
 // délégué, tenté sans interaction (prompt=none) juste après le SSO, puis interactif si Entra le refuse.
 import { store } from "./store.js";
 import { IS_PROD } from "./version.js";
-import { hasCredential } from "./oauth.js";
-import * as sharepoint from "./connectors/sharepoint.js";
+import { hasCredential, PUBLIC_URL } from "./oauth.js";
 
 export const MODE = process.env.SSO_MODE || "";
 const LOGIN = (process.env.MS_LOGIN_URL || "https://login.microsoftonline.com").replace(/\/$/, "");
@@ -23,7 +22,7 @@ if (MODE) {
   if (MODE === "mock" && MICROSOFT.test(LOGIN)) fail("SSO_MODE=mock exige MS_LOGIN_URL vers le bouchon (jamais login.microsoftonline.com)");
   if (MODE === "entra" && !MICROSOFT.test(LOGIN)) fail("SSO_MODE=entra exige MS_LOGIN_URL vide (login.microsoftonline.com)");
   if (MODE === "entra" && !GUID.test(TENANT)) fail("SSO_MODE=entra exige MS_TENANT_ID = ID de l'annuaire (GUID), jamais common");
-  if (!CLIENT_ID || !CLIENT_SECRET) fail("le SSO exige MS_CLIENT_ID et MS_CLIENT_SECRET (application Entra ID du hub)");
+  if (!TENANT || !CLIENT_ID || !CLIENT_SECRET) fail("le SSO exige MS_TENANT_ID, MS_CLIENT_ID et MS_CLIENT_SECRET (application Entra ID du hub)");
 }
 const ISSUER = `${LOGIN}/${TENANT}/v2.0`.toLowerCase();
 
@@ -33,12 +32,16 @@ const ISSUER = `${LOGIN}/${TENANT}/v2.0`.toLowerCase();
 export function claims(idToken) {
   let c; try { c = JSON.parse(Buffer.from(String(idToken).split(".")[1], "base64url").toString("utf8")); } catch { c = null; }
   const bad = (m) => Object.assign(new Error(`SSO : id_token refusé (${m})`), { status: 400, sso: true });
-  if (!c?.oid || !c.tid || !c.iss) throw bad("revendications absentes");
+  if (!c || [c.oid, c.tid, c.iss].some((v) => typeof v !== "string" || !v)) throw bad("revendications absentes");
   if (c.iss.toLowerCase() !== ISSUER || c.tid.toLowerCase() !== TENANT.toLowerCase()) throw bad("émetteur ou locataire inattendu");
   if (c.aud !== CLIENT_ID) throw bad("audience inattendue");
   if (!(c.exp > Date.now() / 1000)) throw bad("expiré");
   return { sub: c.oid, tid: c.tid, upn: c.preferred_username || c.email || "", name: c.name || "", email: c.email || c.preferred_username || null };
 }
+
+/** Déconnexion : fermer aussi la session Microsoft du navigateur (sinon, sur un poste partagé, le suivant se reconnecterait
+ *  au compte précédent d'un clic). post_logout_redirect_uri doit être enregistrée dans l'application Entra. */
+export const logoutUrl = `${LOGIN}/${TENANT}/oauth2/v2.0/logout?${new URLSearchParams({ post_logout_redirect_uri: `${PUBLIC_URL}/?sso=off` })}`;
 
 /** Pseudo-connecteur du routeur OAuth : flux /auth/sso et /auth/sso/callback, sans outil MCP ni jeton conservé. */
 export const connector = {
@@ -46,16 +49,25 @@ export const connector = {
   label: MODE === "mock" ? "Microsoft Entra ID (simulé)" : "Microsoft Entra ID",
   oauth: { authUrl: `${LOGIN}/${TENANT}/oauth2/v2.0/authorize`, tokenUrl: `${LOGIN}/${TENANT}/oauth2/v2.0/token`, clientId: CLIENT_ID, clientSecret: CLIENT_SECRET, scope: "openid profile email" },
   /** Fin du flux : lie l'identité Entra à une clé MCP et renvoie la clé à poser dans le cookie.
-   *  Une identité déjà connue retrouve SA clé, depuis n'importe quel navigateur ; une identité nouvelle s'approprie la clé
-   *  du navigateur si elle est anonyme, sinon (poste partagé, navigateur déjà lié à quelqu'un d'autre) reçoit une clé neuve. */
+   *  Une identité déjà connue retrouve SA clé, depuis n'importe quel navigateur ; une identité nouvelle reçoit une clé FRAÎCHE,
+   *  jamais celle que le navigateur portait avant l'authentification : une clé connue d'avance (fixation de session sur un
+   *  poste partagé) ou héritée d'avant le SSO avec les jetons d'un autre collaborateur ne doit jamais devenir la sienne.
+   *  La clé anonyme du navigateur est supprimée ; une clé déjà liée à quelqu'un d'autre (poste partagé) reste intacte. */
   bindIdentity(browserKey, tokens) {
-    const id = claims(tokens.id_token), current = store.get(browserKey);
-    let key = store.findSso(id.sub, id.tid);
-    if (!key) key = current && !current.sso ? browserKey : store.create();
-    else if (key !== browserKey && current && !current.sso) store.remove(browserKey); // clé temporaire anonyme : plus utile
+    const id = claims(tokens.id_token);
+    const key = store.findSso(id.sub, id.tid) ?? store.create();
+    if (key !== browserKey && !store.get(browserKey)?.sso) store.remove(browserKey);
     store.setSso(key, id);
     return key;
   },
+  /** Un connecteur de la même application Entra (SharePoint) ne peut lier que des jetons du MÊME compte Microsoft que l'identité
+   *  du portail : sur un navigateur où un autre compte Microsoft 365 est ouvert, le sélecteur de compte d'Entra ne doit pas
+   *  permettre d'attacher le refresh_token Graph d'autrui à sa propre clé. */
+  assertSame(key, tokens) {
+    const u = store.get(key); if (!u?.sso) return;
+    const id = claims(tokens.id_token);
+    if (id.sub !== u.sso.sub || id.tid !== u.sso.tid) throw Object.assign(new Error("SSO : compte Microsoft différent de l'identité du portail"), { status: 400, sso: true });
+  },
   /** Après le SSO : connexion SharePoint tentée sans interaction si l'utilisateur n'y est pas encore connecté. */
-  next: (key) => (sharepoint.oauth.clientId && !hasCredential(store.get(key)?.sharepoint) ? "/auth/sharepoint?silent=1" : "/"),
+  next: (key) => (!hasCredential(store.get(key)?.sharepoint) ? "/auth/sharepoint?silent=1" : "/"),
 };

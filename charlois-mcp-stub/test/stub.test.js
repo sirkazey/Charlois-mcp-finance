@@ -220,3 +220,16 @@ test("SSO Entra simulé (SSO_MODE=mock) : Marie s'identifie sur la mire, sa clé
     assert.equal(pme.email, "paul.martin@charlois.com"); assert.equal(pme.systems.find((s) => s.id === "sharepoint").connected, false);
   } finally { await h.stop(); }
 });
+
+test("Bouchon Entra : un code_verifier qui ne correspond pas au code_challenge est refusé (invalid_grant) ; la déconnexion Microsoft simulée renvoie à l'adresse demandée", async () => {
+  const back = `${hub.url}/auth/sharepoint/callback`;
+  const approve = await fetch(`${stubUrl}/_stub/approve?sys=ms&user=marie.dupont%40charlois.com&redirect_uri=${encodeURIComponent(back)}&state=s&code_challenge=${encodeURIComponent("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM")}`, noFollow);
+  const code = new URL(approve.headers.get("location")).searchParams.get("code");
+  const bad = await fetch(`${stubUrl}/ms/charlois-stub/oauth2/v2.0/token`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_id: "stub", grant_type: "authorization_code", code, code_verifier: "pas-le-bon-verifier" }) });
+  assert.equal(bad.status, 400); assert.equal((await bad.json()).error, "invalid_grant");
+  const again = await fetch(`${stubUrl}/ms/charlois-stub/oauth2/v2.0/token`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_id: "stub", grant_type: "authorization_code", code, code_verifier: "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk" }) });
+  assert.equal(again.status, 400, "un code refusé est consommé : pas de second essai");
+  const out = await fetch(`${stubUrl}/ms/charlois-stub/oauth2/v2.0/logout?post_logout_redirect_uri=${encodeURIComponent(`${hub.url}/?sso=off`)}`, noFollow);
+  assert.equal(out.status, 302); assert.equal(out.headers.get("location"), `${hub.url}/?sso=off`);
+  assert.equal((await fetch(`${stubUrl}/ms/charlois-stub/oauth2/v2.0/logout?post_logout_redirect_uri=javascript:alert(1)`, noFollow)).status, 400);
+});

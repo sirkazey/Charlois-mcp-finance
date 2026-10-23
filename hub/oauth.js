@@ -5,7 +5,7 @@ import { randomBytes, createHash } from "node:crypto";
 import { store } from "./store.js";
 
 export const PUBLIC_URL = (process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 8080}`).replace(/\/$/, "");
-const pending = new Map(); // state -> { key, system, exp }
+const pending = new Map(); // state -> { key, system, verifier, silent, exp }
 // Pré-prod avec bouchon : le hub joint le bouchon par son nom Docker, le navigateur par localhost. Ex. "http://mcp-stub:4000=>http://localhost:4000".
 const [rewriteFrom, rewriteTo] = (process.env.BROWSER_URL_REWRITE || "").split("=>");
 const redirectUri = (system) => `${PUBLIC_URL}/auth/${system}/callback`;
@@ -71,6 +71,7 @@ export function oauthRouter(connectors, getKey) {
     if (!c?.oauth || !store.get(key) || (!c.bindIdentity && !identified(store.get(key)))) return res.status(400).send("Système inconnu ou session absente");
     if (!c.oauth.clientId) return res.status(500).send(`${c.label} : OAuth non configuré (variables d'environnement)`);
     for (const [s, p] of pending) if (p.exp < Date.now()) pending.delete(s); // purge des flux abandonnés
+    if (c.bindIdentity) store.purge(10 * 60_000); // et des clés temporaires des départs SSO abandonnés (jamais persistées)
     const state = randomBytes(16).toString("hex"), verifier = randomBytes(32).toString("base64url"); // PKCE S256 sur tous les flux
     // ?silent=1 (connecteur `silent`, utilisateur SSO) : prompt=none + login_hint, Entra répond sans interface, ou par une erreur (login/consent_required)
     const silent = c.silent && req.query.silent === "1" ? store.get(key).sso?.upn : "";
@@ -94,9 +95,11 @@ export function oauthRouter(connectors, getKey) {
     }
     try {
       const tokens = await postToken(c.oauth, { grant_type: "authorization_code", code: req.query.code, redirect_uri: redirectUri(c.id), code_verifier: p.verifier });
-      if (c.bindIdentity) { const key = await c.bindIdentity(p.key, tokens); res.setHeader("Set-Cookie", keyCookie(key)); return res.redirect(c.next(key)); } // SSO : identité liée, jetons non conservés
+      if (c.bindIdentity) { const key = c.bindIdentity(p.key, tokens); res.setHeader("Set-Cookie", keyCookie(key)); return res.redirect(c.next(key)); } // SSO : identité liée, jetons non conservés
+      if (c.silent) byId.sso?.assertSame(p.key, tokens); // même application Entra que le SSO : jetons du même compte Microsoft, ou rien
       const email = c.identity ? await c.identity(tokens).catch(() => null) : null;
-      store.setTokens(p.key, c.id, tokens, email);
+      const { id_token: _unused, ...stored } = tokens; // l'id_token ne sert qu'à la vérification ci-dessus, jamais conservé
+      store.setTokens(p.key, c.id, stored, email);
       res.redirect("/");
     } catch (e) {
       console.error(`[oauth] ${c.id} : échec de l'échange de jeton`); // rien de l'erreur n'est journalisé (le fournisseur peut y glisser des données) ; le statut est rendu au navigateur

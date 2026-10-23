@@ -232,7 +232,7 @@ async function demoFetch(url, opts = {}) {
   if (url === "/api/test/dropbox") return json(SIM.dbx ? { ok: true, message: "Connecté au serveur MCP Dropbox (https://mcp.dropbox.com/mcp) · 8 outils en lecture seule", tables: ["who_am_i", "list_folder", "search", "get_file_metadata", "fetch", "file_preview", "list_shared_links", "get_shared_link_metadata"] } : ko("Dropbox"));
   if (url === "/api/test/myreport") return json(SIM.mr === "mock" ? { ok: true, message: "Mode simulé actif · 2 outils MyReport fictifs", tables: ["liste_indicateurs", "valeur_indicateur"] } : SIM.mrKey ? { ok: true, message: "Proxy SSE connecté à https://myreport.charlois.local/mcp/sse · 2 / 4 outils autorisés (MYREPORT_TOOLS)", tables: ["liste_indicateurs", "valeur_indicateur", "planifier_export ✕", "purger_cache ✕"] } : ko("MyReport"));
   if (url.endsWith("/apikey")) { const b = JSON.parse(opts.body || "{}"); if (!String(b.apiKey || "").trim()) return json({ error: "Jeton vide" }, 400); if (url.includes("sagex3")) SIM.sageKey = true; else SIM.mrKey = true; return new Response(null, { status: 204 }); }
-  if (url === "/api/logout" || url === "/api/key/rotate") return new Response(url === "/api/logout" ? null : JSON.stringify({ key: SIM.key }), { status: url === "/api/logout" ? 204 : 200 });
+  if (url === "/api/key/rotate") return json({ key: SIM.key });
   if (url.startsWith("/api/disconnect/")) { ({ salesforce: () => SIM.sf = false, sagex3: () => SIM.sageKey = false, sharepoint: () => SIM.sp = false, dropbox: () => SIM.dbx = false, myreport: () => SIM.mrKey = false })[url.split("/")[3]]?.(); return new Response(null, { status: 204 }); }
   return json({ error: "route inconnue" }, 404);
 }
@@ -316,7 +316,7 @@ async function saveApiKey(e, id) {
 }
 async function disconnect(id) { await api("/api/disconnect/" + id, { method: "POST" }); load(); }
 async function rotateKey() { if (!confirm("Nouvelle clé : les clients MCP configurés avec l'ancienne cesseront de fonctionner. Continuer ?")) return; await api("/api/key/rotate", { method: "POST" }); toast("Nouvelle clé générée"); load(); }
-async function logout() { await api("/api/logout", { method: "POST" }); location.href = "/?sso=off"; }
+async function logout() { const r = await api("/api/logout", { method: "POST" }).then((x) => x.json()).catch(() => ({})); location.href = r.next || "/?sso=off"; } // puis déconnexion Microsoft
 renderTabs(); load();
 </script>
 </body>

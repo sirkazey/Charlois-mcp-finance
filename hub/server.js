@@ -54,6 +54,10 @@ const requireKey = (read) => (req, res, next) => {
   res.status(401).json({ error: "Clé MCP inconnue ou absente : utilisez l'en-tête Authorization: Bearer <clé> obtenue sur le portail." });
 };
 const mcpUser = requireKey(mcpKey), portalUser = requireKey(cookieKey);
+// Les POST du portail changent l'état du collaborateur : un navigateur qui annonce une autre origine (formulaire d'un site frère sous le
+// même domaine, que SameSite=Lax laisse passer) est refusé. Les clients MCP n'appellent pas ces routes.
+const ORIGIN = new URL(PUBLIC_URL).origin;
+const sameOrigin = (req, res, next) => (req.headers.origin && req.headers.origin !== ORIGIN ? res.status(403).json({ error: "Origine refusée" }) : next());
 
 /** Exécute un outil/ping d'un connecteur avec le jeton de l'utilisateur et sa structure en cache.
  *  Un connecteur peut plafonner ses appels sortants (maxPerMinute, tous utilisateurs confondus) pour ménager un système de production. */
@@ -145,18 +149,22 @@ app.get("/api/me", limit("me", 60), (req, res) => {
   });
 });
 // Nouvelle clé pour le même collaborateur : l'ancienne cesse de fonctionner immédiatement (révocation d'un client MCP compromis).
-app.post("/api/key/rotate", limit("portal", 30), portalUser, (req, res) => {
+app.post("/api/key/rotate", limit("portal", 30), sameOrigin, portalUser, (req, res) => {
   const fresh = store.rotate(req.key);
   res.setHeader("Set-Cookie", keyCookie(fresh)); res.json({ key: fresh });
 });
-// Fin de session du portail (cookie effacé) : la clé reste valide pour les clients MCP ; la session Microsoft 365, elle, n'est pas fermée.
-app.post("/api/logout", portalUser, (_req, res) => { res.setHeader("Set-Cookie", "mcp_key=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"); res.sendStatus(204); });
-app.post("/api/disconnect/:system", limit("portal", 30), portalUser, (req, res) => {
+// Fin de session du portail : cookie effacé, la clé reste valide pour les clients MCP. Avec le SSO, le portail enchaîne sur la déconnexion
+// Microsoft (`next`) : sans elle, sur un poste partagé, le suivant retrouverait la clé du précédent d'un clic.
+app.post("/api/logout", limit("portal", 30), sameOrigin, portalUser, (_req, res) => {
+  res.setHeader("Set-Cookie", "mcp_key=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0");
+  res.json({ next: sso.MODE ? sso.logoutUrl : "/" });
+});
+app.post("/api/disconnect/:system", limit("portal", 30), sameOrigin, portalUser, (req, res) => {
   if (!byId[req.params.system]) return res.sendStatus(404);
   store.clearTokens(req.key, req.params.system); res.sendStatus(204);
 });
 // Jeton personnel (clé d'API Syracuse, jeton MyReport…) saisi par l'utilisateur : remplace son entrée pour ce système.
-app.post("/api/:system/apikey", limit("portal", 30), portalUser, (req, res) => {
+app.post("/api/:system/apikey", limit("portal", 30), sameOrigin, portalUser, (req, res) => {
   const c = byId[req.params.system];
   if (!c?.apiKey) return res.sendStatus(404);
   const apiKey = String(req.body?.apiKey || "").trim(), login = String(req.body?.login || "").trim();
