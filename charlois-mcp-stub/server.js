@@ -85,6 +85,11 @@ app.all("/platform/mcp/v1/d/:org/platform/:server", (req, res) => deny(res, req.
 // ---------------------------------------------------------------- Microsoft Entra + Graph
 app.get("/ms/:tenant/oauth2/v2.0/authorize", authorizePage("ms", "Microsoft Entra ID"));
 app.post("/ms/:tenant/oauth2/v2.0/token", tokenEndpoint("ms"));
+app.get("/ms/:tenant/oauth2/v2.0/logout", (req, res) => { // fin de session Microsoft simulée : retour à l'adresse demandée si elle est http(s)
+  let back; try { back = new URL(String(req.query.post_logout_redirect_uri || "")); } catch { back = null; }
+  if (!back || !/^https?:$/.test(back.protocol)) return res.status(400).send("post_logout_redirect_uri invalide");
+  res.redirect(back.href);
+});
 const docItem = (d, req) => ({ id: d.id, name: d.path.split("/").pop(), size: d.file ? statSync(new URL(d.file, FILES)).size : undefined, lastModifiedDateTime: "2026-10-01T08:00:00Z", webUrl: `${base(req)}/sharepoint/sites/Finance/${d.path}`, ...(d.folder ? { folder: { childCount: DOCS.filter((x) => x.path.startsWith(d.path + "/")).length } } : { file: { mimeType: d.mime } }) });
 const visible = (u) => DOCS.filter((d) => !d.restricted || USERS[u].confidentiel);
 app.use("/v1.0", (req, res) => {

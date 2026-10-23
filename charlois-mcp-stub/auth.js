@@ -14,7 +14,7 @@ const idToken = (user, base, { tenant, clientId }) => [enc({ alg: "none", typ: "
   preferred_username: user, email: user, name: USERS[user].name, iat: Math.floor(Date.now() / 1000), exp: Math.floor((Date.now() + TTL) / 1000) }), ""].join(".");
 
 /** Émet un couple de jetons pour un système et un utilisateur (`ctx` : locataire et client_id, pour l'id_token Entra). */
-export function issue(sys, user, base, ctx = { tenant: "common", clientId: "" }) {
+export function issue(sys, user, base, ctx) {
   const extra = { sf: { instance_url: base, id: `${base}/id/00D/${user}`, issued_at: String(Date.now()) }, ms: { scope: "User.Read Files.Read.All Sites.Read.All" }, dbx: { account_id: `dbid:${user}`, uid: "1" }, sage: {} }[sys];
   if (sys === "ms") extra.id_token = idToken(user, base, ctx);
   return { access_token: enc({ sys, user, exp: Date.now() + TTL, r: randomBytes(4).toString("hex") }), refresh_token: enc({ sys, user, refresh: true, r: randomBytes(4).toString("hex") }), token_type: "Bearer", expires_in: TTL / 1000, ...extra };

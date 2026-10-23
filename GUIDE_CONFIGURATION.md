@@ -212,62 +212,86 @@ Premières questions de contrôle, dont la réponse est connue :
 
 ## 5. SSO Microsoft Entra ID (portail)
 
-Sans `SSO_MODE`, rien ne change : le portail crée une clé au premier passage. Avec le SSO, un visiteur non identifié est
-envoyé vers Microsoft Entra ID ; s'il a déjà une session Microsoft 365 dans ce navigateur, il revient sans rien saisir,
-et sa clé MCP est **liée à son identité Entra** (`oid` + locataire) : il la retrouve depuis n'importe quel navigateur, et
-personne d'autre ne peut l'obtenir. Les clients MCP (Claude Desktop, Claude Code…) ne changent pas : en-tête
-`Authorization: Bearer <clé>`.
+Sans `SSO_MODE`, le portail crée une clé au premier passage, comme avant. Avec le SSO, un visiteur non identifié est
+envoyé vers Microsoft Entra ID ; s'il a déjà une session Microsoft 365 dans ce navigateur, Entra le renvoie sans rien
+lui demander (comportement d'Entra : le hub n'envoie simplement pas de `prompt`). Sa clé MCP est **liée à son identité
+Entra** (`oid` + locataire) : il la retrouve depuis n'importe quel navigateur, et aucune autre identité Entra ne peut
+l'obtenir par le portail. La clé reste un secret porteur : qui la détient l'utilise. Les clients MCP (Claude Desktop,
+Claude Code…) ne changent pas : en-tête `Authorization: Bearer <clé>`.
 
-Le SSO authentifie, il n'autorise rien sur Microsoft Graph : il ne demande que `openid profile email`. SharePoint /
-OneDrive garde son consentement délégué propre à chaque collaborateur, tenté **sans interaction** juste après le SSO
-(`prompt=none`), puis par le bouton « Se connecter » si Entra refuse (consentement absent, session absente).
+Le SSO authentifie, il n'autorise rien sur Microsoft Graph : il ne demande que `openid profile email`, et aucun jeton
+Microsoft n'est conservé. SharePoint / OneDrive garde son consentement délégué propre à chaque collaborateur, tenté
+**sans interaction** juste après le SSO (`prompt=none`), puis par le bouton « Se connecter » si Entra refuse
+(consentement absent, session absente). Dans les deux cas, le hub n'accepte que des jetons Graph du **même compte
+Microsoft** que l'identité du portail : choisir un autre compte dans le sélecteur d'Entra est refusé.
+
+Deux changements s'appliquent même sans SSO : le bouton « régénérer la clé » du portail (l'ancienne clé cesse de
+fonctionner aussitôt) et une limite de 60 requêtes par minute et par adresse IP sur les départs et retours OAuth
+(`/auth/…`). Derrière un NAT d'entreprise, cette adresse est partagée : un premier passage consomme quatre requêtes.
 
 ### Mode `entra` : ce qu'il faut dans Entra ID
 
-La même application que SharePoint (section « Côté SharePoint » du README), complétée :
+La même application que SharePoint (section « Côté SharePoint » du README), complétée. Les libellés ci-dessous
+décrivent le portail Entra de mémoire, pas depuis le locataire Charlois : **à vérifier dans le portail Entra**. Seuls
+l'URI de redirection, le format GUID du locataire et le scope sont imposés par le code.
 
 | Dans le portail Entra (Inscriptions d'applications → l'application) | Valeur |
 |---|---|
-| Types de comptes pris en charge | Comptes de cet annuaire d'organisation uniquement (locataire unique) |
-| Authentification → URI de redirection (Web) | `<PUBLIC_URL>/auth/sso/callback`, à côté de `<PUBLIC_URL>/auth/sharepoint/callback` |
-| Certificats et secrets | le secret client déjà utilisé pour SharePoint (`MS_CLIENT_SECRET`) |
-| API autorisées (Microsoft Graph, déléguées) | `openid`, `profile`, `email` (couverts par `User.Read`) ; `Files.Read.All`, `Sites.Read.All` avec **consentement administrateur** pour que SharePoint se connecte sans écran |
+| Vue d'ensemble → ID d'application (client) | à copier dans `MS_CLIENT_ID` |
 | Vue d'ensemble → ID de l'annuaire (locataire) | à copier dans `MS_TENANT_ID` (un GUID ; `common` est refusé) |
+| Types de comptes pris en charge | Comptes de cet annuaire d'organisation uniquement (le code n'exige que l'émetteur du GUID) |
+| Authentification → URI de redirection (Web) | `<PUBLIC_URL>/auth/sso/callback`, à côté de `<PUBLIC_URL>/auth/sharepoint/callback`, à l'identique (pas de barre finale) |
+| Authentification → URI de redirection après déconnexion | `<PUBLIC_URL>/?sso=off` (le bouton « Se déconnecter » ferme aussi la session Microsoft ; sans cette URI, Entra affiche sa propre page) |
+| Certificats et secrets | le secret client déjà utilisé pour SharePoint (`MS_CLIENT_SECRET`) |
+| API autorisées (Microsoft Graph, déléguées) | `openid`, `profile`, `email` ; `Files.Read.All`, `Sites.Read.All` avec consentement administrateur pour que SharePoint se connecte sans écran |
 
-`.env` :
+`.env` (en production, `PUBLIC_URL` doit être en https : le hub refuse de démarrer sinon) :
 
 ```
 SSO_MODE=entra
 MS_TENANT_ID=<GUID de l'annuaire>
-MS_CLIENT_ID=<ID d'application>
+MS_CLIENT_ID=<ID d'application (client)>
 MS_CLIENT_SECRET=<secret client>
 ```
 
 Le hub refuse de démarrer si `MS_TENANT_ID` n'est pas un GUID, si l'application n'est pas renseignée, ou si
 `MS_LOGIN_URL` ne désigne pas `login.microsoftonline.com`. L'`id_token` est vérifié (émetteur et locataire attendus,
 audience = l'application, expiration) ; il arrive en direct du point de terminaison token (TLS, code + PKCE + secret),
-sa signature n'est donc pas revérifiée (OIDC Core § 3.1.3.7, règle 6). Aucun jeton Microsoft n'est conservé pour le SSO.
+sa signature n'est donc pas revérifiée (OIDC Core § 3.1.3.7, règle 6). Cette hypothèse tombe si l'exploitant désactive
+la vérification TLS de Node (`NODE_TLS_REJECT_UNAUTHORIZED=0`) : ne jamais le faire.
+
+Constater que le SSO est actif : la ligne de démarrage du hub se termine par `· SSO entra`, le portail affiche
+« via Microsoft Entra ID » à côté de l'identité, et `SSO_MODE` apparaît dans la configuration du conteneur. Lire un
+échec : « Échec de la connexion Microsoft Entra ID (400) » = `id_token` refusé (locataire ou application inattendus) ;
+« (4xx ou 502) » = échange de code refusé (secret ou URI de redirection faux) ; « Système inconnu ou session absente »
+= flux d'un système lancé sans identité.
 
 ### Mode `mock` : développement et CI, jamais la production
 
-`SSO_MODE=mock` avec le bouchon (`docker-compose.dev.yml`) : la mire « Microsoft Entra ID — connexion simulée » du
-conteneur `mcp-stub` propose Marie Dupont (DAF) et Paul Martin (commercial), sans aucun appel à Microsoft. Le bouchon
-émet un `id_token` au même format qu'Entra et honore `prompt=none` + `login_hint`, ce qui exerce la connexion SharePoint
-silencieuse. Le code du hub est le même qu'en mode `entra` ; seules les adresses changent. Le hub refuse de démarrer en
-`mock` si `APP_ENV=production` ou si `MS_LOGIN_URL` pointe vers Microsoft. Tests : `hub/test/sso.test.js` (anonymes,
-usurpation, séparation, cloisonnement des clés : cookies manipulés, rejeu de callback, code volé refusé par PKCE, sessions SSE, rotation ; révocation, verrous) et `charlois-mcp-stub/test/stub.test.js` (bout en bout, PKCE vérifié par le bouchon).
+`SSO_MODE=mock` avec le bouchon (`docker-compose.dev.yml`, dont les valeurs par défaut `MS_TENANT_ID`, `MS_CLIENT_ID`
+et `MS_CLIENT_SECRET` suffisent) : la mire « Microsoft Entra ID — connexion simulée » du conteneur `mcp-stub` propose
+Marie Dupont (DAF) et Paul Martin (commercial), sans aucun appel à Microsoft. Le bouchon émet un `id_token` au même
+format qu'Entra, vérifie PKCE, honore `prompt=none` + `login_hint` (connexion SharePoint silencieuse) et simule la
+déconnexion Microsoft. Le code du hub est le même qu'en mode `entra` ; seules les adresses changent. Le hub refuse de
+démarrer en `mock` si `APP_ENV=production` ou si `MS_LOGIN_URL` pointe vers Microsoft. Tests : `hub/test/sso.test.js`
+(anonymes, usurpation, séparation, cloisonnement des clés : cookies manipulés, rejeu, code volé refusé par PKCE,
+fixation de session, clé héritée, compte Microsoft différent, sessions SSE, rotation ; verrous) et
+`charlois-mcp-stub/test/stub.test.js` (bout en bout, refus PKCE du bouchon).
 
 ### Ce que le SSO transparent ne fait pas
 
 * **Transparent seulement avec une session Microsoft 365 dans le navigateur** (poste joint à Entra, ou compte déjà
   ouvert dans ce navigateur). Sinon Entra affiche sa page de connexion : c'est bien du SSO, mais pas silencieux.
-* **« Se déconnecter » ferme la session du portail, pas la session Microsoft.** Un clic sur « Se connecter avec
-  Microsoft » reconnecte sans mot de passe. Pour changer de compte : se déconnecter de Microsoft 365, ou navigation privée.
-* **Un compte désactivé dans Entra garde sa clé MCP** tant qu'elle n'est pas régénérée ou supprimée : la clé n'est pas
-  revalidée auprès d'Entra à chaque appel. Ses jetons Graph, eux, cessent de se renouveler. À traiter avec le départ d'un
-  collaborateur (régénérer la clé depuis son navigateur, ou retirer son entrée de `users.json` par l'administrateur).
-* **Activer le SSO sur une instance existante invalide les clés créées sans identité** : chaque collaborateur se
-  reconnecte une fois au portail (sa clé anonyme est reprise si c'est le même navigateur, sinon il en reçoit une nouvelle
-  et reconfigure son client MCP).
+* **« Se déconnecter » ferme la session du portail puis la session Microsoft du navigateur**, sinon le suivant sur un
+  poste partagé retrouverait la clé du précédent d'un clic. Les autres onglets Microsoft 365 de ce navigateur sont
+  déconnectés aussi.
+* **Un compte désactivé dans Entra garde sa clé MCP** tant qu'elle n'est pas régénérée : la clé n'est pas revalidée
+  auprès d'Entra à chaque appel, et aucun outil ne permet aujourd'hui de retirer une entrée de `users.json`, chiffré.
+  Ses jetons Graph, eux, cessent de se renouveler. À traiter au départ d'un collaborateur : régénérer la clé depuis
+  son navigateur, ou prévoir une commande d'administration (mini-portail prévu).
+* **Activer le SSO sur une instance existante invalide toutes les clés créées sans identité**, y compris leurs jetons :
+  chaque collaborateur se reconnecte au portail, reçoit une clé neuve, reconnecte ses systèmes et reconfigure son client
+  MCP. Une clé antérieure au SSO n'est jamais reprise, même sur le même navigateur : elle pourrait porter les jetons de
+  quelqu'un d'autre.
 * Tout compte du locataire peut ouvrir le portail et obtenir une clé. Les droits sur les données restent ceux de chaque
   système (Sage X3, Salesforce, Graph…), avec les identifiants personnels du collaborateur.

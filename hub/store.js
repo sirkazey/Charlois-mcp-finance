@@ -1,5 +1,5 @@
 // Persistance minimale : un fichier chiffré AES-256-GCM dans le volume /data, déchiffré en mémoire seulement.
-// users[key] = { email, salesforce: {tokens}, sagex3: {tokens}, sharepoint, dropbox, myreport }
+// users[key] = { email, sso: { sub, tid, upn, name, at }, salesforce: {tokens}, sagex3: {tokens}, sharepoint, dropbox, myreport }
 // La "key" est le secret que l'utilisateur met dans son client MCP. La clé maîtresse vient de ENCRYPTION_KEY.
 import { readFileSync, writeFileSync, mkdirSync, renameSync } from "node:fs";
 import { randomBytes, createHash, createCipheriv, createDecipheriv } from "node:crypto";
@@ -29,8 +29,11 @@ try {
   db = JSON.parse(raw.startsWith("enc1:") ? decrypt(raw) : raw); // un ancien fichier en clair est rechiffré à la première écriture
 } catch (e) { if (e.code !== "ENOENT") { console.error(`[store] users.json illisible (mauvaise ENCRYPTION_KEY ?) : ${e.message}`); process.exit(1); } }
 
+/** Vrai pour une entrée qui vaut d'être conservée : identité SSO ou au moins un identifiant ; une clé anonyme sans rien n'est jamais persistée. */
+const worthKeeping = (u) => !!u.sso || Object.values(u).some((v) => v && typeof v === "object" && (v.access_token || v.apiKey));
 function save() {
-  writeFileSync(FILE + ".tmp", encrypt(JSON.stringify(db)), { mode: 0o600 });
+  const users = Object.fromEntries(Object.entries(db.users).filter(([, u]) => worthKeeping(u)));
+  writeFileSync(FILE + ".tmp", encrypt(JSON.stringify({ ...db, users })), { mode: 0o600 });
   renameSync(FILE + ".tmp", FILE); // écriture atomique, jamais en clair sur le disque
 }
 
@@ -63,6 +66,11 @@ export const store = {
     save();
   },
   remove(key) { if (store.get(key)) { delete db.users[key]; save(); } },
+  /** Oublie les clés anonymes sans identifiant plus vieilles que maxAgeMs (départs SSO abandonnés) ; rien n'est écrit, elles n'ont jamais été persistées. */
+  purge(maxAgeMs) {
+    const limit = Date.now() - maxAgeMs;
+    for (const [k, u] of Object.entries(db.users)) if (!worthKeeping(u) && Date.parse(u.createdAt) < limit) delete db.users[k];
+  },
   /** Nouvelle clé pour le même collaborateur : l'ancienne est révoquée sur-le-champ (clients MCP et portail), identité et jetons suivent. */
   rotate(key) {
     const u = store.get(key); if (!u) return null;
