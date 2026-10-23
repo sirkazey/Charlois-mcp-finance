@@ -7,7 +7,11 @@ transmet son jeton personnel, il n'a aucun compte technique. Le portail web « C
 unique : connexion aux outils, diagnostic, bar à prompts, configuration du connecteur.
 
 Né pour la Finance, le hub est générique : tout outil disposant d'une API REST ou d'un serveur MCP s'ajoute comme un
-module de 50 à 90 lignes dans `hub/connectors/`.
+module de 60 à 180 lignes dans `hub/connectors/`.
+
+**Documents de référence** : [`GUIDE_CONFIGURATION.md`](GUIDE_CONFIGURATION.md) (procédures de configuration vérifiées,
+connecteur par connecteur), [`JOURNAL_TESTS.md`](JOURNAL_TESTS.md) (tests exécutés sur les systèmes réels et tests
+restants), [`AUDIT_ROADMAP.md`](AUDIT_ROADMAP.md) (audit de clôture, backlog, roadmap), [`CHANGELOG.md`](CHANGELOG.md).
 
 ```
 Assistant IA (Claude Code, Claude Desktop, ChatGPT, Copilot)
@@ -23,15 +27,15 @@ Assistant IA (Claude Code, Claude Desktop, ChatGPT, Copilot)
 │ telemetry.js   télémétrie Clevoa anonyme, au démarrage puis à 03:00  │
 │ connectors/    salesforce (proxy MCP) · sagex3 · sharepoint · dropbox · myreport │
 │ public/        index.html  portail Charlois AI Gateway               │
-│ test/          node:test, amont mocké, 48 tests                      │
+│ test/          node:test, amont mocké, 59 tests                      │
 └───┬─────────────┬───────────────┬───────────────┬───────────────┬────┘
-    │  (pré-prod : charlois-mcp-stub/ imite les six systèmes, 7 tests de bout en bout)
+    │  (pré-prod : charlois-mcp-stub/ imite les cinq systèmes, 8 tests de bout en bout)
     ▼ MCP HTTP    ▼ REST Syracuse ▼ Graph (GET)   ▼ MCP HTTP      ▼ MCP SSE
  Salesforce    Sage X3 24R1    SharePoint      Dropbox (MCP    MyReport Server
  (SObject Reads) (ou simulateur) OneDrive      officiel)       (ou simulateur)
 ```
 
-* **Pas de framework** : `@modelcontextprotocol/sdk` + `express` + `zod`. Environ 650 lignes de code, 5 connecteurs de 50 à 90 lignes.
+* **Pas de framework** : `@modelcontextprotocol/sdk` + `express` + `zod`. Environ 850 lignes de code, 5 connecteurs de 60 à 180 lignes.
 * **Données jamais cachées** : chaque question interroge l'outil en direct. Seule la *structure* (objets / champs)
   est gardée en mémoire, **par utilisateur** (donc selon ses propres droits), et expire chaque nuit.
 * **Lecture seule** : Salesforce via le serveur MCP hébergé `SObject Reads` uniquement ; Sage X3 `$query` / `$details` / `$prototypes` uniquement ;
@@ -177,50 +181,37 @@ configuration résolue sans rien déployer.
 
 ## Côté Salesforce (serveur MCP hébergé « SObject Reads »)
 
-Le hub est **client MCP** du serveur hébergé par Salesforce `SObject Reads` (lecture seule des objets métier : comptes,
-contacts, pistes, opportunités, objets personnalisés), avec le jeton OAuth de chaque collaborateur : Salesforce applique
-son profil, ses règles de partage et la sécurité au niveau des champs. Deux outils : `salesforce_tools` (outils du serveur
-et leurs schémas) et `salesforce_call` (exécution). Le connecteur refuse de démarrer si `SF_MCP_URL` désigne un serveur
-d'écriture (`sobject-all`, `mutations`, `deletes`…).
+Le hub est **client MCP** du serveur hébergé par Salesforce `SObject Reads` (lecture seule des objets métier), avec le jeton
+OAuth de chaque collaborateur : Salesforce applique son profil, ses règles de partage et la sécurité au niveau des champs.
+Deux outils : `salesforce_tools` (les six outils du serveur et leurs schémas : `find`, `getObjectSchema`,
+`getRelatedRecords`, `getUserInfo`, `listRecentSobjectRecords`, `soqlQuery`) et `salesforce_call` (exécution). Le connecteur
+refuse de démarrer si `SF_MCP_URL` désigne un serveur d'écriture (`sobject-all`, `mutations`, `deletes`…). Un `soqlQuery`
+sans `LIMIT` reçoit `LIMIT 200` (`SF_DEFAULT_LIMIT`). L'e-mail du collaborateur vient de `getUserInfo`, sans étendue
+supplémentaire.
 
-Configuration (Setup, droits administrateur, édition Enterprise ou supérieure ; vérifier sur l'org) :
-1. **Serveurs MCP** (API Catalog) : laisser actif `SObject Reads` seul (et `salesforce-api-context` au besoin), désactiver
-   `SObject All`, `SObject Mutations`, `SObject Deletes`. Copier l'URL de `SObject Reads` → `SF_MCP_URL`
-   (forme `https://api.salesforce.com/platform/mcp/v1/d/<org>/platform/sobject-reads`).
-2. **External Client App** (les Connected Apps classiques ne sont pas acceptées) : OAuth activé, callback
-   `<PUBLIC_URL>/auth/salesforce/callback` (et `https://claude.ai/api/mcp/auth_callback` pour un usage direct depuis
-   claude.ai), scopes « Access Salesforce hosted MCP servers » (`mcp_api`) et « Perform requests at any time »
-   (`refresh_token`), « Require PKCE » coché, « Issue JWT based access tokens for named users » coché, secret non requis.
-   Consumer Key → `SF_CLIENT_ID` ; `SF_CLIENT_SECRET` vide si l'app n'exige pas de secret. Propagation : jusqu'à 30 min.
-3. `SF_LOGIN_URL` = **My Domain** de l'org (`https://<org>.my.salesforce.com`), ou de la sandbox
-   (`https://<org>--<nom>.sandbox.my.salesforce.com`) : c'est le serveur d'autorisation annoncé par le serveur MCP.
+Renouvellement transparent : sur 401 du serveur MCP, le hub échange le `refresh_token` (rotation imposée par Salesforce
+gérée), persiste le nouveau jeton et rejoue l'appel. Un refresh token révoqué efface l'entrée et demande une reconnexion
+sur le portail. L'usage des serveurs MCP hébergés peut être facturé en crédits Flex : `SF_MAX_PER_MIN` plafonne les appels.
 
-Renouvellement transparent : sur 401 du serveur MCP, le hub échange le `refresh_token`, persiste le nouveau jeton et rejoue
-l'appel. Un refresh token révoqué efface l'entrée et demande une reconnexion sur le portail. L'usage des serveurs MCP
-hébergés peut être facturé par Salesforce en crédits Flex : à vérifier avec votre interlocuteur Salesforce.
+Procédure complète et vérifiée (application cliente externe, étendues, JWT, secret, URL) : `GUIDE_CONFIGURATION.md` § 2.
 
 ## Côté Sage X3 24R1
 
-Le hub appelle l'API REST Syracuse avec `Authorization: Bearer <access_token>` de l'utilisateur.
-Pré-requis : un **serveur OAuth2** (ex. Entra ID) déclaré dans *Administration → Serveurs OAuth2* de Syracuse,
-les utilisateurs X3 rattachés à ce serveur, et `SAGE_OAUTH_SCOPE` demandant un jeton **pour Syracuse**
-(avec Entra : `openid offline_access api://<app-id-syracuse>/.default`, pas un jeton Graph).
+Le hub appelle l'API REST Syracuse (`/api1/x3/erp/<point de connexion>/…`, facettes `$query`, `$details`, `$prototypes`
+uniquement, toujours en GET) avec l'identité de chaque collaborateur. Mode vérifié en préproduction : `SAGE_APIKEY_MODE=basic`,
+le collaborateur saisit sur le portail son identifiant et son mot de passe Syracuse, chiffrés dans le hub et jamais renvoyés
+au navigateur. Syracuse applique l'utilisateur X3 rattaché à ce compte sur ce point de connexion.
 
-### Alternative sans OAuth : clé d'API Syracuse personnelle
+Alternative non vérifiée : OAuth2 (serveur OAuth2 déclaré dans Syracuse, variables `SAGE_OAUTH_*`), ou clé d'API en
+`bearer`.
 
-Sur le portail, sous le bouton Sage X3, chaque collaborateur peut saisir **sa** clé d'API (et son identifiant X3 en mode
-`basic`). Elle est stockée dans `users.json` sous sa clé MCP (`sagex3.apiKey`, `sagex3.login`), jamais renvoyée au
-navigateur, et envoyée telle quelle à chaque appel :
-* `SAGE_APIKEY_MODE=bearer` (défaut) → `Authorization: Bearer <clé>`
-* `SAGE_APIKEY_MODE=basic` → `Authorization: Basic base64(login:clé)` (authentification Basic classique de Syracuse)
+Structure (représentations, champs, libellés) lue par `$prototypes` et gardée en mémoire par utilisateur jusqu'à 03:00. Une
+représentation absente du dossier (404), interdite à l'utilisateur (403) ou en erreur côté Sage (5xx) est signalée par le
+diagnostic sans bloquer les autres. Les filtres `where` acceptent tout champ d'en-tête ; seules les colonnes de liste sont
+renvoyées par `sagex3_query`, `sagex3_get` lit la fiche (paramètre `champs` pour ne garder que l'utile).
 
-Pas d'expiration, pas de refresh : la connexion reste permanente tant que la clé est valide côté Sage.
-Le bouton « Tester Sage X3 » fait un appel réel à chaque clic (jamais le cache) : une clé révoquée produit un voyant rouge « Sage X3 401 ».
-
-> **À vérifier sur votre instance avant mise en production** : le mode d'envoi de la clé d'API attendu par votre
-> Syracuse (`bearer` ou `basic`), l'acceptation du Bearer OAuth par `/api1/x3/erp`,
-> le scope exact, et l'URL des prototypes (`$prototypes('<REP>.$query')`) dépendent de la configuration Syracuse.
-> Test : `curl -H "Authorization: Bearer …" "$SAGE_URL/api1/x3/erp/PROD/BPCUSTOMER?representation=BPCUSTOMER.\$query&count=1"`.
+Procédure, vérifications curl, lecture du diagnostic et limites connues (type de pièce, règlements, dates) :
+`GUIDE_CONFIGURATION.md` § 1.
 
 ## Côté SharePoint / OneDrive (Microsoft Graph)
 
@@ -282,6 +273,6 @@ Outils : `salesforce_tools`, `salesforce_call` · `sagex3_representations`, `sag
 ```bash
 cd hub && npm install
 ENCRYPTION_KEY=$(openssl rand -hex 32) PUBLIC_URL=http://localhost:8080 SF_CLIENT_ID=… SF_CLIENT_SECRET=… node server.js   # Sage X3 en mode simulé
-npm test                    # 48 tests node:test (pré-prod)
+npm test                    # 59 tests node:test (pré-prod)
 APP_ENV=production npm test # même suite sous les verrous de production : transports, lecture seule, refresh, cache, OAuth, jetons personnels, portail, simulateurs, Graph, proxys MCP, télémétrie et Lambda Clevoa
 ```
