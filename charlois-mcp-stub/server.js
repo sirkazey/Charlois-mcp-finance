@@ -160,9 +160,16 @@ app.use("/api1/x3/erp/:folder", (req, res) => {
   const u = sageUser(req);
   if (!u) return deny(res, 401, { $diagnoses: [{ $severity: "error", $message: "Authentification requise (Bearer, clé d'API ou Basic)" }] });
   const p = decodeURIComponent(req.path).replace(/^\//, ""), q = req.query, lines = (rep) => SAGE[rep].rows.map((r) => ({ $uuid: `${rep}-${Object.values(r)[0]}`, $etag: 1, $url: `${base(req)}${req.baseUrl}/${rep}('${Object.values(r)[0]}')`, ...r }));
+  // Format réel Syracuse 24R1 : contexte $actx*, champs sous $properties.$resources.$item.$properties, libellés "{@n}" résolus dans $localization.
+  const prototype = (req, rep) => ({
+    $actxUser: USERS[u].sageLogin, $actxLogin: USERS[u].sageLogin, $actxFolder: req.params.folder, $actxSolution: "X3STUB", $actxLan: "FRA", $actxLanIso: "fr-FR",
+    $baseUrl: `${base(req)}${req.baseUrl}`, $representation: rep, $title: "{@1}", $itemsPerPage: 300,
+    $properties: { $resources: { $type: "application/x-array", $item: { $properties: Object.fromEntries(SAGE[rep].props.map(([n, v], i) => [n, { $title: `{@${i + 2}}`, $type: v.$type, $isReadOnly: true, $capabilities: "sort,filter" }])) } } },
+    $localization: Object.fromEntries([["@1", SAGE[rep].title], ...SAGE[rep].props.map(([, v], i) => [`@${i + 2}`, v.$title])]),
+  });
   const access = (rep) => !SAGE[rep] ? 404 : SAGE[rep].restricted && !USERS[u].achats ? 403 : 200;
   let m = p.match(/^\$prototypes\('(\w+)\.\$query'\)$/);
-  if (m) { const s = access(m[1]); return s !== 200 ? deny(res, s, { $diagnoses: [{ $severity: "error", $message: s === 403 ? "Accès refusé à cette représentation" : "Représentation inconnue" }] }) : res.json({ $title: SAGE[m[1]].title, $properties: Object.fromEntries(SAGE[m[1]].props) }); }
+  if (m) { const s = access(m[1]); return s !== 200 ? deny(res, s, { $diagnoses: [{ $severity: "error", $message: s === 403 ? "Accès refusé à cette représentation" : "Représentation inconnue" }] }) : res.json(prototype(req, m[1])); }
   m = p.match(/^(\w+)\('(.+)'\)$/);
   if (m) { const s = access(m[1]); if (s !== 200) return deny(res, s, { $diagnoses: [{ $message: s === 403 ? "Accès refusé" : "Représentation inconnue" }] }); const row = lines(m[1]).find((r) => String(Object.values(strip(r))[0]) === m[2]); return row ? res.json(row) : deny(res, 404, { $diagnoses: [{ $message: "Enregistrement inconnu" }] }); }
   m = p.match(/^(\w+)$/);

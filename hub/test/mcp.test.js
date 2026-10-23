@@ -167,8 +167,8 @@ test("Cache : la structure est chargée au premier appel avec le jeton de l'util
     up.reset();
     const sinv = text(await c.callTool({ name: "sagex3_describe", arguments: { representation: "SINVOICE" } }));
     assert.deepEqual(sinv, [
-      { name: "SINVOICE_NUM", type: "application/x-string", label: "Numéro" },
-      { name: "AMTATI", type: "application/x-decimal", label: "Montant TTC" },
+      { name: "SINVOICE_NUM", type: "string", label: "Numéro" },
+      { name: "AMTATI", type: "decimal", label: "Montant TTC" },
     ]);
     assert.equal(up.state.requests.length, 0, `le mock ne doit pas être rappelé : ${JSON.stringify(up.state.requests.map((r) => r.path))}`);
 

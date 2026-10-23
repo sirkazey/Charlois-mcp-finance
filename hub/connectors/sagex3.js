@@ -40,11 +40,18 @@ const MOCK = {
   ZVENTE: { fields: [["SOHNUM", "string", "N° commande"], ["BPCORD", "string", "Client"], ["ORDDAT", "date", "Date"], ["ORDINVATI", "decimal", "Montant"]],
     rows: [{ SOHNUM: "ZV-000123", BPCORD: "C0001", ORDDAT: "2025-10-15", ORDINVATI: 4300 }] },
 };
+/** Réponse $prototypes au format réel Syracuse (structure vérifiée sur une instance 24R1). */
+export const syracusePrototype = (rep, fields, title = rep) => ({
+  $representation: rep, $title: "{@1}", $itemsPerPage: 300,
+  $properties: { $resources: { $type: "application/x-array", $item: { $properties: Object.fromEntries(
+    fields.map(([n, type, lab], i) => [n, { $title: `{@${i + 2}}`, $type: `application/x-${type}`, $isReadOnly: true }])) } } },
+  $localization: Object.fromEntries([["@1", title], ...fields.map(([, , lab], i) => [`@${i + 2}`, lab])]),
+});
 function mockGet(path) {
   const rep = path.match(/^\$prototypes\('(\w+)/)?.[1] ?? path.match(/^(\w+)/)?.[1];
   const t = MOCK[rep];
   if (!t) throw Object.assign(new Error(`Sage X3 (simulé) 404: représentation ${rep} inconnue`), { status: 404 });
-  if (path.startsWith("$prototypes")) return { $properties: Object.fromEntries(t.fields.map(([n, $type, $title]) => [n, { $type, $title }])) };
+  if (path.startsWith("$prototypes")) return syracusePrototype(rep, t.fields);
   if (path.includes("('")) return t.rows[0];
   return { $resources: t.rows };
 }
@@ -65,9 +72,17 @@ export const identity = async (tok) => {
   return (await r.json()).email ?? null;
 };
 
-/** Prototype ($prototypes) d'une représentation = liste des champs exposés. */
-const prototype = (tok, rep) => get(tok, `$prototypes('${rep}.$query')`).then((p) =>
-  Object.entries(p.$properties || {}).map(([n, v]) => ({ name: n, type: v.$type, label: v.$title })));
+/** Prototype ($prototypes) d'une représentation = liste des champs exposés.
+ *  Format réel Syracuse (vérifié sur 24R1) : champs sous $properties.$resources.$item.$properties, types "application/x-<type>",
+ *  libellés sous forme de références "{@1503}" résolues dans $localization. Les champs exclus/cachés de la liste ne sont pas retournés. */
+export function parsePrototype(p) {
+  const loc = p.$localization || {};
+  const label = (t) => String(t ?? "").replace(/\{@([^}]+)\}/g, (_, k) => loc[`@${k}`] ?? k);
+  const props = p.$properties?.$resources?.$item?.$properties ?? p.$properties ?? {};
+  return Object.entries(props).filter(([, v]) => !v.$isExcluded && !v.$isHidden)
+    .map(([n, v]) => ({ name: n, type: String(v.$type || "").replace(/^application\/x-/, ""), label: label(v.$title) }));
+}
+const prototype = (tok, rep) => get(tok, `$prototypes('${rep}.$query')`).then(parsePrototype);
 
 /** Structure mise en cache (par utilisateur, expirée chaque nuit) : champs des représentations configurées. */
 export async function schema(tok) {

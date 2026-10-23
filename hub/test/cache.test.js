@@ -47,3 +47,25 @@ test("cachedSchema : un échec de chargement n'est pas mis en cache", async (t) 
   await assert.rejects(cachedSchema("dave", "sf", load), /401/);
   assert.deepEqual(await cachedSchema("dave", "sf", load), { ok: true });
 });
+
+test("Sage X3 : parsePrototype lit le format réel Syracuse 24R1 (champs sous $resources.$item, libellés {@n}, exclus ignorés)", async () => {
+  const { parsePrototype } = await import("../connectors/sagex3.js");
+  const real = { // extrait réel de $prototypes('BPCUSTOMER.$query') sur une instance 24R1
+    $actxUser: "ACHEB", $actxFolder: "CHREC", $representation: "BPCUSTOMER", $title: "{@1503}", $itemsPerPage: 300,
+    $properties: { $resources: { $type: "application/x-array", $item: { $key: "{BPCNUM}", $properties: {
+      BPCSTA: { $title: "{@188}", $type: "application/x-boolean", $isReadOnly: true },
+      BPCNUM: { $title: "{@3662}", $type: "application/x-string", $isMandatory: true, $maxLength: 15 },
+      BPCNAM: { $title: "{@1644}", $type: "application/x-string", $maxLength: 50 },
+      RBPAADDLIG1: { $title: "{@50490}", $type: "application/x-string", $isExcluded: true },
+      BPCTYP: { $title: "{@16094}", $type: "application/x-choice", $value: { $type: "application/x-integer" } },
+      PTE_LEG_REF: { $title: "{@26213}", $type: "application/x-reference", $isHidden: true },
+    } } } },
+    $localization: { "@1503": "Clients", "@188": "Actif", "@3662": "Client", "@1644": "Raison sociale", "@50490": "Ligne adresse 1", "@16094": "Type client", "@26213": "Législation" },
+  };
+  assert.deepEqual(parsePrototype(real), [
+    { name: "BPCSTA", type: "boolean", label: "Actif" },
+    { name: "BPCNUM", type: "string", label: "Client" },
+    { name: "BPCNAM", type: "string", label: "Raison sociale" },
+    { name: "BPCTYP", type: "choice", label: "Type client" },
+  ]);
+});

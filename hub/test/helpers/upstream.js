@@ -183,10 +183,14 @@ export async function startUpstream() {
       let m = rest.match(/^\$prototypes\('(\w+)\.\$query'\)$/);
       if (m) {
         if (m[1] === "NOPE") return json(res, 404, { $diagnoses: [{ $severity: "error", $message: "unknown representation" }] });
-        return json(res, 200, { $properties: {
-          [`${m[1]}_NUM`]: { $type: "application/x-string", $title: "Numéro" },
-          AMTATI: { $type: "application/x-decimal", $title: "Montant TTC" },
-        } });
+        return json(res, 200, { // format réel Syracuse : champs sous $resources.$item, libellés via $localization, champ exclu ignoré
+          $properties: { $resources: { $type: "application/x-array", $item: { $properties: {
+            [`${m[1]}_NUM`]: { $type: "application/x-string", $title: "{@42}" },
+            AMTATI: { $type: "application/x-decimal", $title: "{@7}" },
+            RBPAADDLIG1: { $type: "application/x-string", $title: "{@50490}", $isExcluded: true },
+          } } } },
+          $localization: { "@42": "Numéro", "@7": "Montant TTC", "@50490": "Ligne adresse 1" },
+        });
       }
       m = rest.match(/^(\w+)\('(.*)'\)$/);
       if (m) {
