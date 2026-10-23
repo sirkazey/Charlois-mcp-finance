@@ -214,8 +214,8 @@ test("GET /api/test/:system : voyant vert avec le jeton de l'utilisateur, rouge 
   up.reset();
   const sf = await fetch(`${hub.url}/api/test/salesforce`, { headers: { cookie } }).then((x) => x.json());
   assert.equal(sf.ok, true, JSON.stringify(sf));
-  assert.match(sf.message, /Connecté au serveur MCP Salesforce .* 3 outils en lecture seule/);
-  assert.deepEqual(sf.tables, ["list_sobjects", "describe_sobject", "query_records"]);
+  assert.match(sf.message, /Connecté au serveur MCP Salesforce .* 4 outils en lecture seule/);
+  assert.deepEqual(sf.tables, ["getUserInfo", "list_sobjects", "describe_sobject", "query_records"]);
   assert.ok(up.requests("/sobject-reads", "POST").every((q) => q.headers.authorization === "Bearer sf-token-abc123"));
 
   const sage = await fetch(`${hub.url}/api/test/sagex3`, { headers: { cookie } }).then((x) => x.json());
@@ -409,4 +409,16 @@ test("Sage X3 : une représentation absente du dossier (404) n'empêche pas le d
     const d = await fetch(`${none.url}/api/test/sagex3`, { headers: { cookie } }).then((x) => x.json());
     assert.equal(d.ok, false); assert.match(d.error, /aucune des représentations configurées \(NOPE\)/);
   } finally { await none.stop(); }
+});
+
+test("Salesforce sans étendue openid : userinfo refusé (403) → email obtenu par l'outil getUserInfo du serveur MCP", async () => {
+  up.reset();
+  const c2 = `mcp_key=${(await fetch(`${hub.url}/api/me`)).headers.get("set-cookie").match(/mcp_key=([^;]+)/)[1]}`;
+  const st = new URL((await fetch(`${hub.url}/auth/salesforce`, { headers: { cookie: c2 }, ...noFollow })).headers.get("location")).searchParams.get("state");
+  up.failNext("/services/oauth2/userinfo", 403);
+  const r = await fetch(`${hub.url}/auth/salesforce/callback?code=code-ui&state=${st}`, { headers: { cookie: c2 }, ...noFollow });
+  assert.equal(r.status, 302, await r.text());
+  const me = await fetch(`${hub.url}/api/me`, { headers: { cookie: c2 } }).then((x) => x.json());
+  assert.equal(me.email, "alice@charlois.com", "email extrait de getUserInfo");
+  assert.ok(up.requests("sobject-reads", "POST").length >= 1, "le serveur MCP a été appelé avec le jeton de l'utilisateur");
 });

@@ -39,6 +39,7 @@ const SF_FIELDS = {
 function sobjectReadsMcp() {
   const srv = new McpServer({ name: "sobject-reads-mock", version: "1.0.0" });
   const text = (o) => ({ content: [{ type: "text", text: JSON.stringify(o) }] });
+  srv.registerTool("getUserInfo", { description: "Current user", inputSchema: {} }, async () => text({ userId: "005A", username: "alice@charlois.com", displayName: "Alice", email: "alice@charlois.com" }));
   srv.registerTool("list_sobjects", { description: "Lists sObjects", inputSchema: {} }, async () => text([{ name: "Account" }, { name: "Contact" }, { name: "Opportunity" }, { name: "Lead" }]));
   srv.registerTool("describe_sobject", { description: "Describes an sObject", inputSchema: { sobject: z.string() } }, async ({ sobject }) =>
     SF_FIELDS[sobject] ? text({ name: sobject, fields: SF_FIELDS[sobject] }) : { isError: true, content: [{ type: "text", text: `NOT_FOUND: ${sobject}` }] });

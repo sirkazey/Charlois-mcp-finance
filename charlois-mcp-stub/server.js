@@ -39,6 +39,7 @@ function sobjectReadsMcp(u) {
   const srv = new McpServer({ name: "salesforce-sobject-reads-stub", version: "1.0.0" });
   const text = (o) => ({ content: [{ type: "text", text: JSON.stringify(o, null, 1) }], structuredContent: Array.isArray(o) ? undefined : o });
   const err = (m) => ({ isError: true, content: [{ type: "text", text: m }] });
+  srv.registerTool("getUserInfo", { description: "Information about the current user (nom réel de l'outil sur le serveur hébergé)", inputSchema: {} }, async () => text({ userId: SF.User.records.find((r) => r.Email === u)?.Id, username: u, displayName: USERS[u].name, email: u }));
   srv.registerTool("list_sobjects", { description: "Lists the sObjects the user can access", inputSchema: {} }, async () => text(Object.entries(SF).map(([name, o]) => ({ name, label: o.label }))));
   srv.registerTool("describe_sobject", { description: "Describes the fields of an sObject", inputSchema: { sobject: z.string() } }, async ({ sobject }) => SF[sobject] ? text({ name: sobject, label: SF[sobject].label, fields: SF[sobject].fields }) : err(`NOT_FOUND: sObject ${sobject}`));
   srv.registerTool("query_records", { description: "Runs a SOQL SELECT query with the user's permissions", inputSchema: { soql: z.string() } }, async ({ soql }) => {

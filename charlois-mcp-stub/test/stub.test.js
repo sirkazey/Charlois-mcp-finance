@@ -62,7 +62,7 @@ test("Mires OAuth : Marie se connecte à Salesforce, SharePoint, Dropbox et Sage
 
 test("Salesforce canin via le serveur MCP SObject Reads simulé : outils, SOQL avec Race__c et Inscrits__c, stands d'agility", async () => {
   const tools = text(await marie.mcp.callTool({ name: "salesforce_tools", arguments: {} })).outils;
-  assert.deepEqual(tools.map((t) => t.name), ["list_sobjects", "describe_sobject", "query_records", "get_record", "search_records", "get_related_records"]);
+  assert.deepEqual(tools.map((t) => t.name), ["getUserInfo", "list_sobjects", "describe_sobject", "query_records", "get_record", "search_records", "get_related_records"]);
   const sf = (tool, args) => marie.mcp.callTool({ name: "salesforce_call", arguments: { tool, arguments: args } }).then(text);
   const leads = await sf("query_records", { soql: "SELECT Name, Company, Race__c, Inscrits__c FROM Lead WHERE Race__c = 'Berger Allemand'" });
   assert.equal(leads.totalSize, 1); assert.equal(leads.records[0].Company, "Élevage des Crocs de Bourgogne"); assert.equal(leads.records[0].Inscrits__c, 38);

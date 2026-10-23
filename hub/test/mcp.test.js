@@ -162,10 +162,10 @@ test("Cache : la structure est chargée au premier appel avec le jeton de l'util
     const sfInfo = text(await c.callTool({ name: "salesforce_tools", arguments: {} }));
     assert.equal(sfInfo.instance, up.url, "l'instance Salesforce interrogée est visible du modèle");
     const tools = sfInfo.outils;
-    assert.deepEqual(tools.map((t) => t.name), ["list_sobjects", "describe_sobject", "query_records"]);
+    assert.deepEqual(tools.map((t) => t.name), ["getUserInfo", "list_sobjects", "describe_sobject", "query_records"]);
     assert.ok(sfCalls("tools/list").length === 1 && sfCalls().every((r) => r.headers.authorization === "Bearer sf-token-alice"));
     up.reset();
-    assert.equal(text(await c.callTool({ name: "salesforce_tools", arguments: {} })).outils.length, 3);
+    assert.equal(text(await c.callTool({ name: "salesforce_tools", arguments: {} })).outils.length, 4);
     assert.equal(sfCalls().length, 0, "liste d'outils servie depuis le cache");
 
     const reps = text(await c.callTool({ name: "sagex3_representations", arguments: {} }));

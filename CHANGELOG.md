@@ -9,6 +9,7 @@ Une section par version, trois lignes au plus par rubrique. La version est celle
 - Sage X3 : une représentation absente du dossier (404) ou interdite à l'utilisateur (403) n'empêche plus le diagnostic ni les outils ; elle est signalée comme absente. Une clé révoquée (401) reste bloquante.
 - Sage X3 : structure chargée en parallèle et délai max par requête (`SAGE_TIMEOUT_MS`, défaut 30 s) : le diagnostic ne reste plus « en cours » indéfiniment.
 - Sage X3 : en-tête `Accept-Language` (`SAGE_LANG`, défaut `fr-FR,fr`) : Syracuse traduit les libellés selon cet en-tête (capture en anglais sans lui). Prototypes réels de PINVOICE (liste et fiche, anonymisés) ajoutés comme fixtures de test.
+- Salesforce : identité (email du portail) obtenue par l'outil `getUserInfo` du serveur SObject Reads quand `userinfo` est refusé (pas d'étendue openid) ; vérifié sur la sandbox. Noms réels des six outils du serveur hébergé documentés : find, getObjectSchema, getRelatedRecords, getUserInfo, listRecentSobjectRecords, soqlQuery.
 - Outils de découverte : sagex3_representations et salesforce_tools indiquent l'instance et le dossier interrogés (prod, test ou simulateur) et l'environnement du hub, pour que le modèle ne confonde pas recette et production.
 - sagex3_get : paramètre `champs` pour ne garder que les champs ou blocs utiles d'une fiche (une fiche complète pèse 60 à 130 000 caractères).
 - Sage X3 : dates du `where` converties en `@AAAA-MM-JJ@` (une date entre apostrophes fait échouer le moteur X3, constaté sur la préprod) ; description corrigée.

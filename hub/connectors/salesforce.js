@@ -27,8 +27,10 @@ const allowed = (name) => !ALLOW.length || ALLOW.includes(name);
 
 /** Email de l'utilisateur si le scope openid est accordé ; sinon null (sans conséquence). */
 export const identity = async (tok) => {
-  const r = await fetch(`${LOGIN}/services/oauth2/userinfo`, { headers: { Authorization: `Bearer ${tok.access_token}` } });
-  return r.ok ? (await r.json()).email ?? null : null;
+  const r = await fetch(`${LOGIN}/services/oauth2/userinfo`, { headers: { Authorization: `Bearer ${tok.access_token}` } }).catch(() => null);
+  if (r?.ok) return (await r.json()).email ?? null; // nécessite l'étendue openid
+  // Sans openid : l'outil getUserInfo du serveur SObject Reads (présent sur la sandbox) ; l'email est extrait de sa réponse.
+  return mcp(tok, async (c) => JSON.stringify(await callRemote(c, "getUserInfo", {})).match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/)?.[0] ?? null).catch(() => null);
 };
 
 /** Outils du serveur SObject Reads (structure en cache par utilisateur, expirée chaque nuit). */
@@ -45,7 +47,7 @@ export async function ping(_tok, schema) {
 export const tools = [
   {
     name: "salesforce_tools",
-    description: "Outils du serveur MCP Salesforce SObject Reads (lecture des comptes, contacts, opportunités, objets personnalisés…) avec leur schéma d'arguments. À appeler avant salesforce_call.",
+    description: "Outils du serveur MCP Salesforce SObject Reads (sur la sandbox : find, getObjectSchema, getRelatedRecords, getUserInfo, listRecentSobjectRecords, soqlQuery) avec leur schéma d'arguments. À appeler avant salesforce_call.",
     input: {},
     run: async (_tok, _a, schema) => ({ instance: LOGIN, serveur_mcp: MCP_URL, environnement_hub: APP_ENV, outils: (await schema()).tools }), // instance (prod ou sandbox) visible du modèle
   },
