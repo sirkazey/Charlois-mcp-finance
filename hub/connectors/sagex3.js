@@ -152,7 +152,7 @@ export const tools = [
   {
     name: "sagex3_describe",
     description: "Champs d'une représentation Sage X3. colonnes_liste = les seules valeurs renvoyées par sagex3_query ; champs_fiche = fiche complète renvoyée par sagex3_get (blocs dépliés en BLOC.CHAMP). Le where accepte tout champ d'en-tête mais seules les colonnes de liste sont renvoyées : lire les fiches avec sagex3_get. Filtrer sur X, jamais sur X_REF (libellé). Lire `notes` : pièges connus de la représentation.",
-    input: { representation: name.describe("Ex. SINVOICE, BPCUSTOMER") },
+    input: { representation: name.describe("Ex. PINVOICE, BPCUSTOMER") },
     run: async (tok, { representation }, schema) => {
       const fields = (await schema()).fields;
       return {
@@ -167,7 +167,7 @@ export const tools = [
     name: "sagex3_query",
     description: "Interroge une représentation Sage X3 (lecture seule, droits de l'utilisateur). Filtre SData, ex. (ACCDAT ge @2026-01-01@) and (BPR eq 'C0001'). Toujours trier (orderBy 'ACCDAT desc') ou filtrer sur une date : sans cela, des enregistrements techniques (NUM 00000) arrivent en tête. Pièges par représentation : champ notes de sagex3_describe.",
     input: {
-      representation: name.describe("Ex. SINVOICE"),
+      representation: name.describe("Ex. PINVOICE"),
       where: z.string().optional().describe("Filtre SData sur tout champ d'en-tête : (CHAMP op 'valeur') and (...) — op : eq, ne, gt, ge, lt, le, like ; dates entre arobases : @2026-01-01@"),
       orderBy: z.string().optional().describe("Ex. 'ACCDAT desc'"),
       count: z.number().int().min(1).max(500).default(100).describe("Nombre max de lignes"),
