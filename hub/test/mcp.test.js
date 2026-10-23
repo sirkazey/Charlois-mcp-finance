@@ -44,7 +44,7 @@ async function httpClient(key = KEY) {
   return client;
 }
 const text = (r) => JSON.parse(r.content[0].text);
-const sfQuery = (c, soql) => c.callTool({ name: "salesforce_call", arguments: { tool: "query_records", arguments: { soql } } });
+const sfQuery = (c, q) => c.callTool({ name: "salesforce_call", arguments: { tool: "soqlQuery", arguments: { q } } });
 /** Requêtes reçues par le serveur MCP Salesforce simulé (initialize, notifications, tools/*). */
 const sfCalls = (method) => up.requests("/sobject-reads", "POST").filter((r) => !method || r.body.includes(`"${method}"`));
 
@@ -162,10 +162,10 @@ test("Cache : la structure est chargée au premier appel avec le jeton de l'util
     const sfInfo = text(await c.callTool({ name: "salesforce_tools", arguments: {} }));
     assert.equal(sfInfo.instance, up.url, "l'instance Salesforce interrogée est visible du modèle");
     const tools = sfInfo.outils;
-    assert.deepEqual(tools.map((t) => t.name), ["getUserInfo", "list_sobjects", "describe_sobject", "query_records"]);
+    assert.deepEqual(tools.map((t) => t.name), ["getUserInfo", "getObjectSchema", "soqlQuery"]);
     assert.ok(sfCalls("tools/list").length === 1 && sfCalls().every((r) => r.headers.authorization === "Bearer sf-token-alice"));
     up.reset();
-    assert.equal(text(await c.callTool({ name: "salesforce_tools", arguments: {} })).outils.length, 4);
+    assert.equal(text(await c.callTool({ name: "salesforce_tools", arguments: {} })).outils.length, 3);
     assert.equal(sfCalls().length, 0, "liste d'outils servie depuis le cache");
 
     const reps = text(await c.callTool({ name: "sagex3_representations", arguments: {} }));
@@ -182,8 +182,13 @@ test("Cache : la structure est chargée au premier appel avec le jeton de l'util
     assert.deepEqual(up.state.requests.map((r) => r.path), ["/api1/x3/erp/PROD/$prototypes('SINVOICE.$details')"], "colonnes servies du cache ; seule la fiche ($details) est relue");
 
     // Hors cache → appel direct avec le jeton de l'utilisateur
-    const lead = text(await c.callTool({ name: "salesforce_call", arguments: { tool: "describe_sobject", arguments: { sobject: "Lead" } } }));
-    assert.deepEqual(lead.fields[2], { name: "OwnerId", type: "reference", label: "Propriétaire", ref: ["User"] });
+    await sfQuery(c, "SELECT Id FROM Account WHERE Name = 'X'");
+    await sfQuery(c, "SELECT Id FROM Account LIMIT 5");
+    const qs = sfCalls("tools/call").map((r) => JSON.parse(r.body).params.arguments.q);
+    assert.deepEqual(qs.slice(-2), ["SELECT Id FROM Account WHERE Name = 'X' LIMIT 200", "SELECT Id FROM Account LIMIT 5"], "LIMIT 200 ajouté seulement quand il manque");
+    sfCalls("tools/call").length; up.reset();
+    const lead = text(await c.callTool({ name: "salesforce_call", arguments: { tool: "getObjectSchema", arguments: { objects: "Lead" } } }));
+    assert.deepEqual(lead.objects[0].fields[2], { name: "OwnerId", type: "reference", label: "Propriétaire", ref: ["User"] });
     assert.equal(sfCalls("tools/call").length, 1);
     const porder = text(await c.callTool({ name: "sagex3_describe", arguments: { representation: "PORDER" } }));
     assert.equal(porder.colonnes_liste[0].name, "PORDER_NUM");
@@ -228,7 +233,7 @@ test("Cloisonnement : chaque appel amont porte le jeton personnel de l'appelant,
   up.reset();
   const alice = await sseClient(KEY), carol = await httpClient(KEY_CAROL);
   try {
-    const args = [["salesforce_call", { tool: "query_records", arguments: { soql: "SELECT Id FROM Account" } }], ["salesforce_call", { tool: "describe_sobject", arguments: { sobject: "Lead" } }], ["sagex3_query", { representation: "BPCUSTOMER" }], ["sagex3_describe", { representation: "PORDER" }]];
+    const args = [["salesforce_call", { tool: "soqlQuery", arguments: { q: "SELECT Id FROM Account" } }], ["salesforce_call", { tool: "getObjectSchema", arguments: { objects: "Lead" } }], ["sagex3_query", { representation: "BPCUSTOMER" }], ["sagex3_describe", { representation: "PORDER" }]];
     for (const [name, a] of args) {
       assert.equal((await alice.callTool({ name, arguments: a })).isError, undefined, `alice ${name}`);
       assert.equal((await carol.callTool({ name, arguments: a })).isError, undefined, `carol ${name}`);

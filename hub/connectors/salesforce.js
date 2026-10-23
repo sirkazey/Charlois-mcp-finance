@@ -8,6 +8,7 @@ import { withMcp, callRemote } from "../mcpclient.js";
 
 const LOGIN = (process.env.SF_LOGIN_URL || "https://login.salesforce.com").replace(/\/$/, ""); // My Domain de l'org (serveur d'autorisation)
 const MCP_URL = process.env.SF_MCP_URL || ""; // ex. https://api.salesforce.com/platform/mcp/v1/d/<org>/platform/sobject-reads
+const DEFAULT_LIMIT = Number(process.env.SF_DEFAULT_LIMIT ?? 200); // LIMIT ajouté aux SOQL qui n'en ont pas (0 = désactivé)
 const ALLOW = (process.env.SF_MCP_TOOLS || "").split(",").map((s) => s.trim()).filter(Boolean); // liste blanche optionnelle ; vide = tous les outils du serveur (lecture seule par construction)
 if (/sobject-all|mutations|deletes|write|crma|data-cloud/i.test(MCP_URL)) { console.error(`[salesforce] SF_MCP_URL désigne un serveur d'écriture ou hors périmètre : ${MCP_URL}. Seul un serveur de lecture (sobject-reads) est accepté.`); process.exit(1); }
 
@@ -30,7 +31,8 @@ export const identity = async (tok) => {
   const r = await fetch(`${LOGIN}/services/oauth2/userinfo`, { headers: { Authorization: `Bearer ${tok.access_token}` } }).catch(() => null);
   if (r?.ok) return (await r.json()).email ?? null; // nécessite l'étendue openid
   // Sans openid : l'outil getUserInfo du serveur SObject Reads (présent sur la sandbox) ; l'email est extrait de sa réponse.
-  return mcp(tok, async (c) => JSON.stringify(await callRemote(c, "getUserInfo", {})).match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/)?.[0] ?? null).catch(() => null);
+  // Champ "email" en priorité : le username d'une sandbox porte un suffixe (.preprod) et n'est pas une adresse valide.
+  return mcp(tok, async (c) => { const j = JSON.stringify(await callRemote(c, "getUserInfo", {})); return j.match(/"email"\s*:\s*"([^"]+@[^"]+)"/i)?.[1] ?? j.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/)?.[0] ?? null; }).catch(() => null);
 };
 
 /** Outils du serveur SObject Reads (structure en cache par utilisateur, expirée chaque nuit). */
@@ -53,10 +55,11 @@ export const tools = [
   },
   {
     name: "salesforce_call",
-    description: "Appelle un outil du serveur MCP Salesforce avec les droits de l'utilisateur, ex. tool='query_records', arguments={soql:'SELECT Name FROM Account LIMIT 10'}.",
+    description: `Appelle un outil du serveur MCP Salesforce avec les droits de l'utilisateur, ex. tool='soqlQuery', arguments={q:'SELECT Name FROM Account WHERE Industry = \\'Wine\\' LIMIT 20'} ; tool='getObjectSchema' sans argument pour l'index des objets, puis arguments={objects:'Account'} pour ses champs. Un soqlQuery sans LIMIT reçoit LIMIT ${DEFAULT_LIMIT} d'office.`,
     input: { tool: z.string().regex(/^[\w.-]+$/), arguments: z.record(z.string(), z.any()).default({}) },
     run: (tok, { tool, arguments: args }) => {
       if (!allowed(tool)) throw new Error(`Outil ${tool} refusé : absent de la liste blanche SF_MCP_TOOLS.`);
+      if (tool === "soqlQuery" && DEFAULT_LIMIT && typeof args.q === "string" && !/\bLIMIT\s+\d+\s*$/i.test(args.q.trim())) args = { ...args, q: `${args.q.trim()} LIMIT ${DEFAULT_LIMIT}` }; // garde-fou volume : jamais une requête sans borne
       return mcp(tok, (c) => callRemote(c, tool, args));
     },
   },

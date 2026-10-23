@@ -33,29 +33,45 @@ app.get("/_stub/approve", approve);
 app.get("/services/oauth2/authorize", authorizePage("sf", "Salesforce"));
 app.post("/services/oauth2/token", tokenEndpoint("sf"));
 app.get("/services/oauth2/userinfo", (req, res) => { const u = bearerUser(req, "sf"); if (!u) return deny(res, 401, { error: "invalid_token" }); res.json({ email: u, name: USERS[u].name, user_id: SF.User.records.find((r) => r.Email === u)?.Id }); });
-// Serveur MCP hébergé "SObject Reads" simulé (Streamable HTTP). Noms d'outils PROVISOIRES, à aligner sur le vrai serveur
-// dès la première connexion réelle (la liste réelle s'affiche dans Configuration → Serveurs MCP → SObject Reads).
+// Serveur MCP hébergé "SObject Reads" simulé (Streamable HTTP), aligné sur le vrai serveur de la sandbox Charlois.
 function sobjectReadsMcp(u) {
   const srv = new McpServer({ name: "salesforce-sobject-reads-stub", version: "1.0.0" });
   const text = (o) => ({ content: [{ type: "text", text: JSON.stringify(o, null, 1) }], structuredContent: Array.isArray(o) ? undefined : o });
   const err = (m) => ({ isError: true, content: [{ type: "text", text: m }] });
-  srv.registerTool("getUserInfo", { description: "Information about the current user (nom réel de l'outil sur le serveur hébergé)", inputSchema: {} }, async () => text({ userId: SF.User.records.find((r) => r.Email === u)?.Id, username: u, displayName: USERS[u].name, email: u }));
-  srv.registerTool("list_sobjects", { description: "Lists the sObjects the user can access", inputSchema: {} }, async () => text(Object.entries(SF).map(([name, o]) => ({ name, label: o.label }))));
-  srv.registerTool("describe_sobject", { description: "Describes the fields of an sObject", inputSchema: { sobject: z.string() } }, async ({ sobject }) => SF[sobject] ? text({ name: sobject, label: SF[sobject].label, fields: SF[sobject].fields }) : err(`NOT_FOUND: sObject ${sobject}`));
-  srv.registerTool("query_records", { description: "Runs a SOQL SELECT query with the user's permissions", inputSchema: { soql: z.string() } }, async ({ soql }) => {
-    const from = soql.match(/\bFROM\s+(\w+)/i)?.[1], obj = SF[from];
-    if (!obj || !/^\s*select\s/i.test(soql)) return err(`INVALID_QUERY: ${soql.slice(0, 80)}`);
+  // Six outils du vrai serveur hébergé « SObject Reads » (noms, arguments et descriptions relevés sur la sandbox 24/10/2026).
+  const soql = (q) => {
+    const from = q.match(/\bFROM\s+(\w+)/i)?.[1], obj = SF[from];
+    if (!obj || !/^\s*select\s/i.test(q)) return err(`MALFORMED_QUERY: ${q.slice(0, 80)}`);
     let rows = obj.records.slice();
-    for (const [, f, v] of soql.matchAll(/\b(?:WHERE|AND)\s+(\w+)\s*=\s*'([^']*)'/gi)) rows = rows.filter((r) => String(r[f]) === v);
-    const limit = Number(soql.match(/\bLIMIT\s+(\d+)/i)?.[1] || 2000);
-    const sel = soql.match(/^\s*SELECT\s+(.+?)\s+FROM/i)?.[1].split(",").map((x) => x.trim()), known = sel && sel.every((f) => obj.fields.some((x) => x.name === f));
+    for (const [, f, v] of q.matchAll(/\b(?:WHERE|AND)\s+(\w+)\s*=\s*'([^']*)'/gi)) rows = rows.filter((r) => String(r[f]) === v);
+    const limit = Number(q.match(/\bLIMIT\s+(\d+)/i)?.[1] || 2000);
+    const sel = q.match(/^\s*SELECT\s+(.+?)\s+FROM/i)?.[1].split(",").map((x) => x.trim()), known = sel && sel.every((f) => obj.fields.some((x) => x.name === f));
     return text({ totalSize: rows.length, done: true, records: rows.slice(0, limit).map((r) => (known ? Object.fromEntries(sel.map((f) => [f, r[f]])) : r)) });
+  };
+  srv.registerTool("find", { description: "Executes a text search across multiple objects simultaneously (SOSL).", inputSchema: { q: z.string().describe("The SOSL query string, ex. FIND {Acme} IN NAME FIELDS RETURNING Account(Id, Name)") } }, async ({ q }) => {
+    const term = q.match(/FIND\s*\{\s*"?([^"}]*)"?\s*\}/i)?.[1]?.replace(/\*/g, "").toLowerCase();
+    if (term === undefined) return err("MALFORMED_SEARCH: FIND {term} attendu");
+    const returning = [...q.matchAll(/(\w+)\s*\(([^)]*)\)/g)];
+    const scope = returning.length ? returning.map((m) => [m[1], m[2].split(",").map((x) => x.trim())]) : Object.keys(SF).map((n) => [n, null]);
+    return text({ searchRecords: scope.flatMap(([n, fields]) => (SF[n]?.records || []).filter((r) => !term || JSON.stringify(r).toLowerCase().includes(term))
+      .map((r) => ({ attributes: { type: n }, ...(fields ? Object.fromEntries(fields.map((f) => [f, r[f]])) : r) }))) });
   });
-  srv.registerTool("get_record", { description: "Gets one record by sObject and Id", inputSchema: { sobject: z.string(), id: z.string() } }, async ({ sobject, id }) => { const r = SF[sobject]?.records.find((x) => x.Id === id); return r ? text(r) : err("NOT_FOUND"); });
-  srv.registerTool("search_records", { description: "Full-text search across records (SOSL-like)", inputSchema: { query: z.string(), sobjects: z.array(z.string()).optional() } }, async ({ query, sobjects }) =>
-    text(Object.entries(SF).filter(([n]) => !sobjects || sobjects.includes(n)).flatMap(([n, o]) => o.records.filter((r) => JSON.stringify(r).toLowerCase().includes(query.toLowerCase())).map((r) => ({ sobject: n, ...r })))));
-  srv.registerTool("get_related_records", { description: "Gets records related to a parent record (e.g. Opportunities of an Account)", inputSchema: { sobject: z.string(), id: z.string(), related: z.string() } }, async ({ id, related }) =>
-    text((SF[related]?.records || []).filter((r) => r.AccountId === id)));
+  srv.registerTool("getObjectSchema", { description: "Returns Salesforce schema information. Call with NO PARAMETERS first to get an index of all queryable objects, then with specific object names for field-level details.", inputSchema: { objects: z.string().optional().describe("Comma-separated object API names (e.g., \"Account,Opportunity\"). If omitted, returns an index of all objects.") } }, async ({ objects }) => {
+    if (!objects) return text({ objects: Object.entries(SF).map(([name, o]) => ({ name, label: o.label, queryable: true })) });
+    const names = objects.split(",").map((x) => x.trim()), unknown = names.filter((n) => !SF[n]);
+    return unknown.length ? err(`NOT_FOUND: ${unknown.join(", ")}`) : text({ objects: names.map((n) => ({ name: n, label: SF[n].label, fields: SF[n].fields })) });
+  });
+  srv.registerTool("getRelatedRecords", { description: "Retrieves child records related to a parent record by traversing relationships.", inputSchema: { "sobject-name": z.string(), id: z.string(), "relationship-path": z.string().describe("Relationship path, e.g. 'Opportunities' or 'Contacts'") } }, async (a) => {
+    const rel = a["relationship-path"].split("/")[0], plural = (n) => (n.endsWith("y") ? `${n.slice(0, -1)}ies` : `${n}s`); // Opportunity → Opportunities
+    const target = Object.keys(SF).find((n) => plural(n) === rel || n === rel);
+    if (!SF[a["sobject-name"]]?.records.some((r) => r.Id === a.id)) return err(`NOT_FOUND: ${a["sobject-name"]} ${a.id}`);
+    return text({ totalSize: 0, records: (SF[target]?.records || []).filter((r) => r.AccountId === a.id) });
+  });
+  srv.registerTool("getUserInfo", { description: "Returns current user's identity, role, and preferences.", inputSchema: {} }, async () =>
+    text({ userId: SF.User.records.find((r) => r.Email === u)?.Id, username: `${u}.preprod`, displayName: USERS[u].name, email: u, title: USERS[u].role, profile: USERS[u].achats ? "Administrateur système" : "Utilisateur standard", locale: "fr_FR", timeZone: "Europe/Paris" }));
+  srv.registerTool("listRecentSobjectRecords", { description: "Returns records of a specific type that the user recently viewed or modified.", inputSchema: { "sobject-name": z.string() } }, async (a) =>
+    SF[a["sobject-name"]] ? text({ recentItems: SF[a["sobject-name"]].records.slice(0, 5) }) : err(`NOT_FOUND: ${a["sobject-name"]}`));
+  srv.registerTool("soqlQuery", { description: "Executes a SOQL query to retrieve Salesforce records. Always include a WHERE clause and a LIMIT clause.", inputSchema: { q: z.string().describe("The SOQL query string.") } }, async ({ q }) => soql(q));
   return srv;
 }
 app.post("/platform/mcp/v1/d/:org/platform/sobject-reads", async (req, res) => {

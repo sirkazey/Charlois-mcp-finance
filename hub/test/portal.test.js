@@ -214,8 +214,8 @@ test("GET /api/test/:system : voyant vert avec le jeton de l'utilisateur, rouge 
   up.reset();
   const sf = await fetch(`${hub.url}/api/test/salesforce`, { headers: { cookie } }).then((x) => x.json());
   assert.equal(sf.ok, true, JSON.stringify(sf));
-  assert.match(sf.message, /Connecté au serveur MCP Salesforce .* 4 outils en lecture seule/);
-  assert.deepEqual(sf.tables, ["getUserInfo", "list_sobjects", "describe_sobject", "query_records"]);
+  assert.match(sf.message, /Connecté au serveur MCP Salesforce .* 3 outils en lecture seule/);
+  assert.deepEqual(sf.tables, ["getUserInfo", "getObjectSchema", "soqlQuery"]);
   assert.ok(up.requests("/sobject-reads", "POST").every((q) => q.headers.authorization === "Bearer sf-token-abc123"));
 
   const sage = await fetch(`${hub.url}/api/test/sagex3`, { headers: { cookie } }).then((x) => x.json());

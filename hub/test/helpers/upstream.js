@@ -39,13 +39,16 @@ const SF_FIELDS = {
 function sobjectReadsMcp() {
   const srv = new McpServer({ name: "sobject-reads-mock", version: "1.0.0" });
   const text = (o) => ({ content: [{ type: "text", text: JSON.stringify(o) }] });
-  srv.registerTool("getUserInfo", { description: "Current user", inputSchema: {} }, async () => text({ userId: "005A", username: "alice@charlois.com", displayName: "Alice", email: "alice@charlois.com" }));
-  srv.registerTool("list_sobjects", { description: "Lists sObjects", inputSchema: {} }, async () => text([{ name: "Account" }, { name: "Contact" }, { name: "Opportunity" }, { name: "Lead" }]));
-  srv.registerTool("describe_sobject", { description: "Describes an sObject", inputSchema: { sobject: z.string() } }, async ({ sobject }) =>
-    SF_FIELDS[sobject] ? text({ name: sobject, fields: SF_FIELDS[sobject] }) : { isError: true, content: [{ type: "text", text: `NOT_FOUND: ${sobject}` }] });
-  srv.registerTool("query_records", { description: "Runs a SOQL SELECT query", inputSchema: { soql: z.string() } }, async ({ soql }) => {
-    if (!/^\s*select\s/i.test(soql)) return { isError: true, content: [{ type: "text", text: `MALFORMED_QUERY: only SELECT is supported (${soql.slice(0, 30)})` }] };
-    if (/FROM\s+Opportunity/i.test(soql)) return text({ totalSize: 3, done: true, records: [{ Id: "006A" }, { Id: "006B" }, { Id: "006C" }] });
+  // Outils réels du serveur hébergé SObject Reads (noms et arguments relevés sur la sandbox)
+  srv.registerTool("getUserInfo", { description: "Current user", inputSchema: {} }, async () => text({ userId: "005A", username: "alice@charlois.com.preprod", displayName: "Alice", email: "alice@charlois.com" }));
+  srv.registerTool("getObjectSchema", { description: "Schema", inputSchema: { objects: z.string().optional() } }, async ({ objects }) => {
+    if (!objects) return text({ objects: ["Account", "Contact", "Opportunity", "Lead"].map((name) => ({ name })) });
+    const n = objects.split(",")[0].trim();
+    return SF_FIELDS[n] ? text({ objects: [{ name: n, fields: SF_FIELDS[n] }] }) : { isError: true, content: [{ type: "text", text: `NOT_FOUND: ${n}` }] };
+  });
+  srv.registerTool("soqlQuery", { description: "Runs a SOQL SELECT query", inputSchema: { q: z.string() } }, async ({ q }) => {
+    if (!/^\s*select\s/i.test(q)) return { isError: true, content: [{ type: "text", text: `MALFORMED_QUERY: only SELECT is supported (${q.slice(0, 30)})` }] };
+    if (/FROM\s+Opportunity/i.test(q)) return text({ totalSize: 3, done: true, records: [{ Id: "006A" }, { Id: "006B" }, { Id: "006C" }] });
     return text({ totalSize: 2, done: true, records: [{ Id: "001A", Name: "ACME" }, { Id: "001B", Name: "Globex" }] });
   });
   return srv;

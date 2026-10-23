@@ -62,17 +62,23 @@ test("Mires OAuth : Marie se connecte à Salesforce, SharePoint, Dropbox et Sage
 
 test("Salesforce canin via le serveur MCP SObject Reads simulé : outils, SOQL avec Race__c et Inscrits__c, stands d'agility", async () => {
   const tools = text(await marie.mcp.callTool({ name: "salesforce_tools", arguments: {} })).outils;
-  assert.deepEqual(tools.map((t) => t.name), ["getUserInfo", "list_sobjects", "describe_sobject", "query_records", "get_record", "search_records", "get_related_records"]);
+  assert.deepEqual(tools.map((t) => t.name), ["find", "getObjectSchema", "getRelatedRecords", "getUserInfo", "listRecentSobjectRecords", "soqlQuery"], "les six outils réels du serveur hébergé");
   const sf = (tool, args) => marie.mcp.callTool({ name: "salesforce_call", arguments: { tool, arguments: args } }).then(text);
-  const leads = await sf("query_records", { soql: "SELECT Name, Company, Race__c, Inscrits__c FROM Lead WHERE Race__c = 'Berger Allemand'" });
+  const leads = await sf("soqlQuery", { q: "SELECT Name, Company, Race__c, Inscrits__c FROM Lead WHERE Race__c = 'Berger Allemand'" });
   assert.equal(leads.totalSize, 1); assert.equal(leads.records[0].Company, "Élevage des Crocs de Bourgogne"); assert.equal(leads.records[0].Inscrits__c, 38);
-  const opps = await sf("query_records", { soql: "SELECT Name, Amount, Concours__c FROM Opportunity LIMIT 2" });
+  const opps = await sf("soqlQuery", { q: "SELECT Name, Amount, Concours__c FROM Opportunity LIMIT 2" });
   assert.equal(opps.records.length, 2); assert.match(opps.records[0].Concours__c, /Agility Cup/);
-  const desc = await sf("describe_sobject", { sobject: "Opportunity" });
-  assert.ok(desc.fields.some((f) => f.name === "Inscrits__c" && f.type === "double"));
-  const related = await sf("get_related_records", { sobject: "Account", id: "0013", related: "Opportunity" });
-  assert.equal(related.length, 3);
-  const bad = await marie.mcp.callTool({ name: "salesforce_call", arguments: { tool: "query_records", arguments: { soql: "DELETE FROM Lead" } } });
+  const idx = await sf("getObjectSchema", {});
+  assert.ok(idx.objects.some((o) => o.name === "Opportunity"), "index des objets sans paramètre");
+  const desc = await sf("getObjectSchema", { objects: "Opportunity" });
+  assert.ok(desc.objects[0].fields.some((f) => f.name === "Inscrits__c" && f.type === "double"));
+  const found = await sf("find", { q: "FIND {Crocs} IN NAME FIELDS RETURNING Lead(Id, Company)" });
+  assert.equal(found.searchRecords.length, 1); assert.equal(found.searchRecords[0].attributes.type, "Lead");
+  const who = await sf("getUserInfo", {});
+  assert.equal(who.email, "marie.dupont@charlois.com");
+  const related = await sf("getRelatedRecords", { "sobject-name": "Account", id: "0013", "relationship-path": "Opportunities" });
+  assert.equal(related.records.length, 3);
+  const bad = await marie.mcp.callTool({ name: "salesforce_call", arguments: { tool: "soqlQuery", arguments: { q: "DELETE FROM Lead" } } });
   assert.equal(bad.isError, true);
   const write = await fetch(`${stubUrl}/platform/mcp/v1/d/charlois/platform/sobject-all`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
   assert.equal(write.status, 403, "les serveurs d'écriture sont inactifs sur l'org simulée");
