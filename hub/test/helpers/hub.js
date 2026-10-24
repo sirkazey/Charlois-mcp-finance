@@ -54,24 +54,22 @@ export async function startHub({ upstreamUrl, users = {}, env = {}, store }) {
   writeFileSync(join(dataDir, "users.json"), store ?? JSON.stringify({ users }, null, 2));
   const url = `http://127.0.0.1:${port}`;
 
-  const child = spawn(process.execPath, [join(HUB_DIR, "server.js")], { // chemin absolu : utilisable depuis un autre dossier de tests
-    env: {
-      PATH: process.env.PATH, TZ: process.env.TZ, APP_ENV: process.env.APP_ENV, LOG_LEVEL: process.env.LOG_LEVEL,
-      ENCRYPTION_KEY,
-      PORT: String(port), PUBLIC_URL: url, DATA_DIR: dataDir,
-      SF_LOGIN_URL: upstreamUrl, SF_MCP_URL: `${upstreamUrl}/platform/mcp/v1/d/test/platform/sobject-reads`, SF_CLIENT_ID: "sf-client-id", SF_CLIENT_SECRET: "sf-client-secret",
-      SAGE_URL: upstreamUrl, SAGE_FOLDER: "PROD", SAGE_REPRESENTATIONS: "BPCUSTOMER,SINVOICE",
-      SAGE_OAUTH_AUTH_URL: `${upstreamUrl}/oauth/authorize`, SAGE_OAUTH_TOKEN_URL: `${upstreamUrl}/oauth/token`,
-      SAGE_OAUTH_USERINFO_URL: `${upstreamUrl}/oauth/userinfo`,
-      SAGE_OAUTH_CLIENT_ID: "sage-client-id", SAGE_OAUTH_CLIENT_SECRET: "sage-client-secret",
-      MS_LOGIN_URL: `${upstreamUrl}/ms`, MS_TENANT_ID: "common", MS_CLIENT_ID: "ms-client-id", MS_CLIENT_SECRET: "ms-client-secret", GRAPH_URL: `${upstreamUrl}/v1.0`,
-      CLEVOA_URL: `${upstreamUrl}/api/v1/telemetry`, CLEVOA_KEY: "clevoa-key-test",
-      MYREPORT_MCP_URL: `${upstreamUrl}/myreport/sse`, MYREPORT_TOOLS: "liste_indicateurs,valeur_indicateur",
-      DROPBOX_APP_KEY: "dbx-app-key", DROPBOX_APP_SECRET: "dbx-app-secret", DROPBOX_API_URL: upstreamUrl, DROPBOX_MCP_URL: `${upstreamUrl}/dropbox-mcp`,
-      ...env,
-    },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  const childEnv = {
+    PATH: process.env.PATH, TZ: process.env.TZ, APP_ENV: process.env.APP_ENV, LOG_LEVEL: process.env.LOG_LEVEL,
+    ENCRYPTION_KEY,
+    PORT: String(port), PUBLIC_URL: url, DATA_DIR: dataDir,
+    SF_LOGIN_URL: upstreamUrl, SF_MCP_URL: `${upstreamUrl}/platform/mcp/v1/d/test/platform/sobject-reads`, SF_CLIENT_ID: "sf-client-id", SF_CLIENT_SECRET: "sf-client-secret",
+    SAGE_URL: upstreamUrl, SAGE_FOLDER: "PROD", SAGE_REPRESENTATIONS: "BPCUSTOMER,SINVOICE",
+    SAGE_OAUTH_AUTH_URL: `${upstreamUrl}/oauth/authorize`, SAGE_OAUTH_TOKEN_URL: `${upstreamUrl}/oauth/token`,
+    SAGE_OAUTH_USERINFO_URL: `${upstreamUrl}/oauth/userinfo`,
+    SAGE_OAUTH_CLIENT_ID: "sage-client-id", SAGE_OAUTH_CLIENT_SECRET: "sage-client-secret",
+    MS_LOGIN_URL: `${upstreamUrl}/ms`, MS_TENANT_ID: "common", MS_CLIENT_ID: "ms-client-id", MS_CLIENT_SECRET: "ms-client-secret", GRAPH_URL: `${upstreamUrl}/v1.0`,
+    CLEVOA_URL: `${upstreamUrl}/api/v1/telemetry`, CLEVOA_KEY: "clevoa-key-test",
+    MYREPORT_MCP_URL: `${upstreamUrl}/myreport/sse`, MYREPORT_TOOLS: "liste_indicateurs,valeur_indicateur",
+    DROPBOX_APP_KEY: "dbx-app-key", DROPBOX_APP_SECRET: "dbx-app-secret", DROPBOX_API_URL: upstreamUrl, DROPBOX_MCP_URL: `${upstreamUrl}/dropbox-mcp`,
+    ...env,
+  };
+  const child = spawn(process.execPath, [join(HUB_DIR, "server.js")], { env: childEnv, stdio: ["ignore", "pipe", "pipe"] }); // chemin absolu : utilisable depuis un autre dossier de tests
   let logs = "";
   child.stdout.on("data", (d) => { logs += d; });
   child.stderr.on("data", (d) => { logs += d; });
@@ -88,7 +86,7 @@ export async function startHub({ upstreamUrl, users = {}, env = {}, store }) {
   }
 
   const hub = {
-    url, dataDir, port, child,
+    url, dataDir, port, child, env: childEnv,
     logs: () => logs,
     readUsers: () => readStore(join(dataDir, "users.json")).users,
     rawStore: () => readFileSync(join(dataDir, "users.json"), "utf8"),

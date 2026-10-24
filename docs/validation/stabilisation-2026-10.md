@@ -9,8 +9,8 @@ Ce document sert aussi de journal de progression tant que la mission est en cour
 | Lot | Objet | État | Revue |
 |---|---|---|---|
 | 1 | Audit et nettoyage documentaire | GO | agent E (2 passages) |
-| 2 | Télémétrie éditeur | en revue | — |
-| 3 | Diagnostic et support | à faire | — |
+| 2 | Télémétrie éditeur | GO | agents E et F (2 passages chacun) |
+| 3 | Diagnostic et support | en revue | — |
 | 4 | Releases et mises à jour contrôlées | à faire | — |
 | 5 | Compatibilité MCP et sécurité | à faire | — |
 | 6 | Qualification finale et livraison | à faire | — |
@@ -97,3 +97,32 @@ débit par route, quota de concurrence du compte AWS.
 Tests après corrections : backend 15/15 ; hub 82 tests (81 réussis, 1 ignoré en pré-prod ; 80 réussis, 2 ignorés en
 production) ; bouchon 11/11 ; documentation réussie ; scénario de sauvegarde et restauration (A à L) joué en local
 sous Docker sur la stack pré-prod : tous les scénarios passent.
+
+Revues du lot 2, second passage : agent F **GO** (sondes rejouées : redirection, réponse piégée, clés mal formées,
+taille, échec SNS) ; agent E **GO** (suites rejouées sur un extrait propre du commit). L'agent E n'a pas pu rejouer
+lui-même le scénario Docker (construction d'image bloquée par le proxy de son environnement). Commits : `f72a0fb`,
+`2e5a600`.
+
+## Lot 3 — Diagnostic et support
+
+Existant : `/health` (sans détail), journaux Docker plafonnés, bouton « Tester » par outil sur le portail (appel réel
+avec le compte du collaborateur), version affichée sur le portail et dans les journaux, sauvegardes. Manquait : un
+moyen pour l'administrateur de transmettre un état technique complet sans rien divulguer, et un état de santé visible
+dans Portainer.
+
+Travaux :
+
+* `hub/diagnostic.js` : rapport JSON lancé par l'administrateur (`docker exec … node diagnostic.js`), en lecture seule,
+  sans port ni dépendance. Contenu : version, environnement, `/health`, variables réduites à « renseignée » ou « vide »,
+  état du fichier chiffré et compteurs, connecteurs et joignabilité de leur hôte (requête `HEAD` sans identifiant,
+  désactivable par `--sans-reseau`), télémétrie, liste des problèmes. Ni secret, ni jeton, ni e-mail, ni URL, ni donnée
+  métier.
+* Contrôle de santé Docker du hub dans `docker-compose.yml` (hérité par les deux stacks).
+* [Exploitation § 9](../admin/exploitation.md#9-diagnostic-et-support) : contenu du rapport, relecture avant envoi, ce
+  que Clevoa ne fait jamais (ni tunnel, ni accès distant, ni commande à distance).
+
+Tests : `hub/test/diagnostic.test.js` (7 tests : rapport complet, absence de 23 valeurs sensibles, joignabilité, hôte
+injoignable, mauvaise clé, hub arrêté, lecture seule) ; hub 89 tests (88 réussis, 1 ignoré en pré-prod ; 87 réussis, 2
+ignorés en production). Vérifié dans le conteneur de la stack pré-prod construite en local : `docker exec
+mcp-hub-preprod node diagnostic.js` (système de fichiers en lecture seule, utilisateur `node`) produit un rapport sans
+problème signalé, cinq connecteurs joignables ; hub « healthy » après 45 s.

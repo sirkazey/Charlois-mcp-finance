@@ -21,6 +21,7 @@ sur le système réel), **testé sur bouchon** (tests automatisés et simulateur
 | Claude.ai web et mobile | écarté | décision ([historique](../history/decisions.md)) | |
 | Transports Streamable HTTP et SSE | disponible | tests hub, campagne de charge | retrait du SSE quand les assistants cibles seront tous en Streamable HTTP |
 | Chiffrement `users.json`, clé MCP en en-tête, limitation de débit, en-têtes de sécurité | disponible | tests hub, ZAP passif | |
+| Diagnostic exportable (`node diagnostic.js`), contrôle de santé du conteneur | testé sur bouchon | `hub/test/diagnostic.test.js` ; exécuté dans le conteneur de la stack pré-prod locale (24/10/2026) | un diagnostic sur l'installation du client |
 | Sauvegarde automatique, restauration scriptée | testé sur bouchon | CI (`ops/test-backup-restore.sh`), `hub/test/backup.test.js` | une restauration sur un serveur du client, puis une par trimestre |
 | Reverse proxy nginx (profil `proxy`) | testé sur bouchon | `docker compose config` en local ; non exercé en CI (Trivy n'analyse que la configuration des fichiers Compose) | déploiement réel ; `COMPOSE_PROFILES` sous Portainer |
 | Télémétrie Clevoa : identifiant d'installation, fiche persistée, rapport des installations silencieuses et des versions sous le minimum | testé sur bouchon | tests hub et backend, sans AWS (DynamoDB simulée) | déploiement AWS, nom de domaine `clevoa.fr`, validation juridique ([sécurité § 4](../admin/securite.md#4-télémétrie-clevoa)) |

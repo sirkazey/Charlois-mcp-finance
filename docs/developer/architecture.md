@@ -21,9 +21,11 @@ Assistant IA (Claude Code, Claude Desktop, ChatGPT, Copilot)
 │ telemetry.js   compteurs envoyés à Clevoa au démarrage puis à 03:00  │
 │                (identifiant d'installation, délai et essais bornés)  │
 │ version.js     VERSION stricte + APP_ENV (PRODUCTION / PRE-PROD)     │
+│ diagnostic.js  rapport de support lancé par l'administrateur, sans   │
+│                secret ni donnée métier (docker exec, lecture seule)  │
 │ connectors/    salesforce · sagex3 · sharepoint · dropbox · myreport │
 │ public/        index.html, le portail                                │
-│ test/          node:test, amont mocké, 82 tests                      │
+│ test/          node:test, amont mocké, 89 tests                      │
 └───┬─────────────┬───────────────┬───────────────┬───────────────┬────┘
     ▼ MCP HTTP    ▼ REST Syracuse ▼ Graph (GET)   ▼ MCP HTTP      ▼ MCP SSE
  Salesforce    Sage X3 24R1    SharePoint      Dropbox (MCP    MyReport Server
