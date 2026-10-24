@@ -25,11 +25,11 @@ reproduit depuis. À surveiller en CI.
 
 ## 2. Intégration continue
 
-### Workflow `CI` (`.github/workflows/security-static.yml`) : PR, push sur `main` et `dev`, ou manuel
+### Workflow `CI` (`.github/workflows/security-static.yml`) : PR, push sur `main` et `dev`, chaque lundi sur `main`, ou manuel
 
 | Job | Outil (version figée) | Ce qu'il vérifie | Bloque |
 |---|---|---|---|
-| tests | Node 22 | les quatre suites ci-dessus (hub pré-prod et production, bouchon, backend Clevoa) | oui |
+| tests | Node 22 | `npm audit` (production, niveau haut) puis les quatre suites ci-dessus (hub pré-prod et production, bouchon, backend Clevoa) | oui |
 | backup-restore | Docker Compose, stack pré-prod, `ops/test-backup-restore.sh` | sauvegarde, perte, restauration, mauvaise clé ([exploitation § 4-5](../admin/exploitation.md#4-sauvegarde)) | oui |
 | rollback | Docker, `ops/test-rollback.sh` | version courante → version publiée précédente (tag) → courante sur le même volume : démarrage, version, connexions et identifiant d'installation conservés ([exploitation § 10](../admin/exploitation.md#10-mise-à-jour-et-retour-arrière)) | oui |
 | docs | Node 22, `ops/check-docs.js` | liens Markdown internes, ancres, fichiers cités supprimés | oui |
@@ -37,6 +37,7 @@ reproduit depuis. À surveiller en CI.
 | codeql | `github/codeql-action@v4`, `security-extended` | flux de données JavaScript ; résultats dans Security → Code scanning | selon la configuration du dépôt |
 | gitleaks | `ghcr.io/gitleaks/gitleaks:v8.30.1`, `.gitleaks.toml` | secrets dans tout l'historique Git | oui |
 | trivy | `aquasecurity/trivy-action@v0.36.0` | dépendances (HIGH, CRITICAL corrigeables), configuration Docker, secrets | oui |
+| trivy-image | `aquasecurity/trivy-action@v0.36.0`, `scan-type: image` | image du hub construite : paquets Alpine, Node, dépendances (HIGH, CRITICAL corrigeables) | oui |
 
 Les rapports JSON sont des artefacts de chaque exécution. **Ne pas publier un rapport** hors de GitHub : il cite des
 chemins et des extraits du code.

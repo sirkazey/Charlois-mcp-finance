@@ -17,6 +17,7 @@ gelé à la 1.3.1). La 1.3.2 sera publiée après la recette sur l'installation 
 - Backend Clevoa : fiche par installation dans DynamoDB (expirée 400 jours après le dernier contact), rapport quotidien des installations silencieuses et des versions sous le minimum (CloudWatch, alerte SNS), validation stricte et limite de 4 Ko, clé client jamais stockée, 15 tests sans AWS en CI.
 
 - Diagnostic exportable : `docker exec <conteneur> node diagnostic.js` produit un rapport JSON (version, santé, fichier chiffré, connecteurs, joignabilité, télémétrie) sans aucun secret, jeton, e-mail, URL ni donnée métier ; contrôle de santé Docker du hub (`healthy` dans Portainer).
+- Sécurité de l'image : scan Trivy de l'image du hub construite, CI hebdomadaire sur `main`, `npm audit` en CI ; npm, corepack et yarn retirés de l'image d'exécution (10 vulnérabilités hautes de leurs dépendances embarquées, inutilisées par le hub) ; procédure de version corrective de sécurité.
 - Versions figées et retour arrière : installations déployées depuis un tag Git (jamais une branche), image de base Node figée par empreinte, cohérence de version vérifiée par test, scénario `ops/test-rollback.sh` (courante → précédente → courante sur le même volume) en CI.
 
 ### Modifié

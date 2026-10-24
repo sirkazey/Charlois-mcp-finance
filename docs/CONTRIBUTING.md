@@ -6,7 +6,8 @@ en une heure. Pas de framework, pas de base de données, pas de service en plus 
 ## 1. Code
 
 * Branches : `dev` (intégration) et `main` (versions validées). Travailler sur une branche dédiée, ouvrir une PR vers
-  `dev`, puis `dev` vers `main` ; une version est un tag `vX.Y.Z` immuable sur `main`, que les installations déploient
+  `dev`, puis `dev` vers `main` ; une version est un tag `vX.Y.Z` sur `main`, jamais déplacé (convention, protection
+  `v*` à poser sur GitHub), que les installations déploient
   ([installation § 6](admin/installation.md#6-cycle-de-livraison-et-versions)). Jamais de branche permanente par client.
 * Toute correction s'accompagne d'un test de régression (`hub/test/`, `node:test`, aucun réseau). Un connecteur reste
   un module d'environ 50 à 190 lignes ; au-delà, on revoit la copie ([écrire un connecteur](developer/connecteurs.md)).

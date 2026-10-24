@@ -11,7 +11,7 @@ Ce document sert aussi de journal de progression tant que la mission est en cour
 | 1 | Audit et nettoyage documentaire | GO | agent E (2 passages) |
 | 2 | Télémétrie éditeur | GO | agents E et F (2 passages chacun) |
 | 3 | Diagnostic et support | GO | agents F (1 passage) et E (2 passages) |
-| 4 | Releases et mises à jour contrôlées | en revue | — |
+| 4 | Releases et mises à jour contrôlées | en revue | agent E : GO ; agent F : corrections |
 | 5 | Compatibilité MCP et sécurité | à faire | — |
 | 6 | Qualification finale et livraison | à faire | — |
 
@@ -166,3 +166,21 @@ construit les Dockerfile tels quels.
 
 Actions manuelles (droits de la session insuffisants) : créer le tag `v1.3.2-rc.1` et sa Release sur `main` ; poser
 une règle de protection des tags `v*` ; reconfigurer les stacks Portainer existantes sur un tag.
+
+Revues du lot 4 : agent E (architecture) **GO**, retour arrière rejoué par l'agent avec ses propres images ; six
+remarques non bloquantes. Agent F (sécurité) : « corrections requises ». Majeure : une fois l'image de base figée,
+rien ne détectait plus ses failles (Trivy ne scannait que le dépôt, aucune exécution planifiée). Mineures :
+immuabilité des tags affirmée sans protection posée, « même image » trop fort, `npm audit` annoncé sans être en CI,
+ancienne version jamais en écriture pendant le test de retour arrière, nettoyage des images, choix de la version
+précédente.
+
+Corrections : job `trivy-image` (image construite comme en production) et exécution hebdomadaire de la CI sur `main` ;
+`npm audit` dans le job `tests` ; procédure de version corrective de sécurité avec délai cible ; documentation exacte
+(immuabilité par convention tant que la protection `v*` n'est pas posée, même contenu de base à partir de la
+1.3.2-rc.1, anciens tags sur base flottante) ; test de retour arrière avec écriture par la version précédente, version
+précédente choisie parmi les ancêtres de l'arbre testé, images construites supprimées. Le premier scan local de
+l'image (Trivy 0.67.2) a trouvé 10 vulnérabilités hautes, toutes dans les dépendances embarquées de npm, corepack et
+yarn de l'image Node : ces outils sont retirés de l'image d'exécution, le scan suivant est propre (code de retour 0).
+Gitleaks (94 commits, aucune fuite) et Semgrep (règles `p/javascript`, `p/nodejs`, `p/security-audit`, aucun constat)
+ont aussi été exécutés en local sur la branche. Reste hors périmètre : actions GitHub référencées par version et non
+par empreinte (antérieur à la mission).

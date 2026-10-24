@@ -8,18 +8,21 @@
 set -eu
 cd "$(dirname "$0")/.."
 CUR=$(sed -n 's/^export const VERSION = "\(.*\)";/\1/p' hub/version.js)
-PREV=${PREV:-$(git tag --list 'v*' --sort=-v:refname | grep -v -- '-' | grep -v "^v$CUR\$" | head -n 1)}
+PREV=${PREV:-$(git tag --list 'v*' --merged HEAD --sort=-v:refname | grep -v -- '-' | grep -v "^v$CUR\$" | head -n 1)}  # ancêtre de l'arbre testé
 [ -n "$PREV" ] || { echo "aucun tag précédent (git fetch --tags ?)" >&2; exit 1; }
 P=clevoa-rollback-$$; PORT=${PORT:-18080}; URL="http://127.0.0.1:$PORT"
 KEY=$(openssl rand -hex 32); WORK=$(mktemp -d)
 IMAGE_CURRENT=${IMAGE_CURRENT:-$P-courante}; IMAGE_PREV=${IMAGE_PREV:-$P-precedente}
 say() { printf '\n=== %s\n' "$*"; }
-cleanup() { docker rm -f "$P-hub" >/dev/null 2>&1 || true; docker volume rm "$P-data" >/dev/null 2>&1 || true; rm -rf "$WORK"; }
+BUILT=""
+cleanup() { docker rm -f "$P-hub" >/dev/null 2>&1 || true; docker volume rm "$P-data" >/dev/null 2>&1 || true; rm -rf "$WORK"
+  for i in $BUILT; do docker image rm "$i" >/dev/null 2>&1 || true; done; }
 trap cleanup EXIT
+trap 'exit 130' INT TERM
 
 say "Images : courante $CUR, précédente $PREV"
-docker image inspect "$IMAGE_CURRENT" >/dev/null 2>&1 || docker build -q -t "$IMAGE_CURRENT" hub >/dev/null
-docker image inspect "$IMAGE_PREV" >/dev/null 2>&1 || git archive --format=tar "$PREV:hub" | docker build -q -t "$IMAGE_PREV" - >/dev/null
+docker image inspect "$IMAGE_CURRENT" >/dev/null 2>&1 || { docker build -q -t "$IMAGE_CURRENT" hub >/dev/null; BUILT="$BUILT $IMAGE_CURRENT"; }
+docker image inspect "$IMAGE_PREV" >/dev/null 2>&1 || { git archive --format=tar "$PREV:hub" | docker build -q -t "$IMAGE_PREV" - >/dev/null; BUILT="$BUILT $IMAGE_PREV"; }
 
 # Démarre une image sur le volume commun, comme la stack de pré-production (utilisateur node, lecture seule, sans privilèges).
 start() {
@@ -50,9 +53,11 @@ docker run --rm -u 0 -v "$P-data:/data:ro" -v "$WORK:/b" --entrypoint cp "$IMAGE
 [ "$(head -c 5 "$WORK/avant.json")" = "enc1:" ]; echo "ok"
 
 say "3. Retour arrière vers $PREV sur le même volume"
-start "$IMAGE_PREV"; [ "$(version)" = "${PREV#v}" ]; connected; echo "ok : $(version), collaborateur toujours connecté"
+start "$IMAGE_PREV"; [ "$(version)" = "${PREV#v}" ]; connected
+curl -fsS -b "$WORK/jar" -X POST -H 'Content-Type: application/json' -d '{"apiKey":"MR-TEST-ROLLBACK-2"}' "$URL/api/myreport/apikey"   # l'ancienne version réécrit le fichier
+connected; echo "ok : $(version), collaborateur toujours connecté, fichier réécrit par l'ancienne version"
 
-say "4. Nouvelle mise à jour vers $CUR : données et identifiant d'installation conservés"
+say "4. Nouvelle mise à jour vers $CUR : données (y compris écrites par $PREV) et identifiant d'installation conservés"
 start "$IMAGE_CURRENT"; [ "$(version)" = "$CUR" ]; connected; [ "$(installation)" = "$ID" ]; echo "ok : identifiant inchangé"
 
 say "Retour arrière $CUR → $PREV → $CUR réussi."

@@ -100,23 +100,30 @@ Après toute modification de `.env`, relancer `up -d` : les connexions des colla
 ## 6. Cycle de livraison et versions
 
 Un seul code pour tous les clients ; chaque installation choisit sa version. `dev` est la branche d'intégration,
-`main` porte les versions validées ; aucune installation client ne suit une branche. Une version est un **tag Git
-immuable** `vX.Y.Z` (ou `vX.Y.Z-rc.N` pour une version candidate) posé sur `main`, accompagné d'une Release GitHub. Le
-numéro est affiché par le portail, les journaux, le diagnostic et la télémétrie : c'est la preuve de ce qui tourne.
-Un tag publié n'est jamais déplacé ni supprimé ; une correction donne une nouvelle version.
+`main` porte les versions validées ; aucune installation client ne suit une branche. Une version est un **tag Git**
+`vX.Y.Z` (ou `vX.Y.Z-rc.N` pour une version candidate) posé sur `main`, accompagné d'une Release GitHub. Le numéro est
+affiché par le portail, les journaux, le diagnostic et la télémétrie : c'est la preuve de ce qui tourne. Par
+convention, un tag publié n'est jamais déplacé ni supprimé ; une correction donne une nouvelle version. Tant que la
+règle de protection des tags `v*` n'est pas posée sur GitHub (étape 6), cette immuabilité repose sur la discipline de
+Clevoa, pas sur un contrôle technique.
 
-Reproductibilité : le tag fige le code et les dépendances (`package-lock.json`, `npm ci`) ; l'image de base Node est
-figée par empreinte dans les `Dockerfile` et la stack. Reconstruire un tag donne la même image.
+Reproductibilité : le tag fige le code et les dépendances (`package-lock.json`, `npm ci`). À partir de la 1.3.2-rc.1,
+l'image de base Node est aussi figée par empreinte dans les `Dockerfile` et la stack : reconstruire un tag redonne une
+image de même contenu (pas identique au bit près). Les tags antérieurs utilisent l'étiquette flottante
+`node:22-alpine` : leur reconstruction prend l'image Node du moment.
 
 **Publier une version (Clevoa)**
 
 1. Modifier le code sur une branche de travail, avec ses tests ; PR vers `dev`.
 2. CI verte : tests du hub, du bouchon et du backend, sauvegarde et restauration, retour arrière, documentation.
-3. Contrôles de sécurité de la même CI : Semgrep, CodeQL, Gitleaks, Trivy ; `npm audit` sans vulnérabilité haute ou
-   critique corrigeable.
+3. Contrôles de sécurité de la même CI : Semgrep, CodeQL, Gitleaks, Trivy sur le dépôt et sur l'image construite,
+   `npm audit` (niveau haut et critique). La CI tourne aussi chaque lundi sur `main`, sans commit, pour détecter les
+   vulnérabilités publiées depuis la dernière version.
 4. Préparer la version : numéro dans `hub/version.js`, `hub/package.json` et `hub/package-lock.json`, section du
    `CHANGELOG.md` à ce numéro et à la date (le test `hub/test/release.test.js` vérifie la cohérence), empreinte de
-   l'image de base mise à jour si une image Node plus récente corrige des vulnérabilités.
+   l'image de base remplacée si le job `trivy-image` signale une faille corrigée dans une image Node plus récente.
+   L'image d'exécution ne contient ni npm, ni corepack, ni yarn (retirés après l'installation des dépendances). Le
+   proxy nginx optionnel garde l'étiquette `nginx:1.28-alpine`, qui reçoit les correctifs de la branche 1.28.
 5. Revue de la version, puis PR `dev` → `main`.
 6. Créer le tag et la Release sur `main` : GitHub → Releases → *Draft a new release* → tag `vX.Y.Z` sur `main`, texte du
    changelog. Recommandé : une règle de protection des tags `v*` (GitHub → Settings → Rules) pour interdire déplacement
@@ -129,6 +136,12 @@ figée par empreinte dans les `Dockerfile` et la stack. Reconstruire un tag donn
 8. Pré-production : sauvegarde, puis *Repository reference* = le nouveau tag ([exploitation § 10](exploitation.md#10-mise-à-jour-et-retour-arrière)).
 9. Recette du client sur sa pré-production : portail, « Tester » chaque outil, quelques questions dans l'assistant.
 10. Production : même opération, puis contrôle après mise à jour (version, « healthy », tests des outils, diagnostic).
+
+**Version corrective de sécurité** : quand une vulnérabilité haute ou critique corrigeable est signalée dans l'image de
+base ou une dépendance (job `trivy-image`, `trivy` ou `npm audit` en échec, y compris lors du passage hebdomadaire),
+Clevoa publie une version corrective `vX.Y.Z+1` (empreinte de l'image ou lockfile mis à jour, rien d'autre) et l'annonce
+aux clients avec son urgence. Délai cible : 15 jours, 72 heures pour une faille critique exploitable à distance ; à
+confirmer dans le contrat de maintenance.
 
 Aucune mise à jour n'est imposée : une installation reste sur sa version tant que son administrateur ne la change pas.
 Multi-client : chaque installation a sa stack, ses variables (`MCP_SERVER_NAME`, `INSTANCE_LABEL`, connecteurs), ses
