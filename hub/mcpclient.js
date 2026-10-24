@@ -8,7 +8,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 
 export async function withMcp({ url, headers, sse = false, label = "MCP" }, fn) {
-  const client = new Client({ name: "charlois-finance-hub", version: VERSION });
+  const client = new Client({ name: "clevoa-gateway-hub", version: VERSION });
   const opts = { requestInit: { headers } };
   const transport = sse ? new SSEClientTransport(new URL(url), opts) : new StreamableHTTPClientTransport(new URL(url), opts);
   try {

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
-<title>Clevoa AI Gateway · MCP Charlois</title>
+<title>Clevoa AI Gateway</title>
 <style>
   /* ---- Charte : noirs profonds, blancs aérés, accents bronze et vert forêt. Une colonne, sections à œil-de-perdrix. ---- */
   :root {
@@ -110,7 +110,7 @@
 
 
   <div class="hero">
-    <h1>MCP <em>Charlois</em></h1>
+    <h1 id="instance"><em>Clevoa</em> AI Gateway</h1>
     <p class="lead">Connectez vos comptes une fois. Claude interroge ensuite Salesforce, Sage X3, SharePoint, Dropbox et MyReport avec <strong>vos</strong> droits, en lecture seule.</p>
   </div>
 
@@ -149,7 +149,6 @@
 <div class="toast" id="toast" role="status">Copié !</div>
 
 <script>
-const DEPARTEMENT = "Département Finance";
 const PROMPTS = {
   "📁 Onboarding / Formation": [
     ["Quels systèmes et quels outils puis-je interroger via ce connecteur ? Explique-moi comment formuler une bonne question.", "Tous · outils"],
@@ -201,8 +200,9 @@ async function load() {
     $("#profile").innerHTML = `👤 Déconnecté — <a href="/auth/sso">Se connecter avec Microsoft</a>`; $("#systems").innerHTML = ""; $("#diag").innerHTML = ""; return;
   }
   $("#env").innerHTML = `v${esc(me.version)} · ENV: <b class="${me.env === "PRODUCTION" ? "prod" : ""}">${esc(me.env)}</b>`;
-  $("#env-foot").textContent = `MCP Charlois v${me.version} · ${me.env}`;
-  $("#profile").innerHTML = (me.email ? `👤 <strong>${esc(me.email)}</strong> — ${DEPARTEMENT}` : `👤 Non identifié — ${DEPARTEMENT}`)
+  if (me.instance) { $("#instance").textContent = me.instance; document.title = `Clevoa AI Gateway · ${me.instance}`; } // libellé de l'instance (INSTANCE_LABEL)
+  $("#env-foot").textContent = `${me.instance || "Clevoa AI Gateway"} v${me.version} · ${me.env}`;
+  $("#profile").innerHTML = (me.email ? `👤 <strong>${esc(me.email)}</strong>` : `👤 Non identifié`) + (me.instance ? ` — ${esc(me.instance)}` : "")
     + (me.sso ? ` · via Microsoft Entra ID${me.sso === "mock" ? " (simulé)" : ""} · <button class="link" onclick="logout()">Se déconnecter</button>` : "");
   $("#systems").innerHTML = me.systems.map((s) => `
     <div class="card">
@@ -225,8 +225,8 @@ async function load() {
       <button class="btn ghost" onclick="test('${esc(s.id)}', this)">Tester ${s.mock ? "le simulateur " : ""}${esc(s.label)}</button>
       <div class="result" id="res-${esc(s.id)}"></div>
     </div>`).join("");
-  $("#cfg").textContent = `{\n  "mcpServers": {\n    "charlois-finance": {\n      "type": "http",\n      "url": "${me.mcpUrl}",\n      "headers": { "Authorization": "Bearer ${me.key}" }\n    }\n  }\n}`;
-  $("#cfg-desktop").textContent = `{\n  "mcpServers": {\n    "charlois-finance": {\n      "command": "npx",\n      "args": ["-y", "mcp-remote@0.15", "${me.mcpUrl}", "--header", "Authorization:\${MCP_AUTH}"],\n      "env": { "MCP_AUTH": "Bearer ${me.key}" }\n    }\n  }\n}`;
+  $("#cfg").textContent = `{\n  "mcpServers": {\n    "${me.serverName}": {\n      "type": "http",\n      "url": "${me.mcpUrl}",\n      "headers": { "Authorization": "Bearer ${me.key}" }\n    }\n  }\n}`;
+  $("#cfg-desktop").textContent = `{\n  "mcpServers": {\n    "${me.serverName}": {\n      "command": "npx",\n      "args": ["-y", "mcp-remote@0.15", "${me.mcpUrl}", "--header", "Authorization:\${MCP_AUTH}"],\n      "env": { "MCP_AUTH": "Bearer ${me.key}" }\n    }\n  }\n}`;
   $("#mcp-url").textContent = me.mcpUrl;
   $("#config-section").hidden = !me.config;
   if (me.config) $("#config").innerHTML = me.config.map((v) => `<tr><td><i class="dot ${v.value ? "on" : ""}"></i>${esc(v.name)}</td><td>${v.value ? esc(v.value) : "— vide (défaut ou mode simulé)"}</td></tr>`).join("");

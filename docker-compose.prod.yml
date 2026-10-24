@@ -11,7 +11,7 @@ services:
     environment:
       APP_ENV: production                    # badge « ENV: PRODUCTION », mode démo désactivé, https obligatoire
       LOG_LEVEL: info
-      PUBLIC_URL: ${PUBLIC_URL:?URL https publique de production, ex. https://mcp.charlois.fr}
+      PUBLIC_URL: ${PUBLIC_URL:?URL https publique de production, ex. https://mcp.exemple.fr}
       CLEVOA_URL: https://clevoa.fr/api/v1/telemetry
       CLEVOA_KEY: ${CLEVOA_KEY:?clé de licence Clevoa requise en production}
     user: "node"                               # processus sans privilèges (déjà imposé par l'image, rappelé ici)

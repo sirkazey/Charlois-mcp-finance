@@ -5,8 +5,8 @@ outils métier d'une entreprise : CRM Salesforce, ERP Sage X3, documents SharePo
 MyReport. Chaque appel porte le jeton **personnel** du collaborateur : l'assistant ne voit que ce que le collaborateur
 a déjà le droit de voir, et le hub n'a aucun compte technique.
 
-Édité par Clevoa SASU. Première instance déployée pour le Groupe Charlois (direction financière), d'où les identifiants
-techniques (`charlois-finance`, `charlois-mcp-stub`) conservés tels quels.
+Édité par Clevoa SASU. Première instance déployée pour le Groupe Charlois (direction financière). Chaque instance porte son
+propre nom de serveur MCP et son libellé (`MCP_SERVER_NAME`, `INSTANCE_LABEL`).
 
 ## Ce que fait la passerelle
 
@@ -67,7 +67,7 @@ Sur le portail : « Se connecter » à chaque outil (mires du bouchon sur `http:
 vérifier les voyants du diagnostic, copier le bloc de configuration dans l'assistant. Sans Docker :
 
 ```bash
-cd hub && npm install && npm test                      # 77 tests, aucun réseau
+cd hub && npm install && npm test                      # 78 tests, aucun réseau
 ```
 
 Suite détaillée : [installation](docs/admin/installation.md).
@@ -82,7 +82,7 @@ Suite détaillée : [installation](docs/admin/installation.md).
 | Validation | [État des fonctionnalités et limites](docs/validation/etat-des-fonctionnalites.md) · [Journal des tests réels](docs/validation/journal-tests-reels.md) · [Campagne de charge v1.2.1](docs/validation/charge-v1.2.1.md) |
 | Historique | [Audits d'octobre 2026](docs/history/audit-2026-10.md) · [Décisions](docs/history/decisions.md) · [Feuille de route](docs/history/roadmap-2026-10.md) |
 
-Composants annexes : [bouchon d'entreprise](charlois-mcp-stub/README.md), [backend de télémétrie Clevoa](clevoa-backend/README.md),
+Composants annexes : [bouchon d'entreprise](clevoa-mcp-stub/README.md), [backend de télémétrie Clevoa](clevoa-backend/README.md),
 [outils de charge](loadtest/README.md). Index complet : [docs/README.md](docs/README.md).
 
 ## Sécurité et limites connues
@@ -103,5 +103,5 @@ Composants annexes : [bouchon d'entreprise](charlois-mcp-stub/README.md), [backe
 
 Logiciel propriétaire de Clevoa SASU : [LICENSE.md](LICENSE.md). Les dépendances open source conservent leurs licences
 (MIT, ISC, BSD). Versions : [CHANGELOG.md](CHANGELOG.md) et
-[releases GitHub](https://github.com/sirkazey/Clevoa-IA-gateway/releases) ; version courante **1.2.1**
+[releases GitHub](https://github.com/sirkazey/Clevoa-IA-gateway/releases) ; version courante **1.3.0**
 (`hub/version.js`), affichée sur le portail et dans les journaux de démarrage.

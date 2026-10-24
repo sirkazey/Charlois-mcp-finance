@@ -22,14 +22,14 @@ Assistant IA (Claude Code, Claude Desktop, ChatGPT, Copilot)
 │ version.js     VERSION stricte + APP_ENV (PRODUCTION / PRE-PROD)     │
 │ connectors/    salesforce · sagex3 · sharepoint · dropbox · myreport │
 │ public/        index.html, le portail                                │
-│ test/          node:test, amont mocké, 77 tests                      │
+│ test/          node:test, amont mocké, 78 tests                      │
 └───┬─────────────┬───────────────┬───────────────┬───────────────┬────┘
     ▼ MCP HTTP    ▼ REST Syracuse ▼ Graph (GET)   ▼ MCP HTTP      ▼ MCP SSE
  Salesforce    Sage X3 24R1    SharePoint      Dropbox (MCP    MyReport Server
  (SObject Reads) (ou simulateur) OneDrive      officiel)       (ou simulateur)
 ```
 
-En pré-production, le conteneur `mcp-stub` ([`charlois-mcp-stub/`](../../charlois-mcp-stub/README.md)) imite les cinq
+En pré-production, le conteneur `mcp-stub` ([`clevoa-mcp-stub/`](../../clevoa-mcp-stub/README.md)) imite les cinq
 systèmes, Entra ID et le backend Clevoa ; 11 tests de bout en bout branchent le vrai hub dessus.
 
 ## 2. Identité et état
@@ -54,7 +54,7 @@ systèmes, Entra ID et le backend Clevoa ; 11 tests de bout en bout branchent le
 
 ## 3. Serveur MCP et transports
 
-`buildServer(clé)` crée un `McpServer` nommé `charlois-finance` par connexion, enregistre les outils de tous les
+`buildServer(clé)` crée un `McpServer` par connexion, nommé `MCP_SERVER_NAME` (défaut `clevoa-gateway`), enregistre les outils de tous les
 connecteurs actifs (`readOnlyHint`), compte l'appel pour la télémétrie, applique le plafond du connecteur
 (`maxPerMinute`, tous utilisateurs confondus), résout le jeton via `withToken`, et termine chaque résultat par la
 ligne `Source : <système> · <dossier | sandbox | production>`. Les contenus MCP non textuels (`image`, `resource`)
@@ -72,8 +72,8 @@ pré-production les pointe par défaut vers le bouchon `mcp-stub`.
 
 ## 4. Portail
 
-`hub/public/index.html`, une page sans dépendance externe (CSP stricte). `GET /api/me` (version, environnement, SSO,
-e-mail, clé, systèmes avec leur état) alimente les cartes ; `GET /api/test/:system` exécute le diagnostic ;
+`hub/public/index.html`, une page sans dépendance externe (CSP stricte). `GET /api/me` (version, environnement, instance et nom du
+serveur, SSO, e-mail, clé, systèmes avec leur état) alimente les cartes ; `GET /api/test/:system` exécute le diagnostic ;
 `POST /api/:system/apikey`, `POST /api/disconnect/:system`, `POST /api/key/rotate`, `POST /api/logout` changent l'état
 du collaborateur (même origine exigée). La liste des variables affichées est dérivée de l'environnement (préfixes
 `SF_`, `SAGE_`, `MS_`, …), secrets masqués.
@@ -95,7 +95,7 @@ Scripts d'exploitation dans `ops/` (`backup-loop.sh` dans le conteneur de sauveg
 
 ## 7. Composants annexes
 
-* [`charlois-mcp-stub/`](../../charlois-mcp-stub/README.md) : bouchon d'entreprise (~430 lignes), mires OAuth et Entra,
+* [`clevoa-mcp-stub/`](../../clevoa-mcp-stub/README.md) : bouchon d'entreprise (~430 lignes), mires OAuth et Entra,
   serveurs MCP simulés, données fictives, deux collaborateurs aux droits différents.
 * [`clevoa-backend/`](../../clevoa-backend/README.md) : fonction AWS Lambda qui reçoit la télémétrie (`serverless.yml`).
 * [`loadtest/`](../../loadtest/README.md) : bouchons rapides et générateur d'utilisateurs MCP pour la campagne de charge.

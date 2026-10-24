@@ -29,7 +29,7 @@ en une heure. Pas de framework, pas de base de données, pas de service en plus 
 | `docs/history/` | archives | audits, décisions, feuilles de route datées : figés, jamais réécrits |
 
 Fichiers en minuscules avec tirets (`guide-utilisateur.md`), un sujet par fichier, pas de fichier de moins de vingt
-lignes (on fusionne). Un composant annexe (`charlois-mcp-stub/`, `clevoa-backend/`, `loadtest/`) garde son `README.md`
+lignes (on fusionne). Un composant annexe (`clevoa-mcp-stub/`, `clevoa-backend/`, `loadtest/`) garde son `README.md`
 à côté de son code. Les seuls fichiers de documentation à la racine sont `README.md`, `CHANGELOG.md`, `LICENSE.md` et `.env.example`.
 
 ### Rédaction

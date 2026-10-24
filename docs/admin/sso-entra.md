@@ -65,7 +65,7 @@ appel à Microsoft. Le bouchon émet un `id_token` au même format qu'Entra, vé
 
 Tests : `hub/test/sso.test.js` (anonymes, usurpation, séparation, cloisonnement des clés : cookies manipulés, rejeu,
 code volé refusé par PKCE, fixation de session, clé héritée, compte Microsoft différent, sessions SSE, rotation,
-verrous) et `charlois-mcp-stub/test/stub.test.js` (bout en bout).
+verrous) et `clevoa-mcp-stub/test/stub.test.js` (bout en bout).
 
 ## Ce que le SSO ne fait pas
 

@@ -7,6 +7,19 @@ noms techniques inchangés). Les documents cités par leur ancien nom sont déso
 
 Une section par version, trois lignes au plus par rubrique. La version est celle de `hub/version.js`, le tag Git `vX.Y.Z` et la Release GitHub portent le même numéro.
 
+## [1.3.0] – 2026-10-24
+
+Socle multi-client : plus aucune valeur propre à Charlois dans le code du hub.
+
+### Ajouté
+- `MCP_SERVER_NAME` (défaut `clevoa-gateway`) : nom sous lequel le serveur MCP s'annonce et clé du bloc `mcpServers` que le portail fait copier ; `INSTANCE_LABEL` : libellé de l'instance sur le portail (titre, en-tête, pied de page, profil). Les deux apparaissent dans la configuration affichée. Test : défaut, surcharge, nom invalide ignoré.
+- Instance Charlois : renseigner `MCP_SERVER_NAME=charlois-finance` et `INSTANCE_LABEL=MCP Charlois` dans les variables des stacks pour conserver l'affichage ; sans cela, le portail propose `clevoa-gateway` aux nouveaux collaborateurs. Les configurations déjà collées dans Claude Desktop ou `.mcp.json` continuent de fonctionner telles quelles (le nom n'est qu'une clé locale).
+
+### Modifié
+- Bouchon d'entreprise renommé `clevoa-mcp-stub/` (Compose, CI, Gitleaks, documentation) ; paquets `clevoa-gateway-hub` et `clevoa-mcp-stub` ; client MCP du hub `clevoa-gateway-hub`. Le jeu de données fictif « Charlois » du bouchon est conservé.
+- Portail : « Département Finance » codé en dur retiré ; titre « Clevoa AI Gateway ». Exemples d'URL des fichiers Compose neutres (`mcp.exemple.fr`).
+- Documentation mise à jour (variables d'instance, chemins du bouchon, 78 tests).
+
 ## [1.2.1] – 2026-10-24
 
 Lot « fiabilisation » : SSO Microsoft Entra ID du portail (inactif sans `SSO_MODE`), corrections de l'audit indépendant du SSO,

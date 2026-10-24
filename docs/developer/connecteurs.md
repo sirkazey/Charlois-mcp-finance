@@ -53,7 +53,7 @@ telles, aucun réseau ; sert aux tests sur un poste sans compte.
    `docker-compose.yml` ; ajouter l'URI de rappel dans [configuration § 0](../admin/configuration.md#0-le-fichier-env-et-les-uri-de-rappel).
 4. Écrire les tests : mock amont dans `hub/test/helpers/upstream.js`, cas nominal, 401 + refresh, révocation, panne
    (injoignable, délai), lecture seule (outil d'écriture refusé), cloisonnement (deux utilisateurs). Ajouter le système
-   au bouchon `charlois-mcp-stub/` si un test de bout en bout a du sens.
+   au bouchon `clevoa-mcp-stub/` si un test de bout en bout a du sens.
 5. Ajouter la ligne du connecteur dans [l'état des fonctionnalités](../validation/etat-des-fonctionnalites.md) avec le
    statut « testé sur bouchon » tant qu'un vrai compte ne l'a pas validé, et la section dans
    [configuration](../admin/configuration.md).

@@ -458,3 +458,30 @@ test("En-têtes de sécurité HTTP sur le portail et l'API : CSP, nosniff, anti-
     assert.equal(r.headers.get("referrer-policy"), "no-referrer", path);
   }
 });
+
+// ---------- Instance multi-client : nom du serveur MCP et libellé (1.3.0) ----------
+test("Instance : nom de serveur MCP et libellé par défaut, puis surchargés par MCP_SERVER_NAME et INSTANCE_LABEL", async () => {
+  const me = await (await fetch(`${hub.url}/api/me`)).json();
+  assert.equal(me.serverName, "clevoa-gateway", "nom par défaut, clé du bloc mcpServers du portail");
+  assert.equal(me.instance, "", "sans INSTANCE_LABEL, le portail affiche Clevoa AI Gateway");
+  const html = readFileSync(join(HUB_DIR, "public", "index.html"), "utf8");
+  assert.match(html, /"\$\{me\.serverName\}": \{/, "les deux blocs de configuration utilisent le nom annoncé par /api/me");
+  assert.doesNotMatch(html, /charlois-finance|Département Finance/, "plus de libellé d'instance codé en dur");
+
+  const custom = await startHub({ upstreamUrl: up.url, env: { MCP_SERVER_NAME: "charlois-finance", INSTANCE_LABEL: " MCP Charlois " } });
+  try {
+    const m = await (await fetch(`${custom.url}/api/me`)).json();
+    assert.equal(m.serverName, "charlois-finance");
+    assert.equal(m.instance, "MCP Charlois", "libellé nettoyé");
+    const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
+    const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
+    const c = new Client({ name: "t", version: "0" });
+    await c.connect(new StreamableHTTPClientTransport(new URL(`${custom.url}/mcp`), { requestInit: { headers: { Authorization: `Bearer ${m.key}` } } }));
+    assert.equal(c.getServerVersion().name, "charlois-finance", "le serveur MCP s'annonce sous le nom configuré");
+    await c.close();
+  } finally { await custom.stop(); }
+
+  const bad = await startHub({ upstreamUrl: up.url, env: { MCP_SERVER_NAME: "nom invalide (espaces)" } });
+  try { assert.equal((await (await fetch(`${bad.url}/api/me`)).json()).serverName, "clevoa-gateway", "nom invalide ignoré : défaut"); }
+  finally { await bad.stop(); }
+});

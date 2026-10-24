@@ -20,7 +20,7 @@ navigateur du collaborateur, un nom interne convient.
 
 ## 2. Démarrage sur un poste (Docker Desktop)
 
-Avec le **bouchon d'entreprise** `charlois-mcp-stub` : aucun compte réel, un jeu de données fictif, deux collaborateurs
+Avec le **bouchon d'entreprise** `clevoa-mcp-stub` : aucun compte réel, un jeu de données fictif, deux collaborateurs
 aux droits différents (Marie, DAF ; Paul, commercial).
 
 ```bash
@@ -30,7 +30,7 @@ open http://localhost:8080  # EXACTEMENT l'adresse de PUBLIC_URL (pas 127.0.0.1)
 ```
 
 Les boutons « Se connecter » ouvrent les mires du bouchon sur `http://localhost:4000`. Identifiants fictifs : Sage X3
-`MDUPONT` / `SYR-MARIE-2026`, MyReport `MR-MARIE-2026` (détail dans [le README du bouchon](../../charlois-mcp-stub/README.md)).
+`MDUPONT` / `SYR-MARIE-2026`, MyReport `MR-MARIE-2026` (détail dans [le README du bouchon](../../clevoa-mcp-stub/README.md)).
 Renseigner une variable réelle dans `.env` (ex. `SF_LOGIN_URL`, `SF_CLIENT_ID`) rebranche ce seul système sur le vrai.
 
 Règles du fichier `.env` : jamais de commentaire sur la même ligne qu'une valeur vide (Docker Compose le lirait comme
@@ -68,11 +68,12 @@ un compose collé à la main laisse `mcp-backup` sans script.
    `BACKUP_DIR` en chemin **absolu** et distinct par environnement (ex. `/srv/mcp/backups-prod`). En production :
    `CLEVOA_KEY` (si `clevoa.fr` ne répond pas, le hub journalise `[telemetry] échec` et fonctionne normalement). En
    pré-production avec le bouchon : `BROWSER_URL_REWRITE=http://mcp-stub:4000=>http://<hôte-préprod>:4000` (le navigateur
-   des collaborateurs doit joindre les mires du bouchon).
+   des collaborateurs doit joindre les mires du bouchon). Facultatif : `MCP_SERVER_NAME` et `INSTANCE_LABEL` pour nommer
+   l'instance ([configuration § 0](configuration.md#0-le-fichier-env-et-les-uri-de-rappel)).
 4. **https** : le nginx fourni (profil `proxy`, `HUB_PORT=127.0.0.1:8080`, `CERTS_DIR`, `COMPOSE_PROFILES=proxy`) ou un
    reverse proxy existant : [exploitation § 6](exploitation.md#6-reverse-proxy-nginx-https). La prise en compte de
    `COMPOSE_PROFILES` comme variable de stack est à vérifier sur votre Portainer.
-5. Premier démarrage : la ligne de journal `Hub MCP v1.2.1 · ENV: PRE-PROD · https://…` confirme la version et
+5. Premier démarrage : la ligne de journal `Hub MCP v1.3.0 · ENV: PRE-PROD · https://…` confirme la version et
    l'environnement ; le portail affiche le badge correspondant.
 
 **Pré-production avec des systèmes réels** : une variable **vide** garde le défaut vers le bouchon. Pour brancher un vrai

@@ -7,9 +7,9 @@ de bout en bout, bouchons rapides pour la charge. Aucun outil n'est jamais lanc�
 
 | Suite | Commande | Contenu |
 |---|---|---|
-| Hub, pré-production | `cd hub && npm test` | 77 tests `node:test` (76 exécutés, 1 réservé à la production) : transports MCP, lecture seule, refresh et révocation, cache, OAuth et PKCE, SSO (anonymes, usurpation, cloisonnement des clés), jetons personnels, portail, simulateurs, Graph, proxys MCP, télémétrie et handler Lambda, boucle de sauvegarde (`backup.test.js`, sans Docker) |
-| Hub, verrous de production | `cd hub && APP_ENV=production npm test` | même suite sous `APP_ENV=production` (75 exécutés, 2 réservés à la pré-production) |
-| Bouchon, bout en bout | `cd charlois-mcp-stub && npm test` | 11 tests : le vrai hub branché sur le bouchon, flux OAuth et SSO via les mires, PKCE, droits de Marie et Paul, fichiers, télémétrie |
+| Hub, pré-production | `cd hub && npm test` | 78 tests `node:test` (77 exécutés, 1 réservé à la production) : transports MCP, lecture seule, refresh et révocation, cache, OAuth et PKCE, SSO (anonymes, usurpation, cloisonnement des clés), jetons personnels, portail, simulateurs, Graph, proxys MCP, télémétrie et handler Lambda, boucle de sauvegarde (`backup.test.js`, sans Docker) |
+| Hub, verrous de production | `cd hub && APP_ENV=production npm test` | même suite sous `APP_ENV=production` (76 exécutés, 2 réservés à la pré-production) |
+| Bouchon, bout en bout | `cd clevoa-mcp-stub && npm test` | 11 tests : le vrai hub branché sur le bouchon, flux OAuth et SSO via les mires, PKCE, droits de Marie et Paul, fichiers, télémétrie |
 | Sauvegarde et restauration | `BACKUP_DIR="$PWD/backups" ops/test-backup-restore.sh` (Docker requis, stack `docker-compose.dev.yml` démarrée) | scénarios A–L : sauvegardes successives sans doublon, corruption et perte de `users.json`, sauvegarde invalide, restauration d'anciens et nouveaux noms, incohérence conteneur / volume refusée, sauvegarde manuelle, mauvaise `ENCRYPTION_KEY` |
 | Charge | `node loadtest/run.js` (≈ 15 min) | 6 scénarios sur bouchons (la référence en HTTP puis en SSE), 50 collaborateurs ([outils](../../loadtest/README.md), [rapport v1.2.1](../validation/charge-v1.2.1.md)) |
 | Documentation | `node ops/check-docs.js` | liens relatifs, ancres et chemins de fichiers cités dans tous les Markdown |
@@ -38,7 +38,7 @@ reproduit depuis. À surveiller en CI.
 Les rapports JSON sont des artefacts de chaque exécution. **Ne pas publier un rapport** hors de GitHub : il cite des
 chemins et des extraits du code.
 
-`.gitleaks.toml` met en liste blanche les constantes de test (`hub/test/`), le bouchon (`charlois-mcp-stub/`), l'exemple
+`.gitleaks.toml` met en liste blanche les constantes de test (`hub/test/`), le bouchon (`clevoa-mcp-stub/`), l'exemple
 de commande du README Clevoa et l'ancienne clé démo du portail (présente dans l'historique). Ce ne sont pas des
 secrets. Toute autre détection doit être traitée, jamais ajoutée à la liste blanche sans justification écrite dans le
 fichier et dans le changelog.

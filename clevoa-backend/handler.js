@@ -1,4 +1,4 @@
-// Fonction AWS Lambda "telemetry" : reçoit le POST quotidien d'un hub Charlois, vérifie la clé client,
+// Fonction AWS Lambda "telemetry" : reçoit le POST quotidien d'un hub Clevoa AI Gateway, vérifie la clé client,
 // enregistre (simulation) les statistiques de volume et répond { status: "active" }.
 // Aucune dépendance : Node 22 natif. Le stockage réel (DynamoDB, S3) se branche dans `record()`.
 

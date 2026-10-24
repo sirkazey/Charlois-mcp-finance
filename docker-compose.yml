@@ -11,9 +11,13 @@ services:
       APP_ENV: ${APP_ENV:-preprod}            # preprod (défaut) ou production : badge ENV du portail et verrous
       LOG_LEVEL: ${LOG_LEVEL:-info}           # debug = trace des appels d'outils
       TZ: ${TZ:-Europe/Paris}                 # heure de la coupure nocturne du cache de structure et de la télémétrie (03:00)
-      PUBLIC_URL: ${PUBLIC_URL:?URL publique du hub, ex. http://localhost:8080 ou https://mcp.charlois.fr}
+      PUBLIC_URL: ${PUBLIC_URL:?URL publique du hub, ex. http://localhost:8080 ou https://mcp.exemple.fr}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?clé maîtresse AES-256 du store (openssl rand -hex 32)}   # chiffre users.json ; la perdre = jetons illisibles
       TRUST_PROXY: ${TRUST_PROXY:-1}          # nombre de reverse-proxys devant le hub (IP réelle pour la limitation de débit)
+      # Instance (multi-client) : nom du serveur MCP annoncé aux assistants et clé du bloc mcpServers du portail (défaut clevoa-gateway ;
+      # les configurations déjà collées chez les collaborateurs ne dépendent pas de ce nom), et libellé affiché sur le portail (vide = Clevoa AI Gateway).
+      MCP_SERVER_NAME: ${MCP_SERVER_NAME}
+      INSTANCE_LABEL: ${INSTANCE_LABEL}
       # SSO du portail : vide = pas de SSO (clé créée au premier passage) ; entra = Microsoft Entra ID (OIDC, même application que
       # SharePoint, URI de redirection $PUBLIC_URL/auth/sso/callback, MS_TENANT_ID = GUID de l'annuaire) ; mock = mire du bouchon, interdit en production.
       SSO_MODE: ${SSO_MODE}
@@ -40,7 +44,7 @@ services:
       MS_TENANT_ID: ${MS_TENANT_ID}
       MS_CLIENT_ID: ${MS_CLIENT_ID}
       MS_CLIENT_SECRET: ${MS_CLIENT_SECRET}
-      SP_SITE: ${SP_SITE}                    # ex. charlois.sharepoint.com:/sites/Finance (vide = OneDrive de l'utilisateur)
+      SP_SITE: ${SP_SITE}                    # ex. exemple.sharepoint.com:/sites/Finance (vide = OneDrive de l'utilisateur)
       # Dropbox — app Dropbox (scopes lecture), proxy vers le serveur MCP officiel https://mcp.dropbox.com/mcp, callback = $PUBLIC_URL/auth/dropbox/callback
       DROPBOX_APP_KEY: ${DROPBOX_APP_KEY}
       DROPBOX_APP_SECRET: ${DROPBOX_APP_SECRET}
