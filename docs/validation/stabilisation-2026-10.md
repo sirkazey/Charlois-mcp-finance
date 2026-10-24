@@ -127,13 +127,17 @@ déployé.
 
 ## H. État GitHub
 
-* Branche de travail : `maintenance/stabilisation-2026-10`, commits listés par `git log affa329..` (un ou plusieurs par
-  lot, plus le rapport), depuis `affa329` (v1.3.1).
-* PR #16 vers `dev` : CI complète (9 jobs) verte sur les derniers commits ; fusion après la revue globale.
-* Livraison sur `main` par une PR `dev` → `main`, après CI verte ; aucune exécution de déploiement par la mission.
-* Branche `docs/roadmap-skills-adoption-2026-10` conservée, non fusionnée ; aucune branche supprimée, aucun push forcé.
-* Actions manuelles hors droits de la session : créer le tag `v1.3.2-rc.1` et sa Release ; poser la protection des
-  tags `v*` ; reconfigurer les stacks Portainer existantes sur un tag ; supprimer, si souhaité, les branches temporaires.
+État au 24/10/2026, 23 h UTC :
+
+* Branche de travail `maintenance/stabilisation-2026-10` : 15 commits (`26af868` à `4371166`), conservée.
+* PR #16 → `dev` : CI verte sur les 9 jobs (et l'analyse CodeQL), revue globale GO, **fusionnée** par squash (`45df0e2`).
+* PR #17 `dev` → `main` : CI verte, **fusionnée** par commit de fusion (`223c998`) ; `dev` avancée en avance rapide sur le
+  même commit : `main` = `dev` = `223c998`.
+* Branche `docs/roadmap-skills-adoption-2026-10` conservée, non fusionnée ; aucune branche supprimée, aucun push forcé ;
+  aucun déploiement déclenché par la mission.
+* Blocages, actions manuelles hors droits de la session : créer le tag `v1.3.2-rc.1` et sa Release sur `main`
+  (`223c998`) ; poser la protection des tags `v*` ; reconfigurer les stacks Portainer existantes sur un tag ;
+  supprimer, si souhaité, les branches temporaires (`maintenance/stabilisation-2026-10`, celle de ce correctif).
 
 ## Annexe — journal de la mission et détail des lots
 
