@@ -1,7 +1,10 @@
 #!/bin/sh
 # Restauration du hub : remet une sauvegarde users-*.json dans le volume Docker, hub arrêté, puis le redémarre.
 # Usage : ops/restore.sh <fichier de sauvegarde>
-# Variables : VOLUME=<nom du volume>, CONTAINER=<nom du conteneur du hub> si la détection automatique échoue.
+# Variables : VOLUME=<nom du volume>, CONTAINER=<nom du conteneur du hub> si la détection automatique échoue. Le conteneur retenu
+# doit monter le volume retenu : toute incohérence est refusée avant d'arrêter le hub ou de toucher aux données.
+# Fichiers acceptés : toute sauvegarde users-*.json du hub (quotidienne users-AAAA-MM-JJ.json, manuelle ou horodatée _HHMMSS) ;
+# seul le contenu compte (en-tête enc1:).
 # Prérequis : la MÊME ENCRYPTION_KEY que lors de la sauvegarde dans le .env (ou les variables de la stack Portainer).
 # À lancer avec sudo (accès au démon Docker, sauvegardes automatiques appartenant à root) depuis n'importe quel dossier.
 set -eu
@@ -13,8 +16,12 @@ docker info >/dev/null 2>&1 || { echo "Docker inaccessible : lancer avec sudo (o
 VOL=${VOLUME:-$(docker volume ls -q --filter name=mcp-data)}
 [ -n "$VOL" ] || { echo "Aucun volume mcp-data : démarrer le hub une première fois, puis relancer." >&2; exit 1; }
 [ "$(printf '%s\n' "$VOL" | wc -l)" -eq 1 ] || { echo "Plusieurs volumes trouvés : $(printf '%s ' $VOL). Relancer avec VOLUME=<nom>." >&2; exit 1; }
-CONT=${CONTAINER:-$(docker ps -a -q --filter name=mcp-hub)}
-[ "$(printf '%s\n' "$CONT" | grep -c .)" -le 1 ] || { echo "Plusieurs conteneurs mcp-hub : $(docker ps -a --filter name=mcp-hub --format '{{.Names}}' | tr '\n' ' '). Relancer avec CONTAINER=<nom> (et VOLUME=<nom>)." >&2; exit 1; }
+CONT=${CONTAINER:-$(docker ps -a -q --filter name=mcp-hub --filter volume="$VOL")}   # le conteneur mcp-hub qui monte CE volume
+[ "$(printf '%s\n' "$CONT" | grep -c .)" -le 1 ] || { echo "Plusieurs conteneurs mcp-hub montent $VOL : $(docker ps -a --filter name=mcp-hub --filter volume="$VOL" --format '{{.Names}}' | tr '\n' ' '). Relancer avec CONTAINER=<nom>." >&2; exit 1; }
+if [ -n "$CONT" ]; then
+  MOUNTS=$(docker inspect -f '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}} {{end}}{{end}}' "$CONT" 2>/dev/null) || { echo "Conteneur introuvable : $CONT" >&2; exit 1; }
+  case " $MOUNTS" in *" $VOL "*) ;; *) echo "Incohérence : le conteneur $(docker inspect -f '{{.Name}}' "$CONT" | sed 's|^/||') ne monte pas le volume $VOL (volumes montés : ${MOUNTS:-aucun}). Rien n'a été modifié ; vérifier VOLUME et CONTAINER." >&2; exit 1;; esac
+fi
 DIR=$(cd "$(dirname "$FILE")" && pwd); NAME=$(basename "$FILE")
 if [ -n "$CONT" ]; then docker stop "$CONT" >/dev/null; echo "Hub arrêté."; trap '[ -n "$CONT" ] && docker start "$CONT" >/dev/null 2>&1; echo "Hub relancé après interruption." >&2' EXIT; else echo "Aucun conteneur mcp-hub trouvé : restauration du volume seul."; fi
 # L'ancien fichier est conservé dans le volume sous users.json.avant-restauration (un seul niveau, écrasé à la restauration suivante).

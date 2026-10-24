@@ -76,7 +76,9 @@ services:
     cap_drop:
       - ALL
     cap_add:
-      - DAC_OVERRIDE            # seule capacité conservée : lire /data (dossier 700 de l'utilisateur node) et écrire dans BACKUP_DIR quel qu'en soit le propriétaire
+      - DAC_OVERRIDE            # seule capacité conservée : lire /data (dossier 700 de l'utilisateur node) et écrire dans BACKUP_DIR quel qu'en soit le propriétaire.
+                                # Sans elle, il faudrait soit exécuter la copie sous l'utilisateur node et imposer un BACKUP_DIR appartenant à l'uid 1000
+                                # (chown à faire par l'administrateur, fragile sous Portainer), soit relâcher les droits 700 du volume : jugé disproportionné (EXPLOITATION.md § 4).
 
   # Reverse proxy TLS optionnel, inactif sans le profil « proxy » (COMPOSE_PROFILES=proxy). Certificats fullchain.pem et privkey.pem
   # dans CERTS_DIR ; HUB_PORT=127.0.0.1:8080 pour que le hub ne soit joignable que par nginx. Une seule stack par machine peut le porter (80/443).

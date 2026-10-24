@@ -11,9 +11,13 @@ VOL=${VOLUME:-$(docker volume ls -q --filter name=mcp-data)}
 [ -n "$VOL" ] || { echo "Aucun volume mcp-data : le hub n'a jamais démarré sur cette machine." >&2; exit 1; }
 [ "$(printf '%s\n' "$VOL" | wc -l)" -eq 1 ] || { echo "Plusieurs volumes trouvés : $(printf '%s ' $VOL). Relancer avec VOLUME=<nom>." >&2; exit 1; }
 mkdir -p "$DEST"
-STAMP=$(date +%Y-%m-%d_%H%M)
-# Copie faite en root dans le conteneur (le volume appartient à l'utilisateur node, en 700), puis attribuée à l'utilisateur qui lance le script.
+STAMP=$(date +%Y-%m-%d_%H%M%S); NAME="users-$STAMP.json"; n=0
+while [ -e "$DEST/$NAME" ]; do n=$((n + 1)); NAME="users-$STAMP-$n.json"; done   # jamais d'écrasement
+OWNER="${SUDO_UID:-$(id -u)}:${SUDO_GID:-$(id -g)}"   # sous sudo, le fichier appartient à l'administrateur, pas à root
+# Copie faite en root dans le conteneur (le volume appartient à l'utilisateur node, en 700), via un fichier temporaire vérifié puis publié.
 docker run --rm -v "$VOL:/data:ro" -v "$(cd "$DEST" && pwd):/backups" node:22-alpine \
-  sh -c "[ -f /data/users.json ] || { echo 'users.json absent : aucun collaborateur connecté, rien à sauvegarder' >&2; exit 2; }; cp /data/users.json /backups/users-$STAMP.json && chown $(id -u):$(id -g) /backups/users-$STAMP.json && chmod 600 /backups/users-$STAMP.json"
-[ "$(head -c 5 "$DEST/users-$STAMP.json")" = "enc1:" ] || { echo "Sauvegarde invalide : le fichier n'est pas chiffré au format attendu" >&2; exit 1; }
-echo "Sauvegarde écrite : $DEST/users-$STAMP.json ($(wc -c < "$DEST/users-$STAMP.json") octets, chiffrée). Conserver ENCRYPTION_KEY séparément."
+  sh -c "[ -f /data/users.json ] || { echo 'users.json absent : aucun collaborateur connecté, rien à sauvegarder' >&2; exit 2; }
+         [ \"\$(head -c 5 /data/users.json)\" = enc1: ] || { echo 'users.json invalide (en-tête enc1: absent) : rien n est écrit' >&2; exit 3; }
+         cp /data/users.json /backups/$NAME.tmp && cmp -s /data/users.json /backups/$NAME.tmp && chown $OWNER /backups/$NAME.tmp && chmod 600 /backups/$NAME.tmp && mv /backups/$NAME.tmp /backups/$NAME || { rm -f /backups/$NAME.tmp; exit 4; }"
+[ "$(head -c 5 "$DEST/$NAME")" = "enc1:" ] || { echo "Sauvegarde invalide : le fichier n'est pas chiffré au format attendu" >&2; exit 1; }
+echo "Sauvegarde écrite : $DEST/$NAME ($(wc -c < "$DEST/$NAME") octets, chiffrée). Conserver ENCRYPTION_KEY séparément."
