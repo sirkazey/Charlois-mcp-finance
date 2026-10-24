@@ -2,7 +2,11 @@
 
 Une section par version, trois lignes au plus par rubrique. La version est celle de `hub/version.js`, le tag Git `vX.Y.Z` et la Release GitHub portent le même numéro.
 
-## [Non publié]
+## [1.2.1] – 2026-10-24
+
+Lot « fiabilisation » : SSO Microsoft Entra ID du portail (inactif sans `SSO_MODE`), corrections de l'audit indépendant du SSO,
+sauvegarde automatique et restauration testées en CI, reverse proxy nginx en profil Compose, guide d'exploitation, check complet
+(simplicité, documentation). Les tests de charge et la recette sur les systèmes réels Charlois restent à effectuer.
 
 ### Corrigé (fiabilisation des sauvegardes avant les tests de charge)
 - Sauvegarde automatique : fichiers horodatés jamais écrasés, aucun doublon quand `users.json` n'a pas changé, copie vérifiée (en-tête, taille, contenu) via un fichier temporaire publié atomiquement, source absente ou corrompue sans effet sur les sauvegardes existantes, rétention `BACKUP_KEEP_DAYS` appliquée seulement après une copie réussie, restes temporaires nettoyés. Sauvegarde manuelle : même nommage, sans écrasement, propriétaire réel sous `sudo`.
