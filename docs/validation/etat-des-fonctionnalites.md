@@ -17,7 +17,7 @@ sur le système réel), **testé sur bouchon** (tests automatisés et simulateur
 | SSO Microsoft Entra ID (`entra`) | testé sur bouchon | `hub/test/sso.test.js`, bouchon | activation sur un vrai locataire |
 | Portail, diagnostic, blocs de configuration, exemples de questions | disponible | usage quotidien en préproduction ; refonte v1.3.1 validée sur bouchon ([compte rendu](portail-v1.3.1.md)) | revue sur le portail de préproduction réel |
 | Claude Desktop via `mcp-remote` | disponible | vérifié le 23/10/2026 sur Windows | |
-| Claude Code, ChatGPT, Copilot (MCP HTTP + en-tête) | disponible (Claude Code) | Claude Code vérifié ; ChatGPT et Copilot non exercés | un test par client |
+| Claude Code, ChatGPT, Copilot (MCP HTTP + en-tête) | testé sur bouchon | tests de transport du hub ; Claude Code déclaré vérifié sans entrée au journal ; ChatGPT et Copilot non exercés | une session réelle par assistant, consignée au journal |
 | Claude.ai web et mobile | écarté | décision ([historique](../history/decisions.md)) | |
 | Transports Streamable HTTP et SSE | disponible | tests hub, campagne de charge | retrait du SSE quand les assistants cibles seront tous en Streamable HTTP |
 | Chiffrement `users.json`, clé MCP en en-tête, limitation de débit, en-têtes de sécurité | disponible | tests hub, ZAP passif | |

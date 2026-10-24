@@ -24,7 +24,8 @@ Le produit ne deviendra pas un chatbot, un moteur LLM, un orchestrateur d'agents
 d'Agent Skills, une plateforme de gouvernance IA ni une plateforme de téléadministration. La formalisation des méthodes
 métier et la création de Skills relèvent du conseil Clevoa et des fonctions natives des assistants.
 
-Statuts employés ci-dessous : **fait** (livré et testé automatiquement), **à faire** (engagé, sans date),
+Statuts employés ci-dessous : **fait** (livré, preuve citée : test automatisé ou entrée du journal des tests réels),
+**à faire** (engagé, sans date),
 **sur besoin** (déclenché seulement par une demande client identifiée).
 
 ## 2. Axe 1 — Qualification et stabilisation
@@ -38,8 +39,9 @@ fonction.
 | Cloisonnement avec des comptes non administrateurs (Sage X3, Salesforce) | à faire | un compte restreint ne voit que ses données, preuve consignée |
 | Authentification et révocation (expiration du jeton Salesforce, mot de passe Syracuse changé, SSO `entra`) | à faire | voyant rouge et message de reconnexion constatés sur chaque système |
 | Sauvegarde et restauration sur un serveur du client | à faire | une restauration réelle, puis une par trimestre ([exploitation](admin/exploitation.md)) |
-| Sécurité : CI (Semgrep, CodeQL, Gitleaks, Trivy), revue avant chaque version | fait | CI verte sur chaque PR |
-| Compatibilité MCP : Claude Desktop, Claude Code | fait | vérifiés le 23/10/2026 ; ChatGPT et Copilot non exercés |
+| Sécurité : CI (Semgrep, CodeQL, Gitleaks, Trivy) sur chaque PR | fait | CI verte avant toute fusion ; revue de sécurité à chaque version |
+| Compatibilité MCP : Claude Desktop | fait | journal des tests réels S13–S19 et F4–F5 (23/10/2026) |
+| Compatibilité MCP : Claude Code, ChatGPT, Copilot | à faire | une session réelle par assistant, consignée au journal ; Claude Code déclaré vérifié sans entrée au journal |
 | Correction des anomalies remontées en recette | à faire | anomalie reproduite par un test, corrigée, publiée dans une version corrective |
 
 La liste complète des tests réels restants est dans [l'état des fonctionnalités § 3](validation/etat-des-fonctionnalites.md#3-tests-restant-à-réaliser).
@@ -80,8 +82,9 @@ configuration, il n'est pas exposé en production) ; une personnalisation ne jus
 * registre et gestion d'Agent Skills (branche `docs/roadmap-skills-adoption-2026-10`, conservée comme archive, non
   fusionnée) ;
 * interface web conversationnelle ou appel d'un LLM depuis le hub ;
-* mini-portail d'administration, interface déclarative des connecteurs MCP, tableau de bord graphique des installations
+* mini-portail d'administration, santé des connecteurs sur le portail, interface déclarative des connecteurs MCP,
+  tableau de bord graphique des installations
   ([archive § 2](history/roadmap-2026-10.md#2-catalogue-des-évolutions-possibles-optionnel-roadmap-clevoa)) ;
-* accès depuis claude.ai web et mobile ([décisions](history/decisions.md)).
+* accès depuis claude.ai web et mobile, écarté ([décisions](history/decisions.md)).
 
 Une de ces pistes ne revient qu'avec une nouvelle décision datée et un client qui la demande.

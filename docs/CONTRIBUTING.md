@@ -56,7 +56,7 @@ où un connecteur est décrit :
 | **disponible** | livré dans la version courante et vérifié sur le système réel |
 | **testé sur bouchon** | livré, couvert par les tests automatisés, jamais confronté au vrai système |
 | **expérimental** | livré sans garantie, à activer explicitement, peut changer |
-| **prévu** | inscrit dans la [roadmap produit](roadmap-produit.md), non livré ; ne jamais le présenter comme existant |
+| **prévu** | inscrit dans la [roadmap produit](roadmap-produit.md) (« à faire » ou « sur besoin »), non livré ; ne jamais le présenter comme existant |
 | **non planifié** | évoqué dans une archive, écarté de la roadmap active ; ne revient qu'avec une nouvelle décision |
 
 ### Secrets et données sensibles

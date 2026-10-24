@@ -5,7 +5,8 @@ outils métier d'une entreprise : CRM Salesforce, ERP Sage X3, documents SharePo
 MyReport. Chaque appel porte le jeton **personnel** du collaborateur : l'assistant ne voit que ce que le collaborateur
 a déjà le droit de voir, et le hub n'a aucun compte technique.
 
-Édité par Clevoa SASU. Première instance déployée pour le Groupe Charlois (direction financière). Chaque instance porte son
+Édité par Clevoa SASU. Premier client : Groupe Charlois (direction financière) ; qualification en cours sur sa
+préproduction, aucune instance en production. Chaque instance porte son
 propre nom de serveur MCP et son libellé (`MCP_SERVER_NAME`, `INSTANCE_LABEL`).
 
 ## Ce que fait la passerelle
