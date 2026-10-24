@@ -1,10 +1,134 @@
 # Stabilisation d'octobre 2026
 
-Public : direction technique Clevoa, DSI cliente. Objet : compte rendu de la mission de stabilisation qui clôt le
-développement fonctionnel initial (gel à la 1.3.1) : lots réalisés, revues indépendantes, résultats des tests, limites.
-Ce document sert aussi de journal de progression tant que la mission est en cours.
+Public : direction technique Clevoa, DSI cliente. Objet : rapport de la mission de stabilisation qui clôt le
+développement fonctionnel initial de Clevoa AI Gateway (périmètre gelé à la 1.3.1). Le détail de chaque lot, des revues
+et des corrections est en annexe.
 
-## Journal de progression
+## A. Synthèse exécutive
+
+**Réalisé.** Une seule roadmap active, courte, en trois axes ; un socle de maintenance sans nouvelle fonction métier :
+télémétrie éditeur persistée (identifiant d'installation, version, dernier contact, connecteurs, alertes de silence et
+de version), diagnostic exportable sans secret, contrôle de santé du conteneur, versions figées (tag Git, image de base
+par empreinte) installées au choix de l'administrateur, retour arrière testé à chaque commit, scan de sécurité de l'image
+construite et CI hebdomadaire, tests de compatibilité MCP au niveau du protocole. Version candidate **1.3.2-rc.1**.
+
+**Abandonné.** Le registre d'Agent Skills et toute évolution vers un chatbot, un moteur LLM, un orchestrateur, une
+plateforme de gouvernance ou de téléadministration. La branche `docs/roadmap-skills-adoption-2026-10` reste une archive
+non fusionnée.
+
+**Reste à faire.** La qualification réelle chez le premier client (§ F) ; le déploiement du backend de télémétrie sur
+AWS par Clevoa ; la validation juridique de la télémétrie ; la création du tag `v1.3.2-rc.1` et la protection des tags.
+
+**État réel du produit.** Aucune instance n'est en production chez un client. Le code est testé automatiquement (128
+tests, 9 jobs de CI) ; Sage X3 et Salesforce ont été exercés sur la préproduction et la sandbox du Groupe Charlois avec un
+compte administrateur ; Claude Desktop est le seul assistant vérifié en réel. La 1.3.2-rc.1 n'est **pas** qualifiée pour
+la production : elle est prête pour une recette sur la préproduction du client.
+
+## B. Architecture finale
+
+* **Hub** (un conteneur Node 22, 3 dépendances) : portail, OAuth et SSO Entra, outils MCP en lecture seule vers
+  Salesforce, Sage X3, SharePoint / OneDrive, Dropbox et MyReport, avec le jeton personnel de chaque collaborateur ;
+  `users.json` chiffré (AES-256-GCM) dans un volume ; transports Streamable HTTP et SSE.
+* **Télémétrie** : le hub envoie une fois par jour (et au démarrage) un identifiant aléatoire d'installation, sa version,
+  l'état des connecteurs et deux compteurs ; jamais de donnée de collaborateur ni de donnée métier ; panne de Clevoa
+  sans effet sur le hub. Le backend Clevoa (AWS Lambda, DynamoDB, SNS) tient une fiche par installation et par
+  environnement et signale chaque jour les installations silencieuses ou sous la version minimale
+  ([sécurité § 4](../admin/securite.md#4-télémétrie-clevoa)).
+* **Déploiement** : une stack Docker Compose par environnement (pré-production, production), déployée depuis un tag Git ;
+  aucune mise à jour automatique ; sauvegarde quotidienne chiffrée ; reverse proxy nginx optionnel
+  ([installation § 6](../admin/installation.md#6-cycle-de-livraison-et-versions), [exploitation § 10](../admin/exploitation.md#10-mise-à-jour-et-retour-arrière)).
+* **Diagnostic** : `docker exec … node diagnostic.js`, rapport JSON relu par l'administrateur avant envoi ; aucun accès
+  distant de Clevoa ([exploitation § 9](../admin/exploitation.md#9-diagnostic-et-support)).
+* **Sécurité** : aucun compte de service, lecture seule par listes blanches, clé MCP en en-tête, limitation de débit,
+  en-têtes HTTP, conteneur sans privilèges en lecture seule, image sans gestionnaire de paquets ; CI : tests, Semgrep,
+  CodeQL, Gitleaks, Trivy (dépôt et image), `npm audit`, chaque lundi en plus des PR.
+
+## C. Roadmap finale
+
+[Roadmap produit](../roadmap-produit.md) : (1) qualification et stabilisation sur les systèmes du client ;
+(2) observabilité et maintenance (télémétrie, versions, diagnostic, retour arrière : faits, à exploiter) ;
+(3) intégrations applicatives seulement sur besoin d'un client identifié.
+
+## D. Lots réalisés
+
+| Lot | Travaux | Anomalies trouvées en revue et corrigées | Décision | Commits |
+|---|---|---|---|---|
+| 1 Audit et documentation | roadmap unique, 4 décisions, statut « non planifié » | README annonçant une instance déployée ; compatibilité Claude Code sans preuve | GO (E) | `26af868`, `eab8a3f` |
+| 2 Télémétrie | identifiant d'installation, persistance, rapport de silence et de version, essais bornés | injection de lignes dans les journaux du hub ; clé suivant les redirections ; fiches orphelines ; collision production / pré-production ; conservation incomplète | GO (E, F) | `f72a0fb`, `2e5a600` |
+| 3 Diagnostic | `diagnostic.js`, contrôle de santé, procédure de support | hub arrêté non traité ; tests des variables piégées absents | GO (E, F) | `02b6bfc`, `830653e`, `92c8eb4` |
+| 4 Releases | tag Git, image figée, version candidate, retour arrière en CI | image figée jamais scannée ; npm vulnérable dans l'image ; clé en double invalidant le workflow ; copie illisible pour le runner CI ; alerte CodeQL | GO (E, F) | `073ed7e`, `140221a`, `705a130`, `ce291be` |
+| 5 MCP et sécurité | tests de compatibilité en JSON-RPC brut, matrice de sécurité | tables de connecteurs à prototype ; compatibilité affichée sans réserve ; statut HTTP non vérifié | GO (E, F) | `6ffcdf3`, `2a6e534` |
+| 6 Qualification | contrôles finaux, rapport, revue globale, livraison | voir § H | en revue (G) | ce rapport |
+
+Relecteurs : agent E (architecture, tests, documentation), agent F (sécurité), agent G (revue globale finale), tous
+distincts du coordinateur qui a écrit le code. Aucun lot n'a été validé par son auteur.
+
+## E. Résultats des tests
+
+Exécutés le 24/10/2026 sur `2a6e534`, en local, puis par la CI GitHub de la PR #16.
+
+| Résultat | Contrôles |
+|---|---|
+| **Réussis** | hub 102 tests (101 réussis, 1 réservé à la production) ; hub en mode production (100 réussis, 2 réservés à la pré-production) ; bouchon 11/11 ; backend 15/15 ; documentation ; `npm audit` hub et bouchon (0 vulnérabilité) ; Gitleaks (historique complet) ; Semgrep (3 jeux de règles) ; Trivy dépôt et image (0 haute ou critique) ; CodeQL `security-extended` (0 nouvelle alerte) ; actionlint ; configuration des 3 fichiers Compose ; scénario de sauvegarde et restauration A à L ; retour arrière 1.3.2-rc.1 → v1.3.1 → 1.3.2-rc.1 (aussi en utilisateur non root) ; diagnostic et contrôle de santé dans le conteneur de la stack pré-prod |
+| **Échoués** | aucun en fin de mission. En cours de mission : 2 jobs de la première CI réelle (corrigés, § D lot 4) ; une exécution isolée en mode production avec 8 échecs SSO, non reproduite sur 9 relances ni en CI (aléa à surveiller) |
+| **Non exécutés** | déploiement AWS du backend (`serverless deploy`, DynamoDB, SNS réels) ; déploiement et mise à jour sous Portainer ; tous les tests sur systèmes réels du § F |
+| **Non applicables** | charge (campagne v1.2.1 inchangée, aucun code de transport modifié) ; tests d'interface du portail (portail inchangé) |
+
+## F. Limites connues
+
+**Techniques** : délais d'attente amont explicites pour Sage X3 seulement ; routes MCP non plafonnées par clé ; sessions
+SSE abandonnées sans délai propre ; aucun outil de retrait d'une entrée de `users.json` ; rôle IAM commun aux deux
+fonctions du backend et pas de limitation de débit par route ; image nginx optionnelle non figée ; actions GitHub
+référencées par version. Détail : [état des fonctionnalités § 2](etat-des-fonctionnalites.md#2-limites-connues).
+
+**Dépendances externes** : backend AWS et nom de domaine `clevoa.fr` à mettre en place par Clevoa ; publication par
+4CAD des représentations Sage X3 demandées ; serveur MCP de MyReport non livré ; validation juridique de la télémétrie.
+
+**Tests réels manquants** : cloisonnement avec des comptes non administrateurs ; expiration et révocation réelles des
+jetons ; Salesforce production ; SharePoint, Dropbox et MyReport sur de vrais comptes ; SSO `entra` ; restauration sur
+le serveur du client ; charge en préproduction réelle ; exactitude financière ; injection de prompts ; Claude Code,
+ChatGPT et Copilot en réel ; mise à jour et retour arrière sous Portainer ; diagnostic chez le client
+([§ 3](etat-des-fonctionnalites.md#3-tests-restant-à-réaliser)).
+
+**Risques résiduels** : un défaut de cloisonnement propre à un système réel ne serait vu qu'en recette ; tags non
+protégés tant que la règle `v*` n'est pas posée ; correctifs de l'image de base dépendants de la discipline de
+publication (alerte hebdomadaire, délai cible de 15 jours) ; télémétrie silencieuse tant que le backend n'est pas
+déployé.
+
+## G. Première installation chez le Groupe Charlois
+
+1. **Prérequis** : serveur Linux interne avec Docker et Portainer ; noms DNS internes et certificats pour la
+   pré-production et la production ; flux sortants vers Salesforce, Microsoft, Dropbox, Syracuse (4CAD) et Clevoa.
+2. **Version** : Clevoa crée le tag `v1.3.2-rc.1` sur `main` ; stack de pré-production sur `refs/tags/v1.3.2-rc.1`,
+   GitOps désactivé ([installation § 4](../admin/installation.md#4-déploiement-avec-portainer-gitops)).
+3. **Paramètres** : variables de `.env.example` ; `MCP_SERVER_NAME`, `INSTANCE_LABEL` ; applications OAuth Salesforce,
+   Entra (SharePoint, SSO), Dropbox ; Sage X3 en mode `basic` ; `BACKUP_DIR` absolu par environnement.
+4. **Sécurité** : une `ENCRYPTION_KEY` et une `CLEVOA_KEY` par environnement, au coffre ; hub derrière https
+   (`HUB_PORT=127.0.0.1:8080`) ; SSO Entra si le portail est accessible à tout le locataire
+   ([sécurité § 5](../admin/securite.md#5-ce-que-ladministrateur-doit-vérifier-au-déploiement)).
+5. **Déploiement** : démarrage, ligne `Hub MCP v1.3.2-rc.1 · ENV: PRE-PROD`, hub « healthy », diagnostic sans problème.
+6. **Fonctionnement** : « Tester » chaque outil configuré ; questions de référence dans Claude Desktop (journal des tests
+   réels).
+7. **Habilitations** : un compte **non administrateur** sur Sage X3 et Salesforce, résultat consigné ; révocation d'une
+   autorisation et changement de mot de passe.
+8. **Sauvegarde** : vérifier la sauvegarde du jour, puis une restauration complète en pré-production
+   ([exploitation § 5](../admin/exploitation.md#5-restauration)).
+9. **Télémétrie** : backend Clevoa déployé, installation visible dans le rapport ; à défaut, journal `[telemetry] échec`
+   sans effet sur le hub.
+10. **Retour arrière** : sur la pré-production, passer à `v1.3.1` puis revenir à `v1.3.2-rc.1` (exploitation § 10), sans
+    perte de connexion.
+11. Production seulement après ces dix points, sur le tag `v1.3.2` publié à l'issue de la recette.
+
+## H. État GitHub
+
+* Branche de travail : `maintenance/stabilisation-2026-10`, 13 commits de lots depuis `affa329` (v1.3.1).
+* PR #16 vers `dev` : CI complète (9 jobs) verte sur les derniers commits ; fusion après la revue globale.
+* Livraison sur `main` par une PR `dev` → `main`, après CI verte ; aucune exécution de déploiement par la mission.
+* Branche `docs/roadmap-skills-adoption-2026-10` conservée, non fusionnée ; aucune branche supprimée, aucun push forcé.
+* Actions manuelles hors droits de la session : créer le tag `v1.3.2-rc.1` et sa Release ; poser la protection des
+  tags `v*` ; reconfigurer les stacks Portainer existantes sur un tag ; supprimer, si souhaité, les branches temporaires.
+
+## Annexe — journal de la mission et détail des lots
 
 | Lot | Objet | État | Revue |
 |---|---|---|---|
@@ -12,8 +136,8 @@ Ce document sert aussi de journal de progression tant que la mission est en cour
 | 2 | Télémétrie éditeur | GO | agents E et F (2 passages chacun) |
 | 3 | Diagnostic et support | GO | agents F (1 passage) et E (2 passages) |
 | 4 | Releases et mises à jour contrôlées | GO | agent E (1 passage), agent F (3 passages, réserve : CI verte avant fusion) |
-| 5 | Compatibilité MCP et sécurité | en revue | — |
-| 6 | Qualification finale et livraison | à faire | — |
+| 5 | Compatibilité MCP et sécurité | GO | agents E et F (2 passages chacun) |
+| 6 | Qualification finale et livraison | en revue | revue globale indépendante (agent G) |
 
 Branche de travail : `maintenance/stabilisation-2026-10`, créée depuis `main` (`affa329`, v1.3.1).
 
@@ -256,3 +380,10 @@ Revue de l'agent E (architecture) : « corrections requises » : compatibilité 
 présentée sans réserve dans le README ; statut HTTP non vérifié dans deux des trois cas du test « jamais de 500 ». Corrigé :
 limite explicite dans le README et le guide utilisateur, statut vérifié dans les trois cas ; délais d'attente amont
 ajoutés aux limites connues (seul Sage X3 a un délai explicite).
+
+Seconds passages : agents E et F **GO** (`2a6e534`). Commits du lot 5 : `6ffcdf3`, `2a6e534`.
+
+## Lot 6 — Qualification finale et livraison
+
+Contrôles finaux exécutés en local sur `2a6e534` le 24/10/2026 : voir § E. Rapport de synthèse (§ A à H), revue globale
+indépendante par un agent qui n'a relu aucun lot, PR #16 vers `dev`, puis `dev` vers `main`.
