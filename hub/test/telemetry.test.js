@@ -113,6 +113,22 @@ test("Module : version sous le minimum annoncé par Clevoa → avertissement dan
   } finally { f.mock.restore(); warn.mock.restore(); }
 });
 
+test("Module : une réponse du backend ne peut pas injecter de lignes dans les journaux du hub ; aucune redirection suivie", async () => {
+  process.env.CLEVOA_KEY = "k-unit"; process.env.CLEVOA_URL = "https://clevoa.test/api/v1/telemetry";
+  const tm = await import("../telemetry.js");
+  const out = [];
+  const log = mock.method(console, "log", (...a) => out.push(a.join(" ")));
+  const warn = mock.method(console, "warn", (...a) => out.push(a.join(" ")));
+  let init;
+  const f = mock.method(globalThis, "fetch", async (_u, i) => { init = i; return new Response(JSON.stringify({ status: "ok\n[auth] faux", minimum: "99.9.9\n[admin] FAUX MESSAGE" }), { status: 200 }); });
+  try {
+    await tm.send(CONNECTORS);
+    assert.equal(init.redirect, "error", "la clé ne suit jamais une redirection");
+    assert.ok(out.length >= 1);
+    assert.ok(out.every((l) => !l.includes("\n") && !/faux|FAUX/i.test(l)), `journal propre : ${JSON.stringify(out)}`);
+  } finally { f.mock.restore(); log.mock.restore(); warn.mock.restore(); }
+});
+
 let up, hub;
 before(async () => { up = await startUpstream(); hub = await startHub({ upstreamUrl: up.url, users: { [KEY]: connectedUser(up.url) } }); });
 after(async () => { await hub?.stop(); await up?.stop(); });

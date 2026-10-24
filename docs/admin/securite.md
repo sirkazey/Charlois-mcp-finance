@@ -56,7 +56,9 @@ d'outils ; noms d'objets validés (`^\w+$`) ; outils annotés `readOnlyHint`.
 **Finalité** : permettre à Clevoa SASU, éditeur, de savoir quelles installations tournent, dans quelle version, avec
 quels connecteurs configurés, et de détecter une installation qui ne donne plus de nouvelles ou qui doit être mise à
 jour. Base du suivi de licence (nombre de sièges) et du contrat de maintenance. Clevoa n'a, par ce canal, aucun accès à
-l'installation : il ne reçoit aucune commande à exécuter et ne peut rien déclencher sur le hub.
+l'installation : la réponse du backend n'est jamais exécutée ; le hub n'en retient qu'un statut court et, s'il est bien
+formé, un numéro de version minimale qui produit un avertissement dans ses journaux. La clé n'est jamais envoyée à une
+autre adresse que `CLEVOA_URL` (aucune redirection suivie).
 
 **Fréquence** : un `POST` vers `CLEVOA_URL` (défaut `https://clevoa.fr/api/v1/telemetry`, figé en production) au
 démarrage puis chaque jour à 03:00, avec l'en-tête `X-Clevoa-Key`. Délai de 10 secondes par envoi ; après un échec, trois
@@ -81,12 +83,17 @@ hub : journal `[telemetry] échec`, rien d'autre.
 
 Ne quittent jamais le hub : jetons OAuth, clés MCP, mots de passe, données métier, contenu des requêtes, réponses des
 outils, noms et e-mails des collaborateurs, journaux applicatifs, adresses IP des postes. La clé `CLEVOA_KEY` identifie
-le **client** ; l'identifiant distingue ses installations. Parler de télémétrie « réduite à des compteurs », pas
+le **client** ; l'identifiant distingue ses installations. Une sauvegarde de production restaurée en
+pré-production y apporte le même identifiant d'installation ; Clevoa tient une fiche par identifiant **et** par
+environnement, les deux restent distinctes. Parler de télémétrie « réduite à des compteurs », pas
 « totalement anonyme » : Clevoa sait quel client a combien d'installations.
 
 **Destinataire et conservation** : Clevoa SASU, sur AWS région Paris (`eu-west-3`, sous-traitant). Une fiche par
-installation (dernier état, premier et dernier contact) dans une table DynamoDB chiffrée, supprimée automatiquement
-400 jours après le dernier contact ; journaux techniques CloudWatch conservés 90 jours. Détail : [backend](../../clevoa-backend/README.md).
+installation (dernier état, premier et dernier contact) dans une table DynamoDB chiffrée, expirée 400 jours après le
+dernier contact (la suppression effective par AWS intervient en général sous quelques jours) ; la restauration à un
+instant donné de la table conserve une copie 35 jours de plus. Journaux techniques CloudWatch : 90 jours. Alertes
+e-mail (nom du client, identifiant, version) : conservées dans la messagerie de Clevoa, à purger selon sa propre
+politique. Détail : [backend](../../clevoa-backend/README.md).
 
 **Désactivation** : `CLEVOA_KEY` vide désactive la télémétrie hors production. En production, la clé est exigée par
 `docker-compose.prod.yml` (suivi de licence et de maintenance) ; son encadrement contractuel est un point ouvert de la

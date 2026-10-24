@@ -69,7 +69,7 @@ Sur le portail : « Se connecter » à chaque outil (mires du bouchon sur `http:
 vérifier les voyants du diagnostic, copier le bloc de configuration dans l'assistant. Sans Docker :
 
 ```bash
-cd hub && npm install && npm test                      # 81 tests, aucun réseau
+cd hub && npm install && npm test                      # 82 tests, aucun réseau
 ```
 
 Suite détaillée : [installation](docs/admin/installation.md).
@@ -96,8 +96,8 @@ Composants annexes : [bouchon d'entreprise](clevoa-mcp-stub/README.md), [backend
   claude.ai web et mobile ne sont donc pas pris en charge (choix assumé : le hub reste sur le réseau interne).
 * Limitation de débit par adresse IP, plafonds d'appels sortants par connecteur (`MYREPORT_MAX_PER_MIN`,
   `SF_MAX_PER_MIN`), en-têtes de sécurité HTTP, conteneur sans privilèges en lecture seule.
-* Télémétrie vers Clevoa limitée à des compteurs (version, connecteurs configurés, nombre d'appels et de sièges) ;
-  aucun e-mail, jeton, requête ni résultat ne quitte le hub.
+* Télémétrie vers Clevoa réduite à un identifiant aléatoire d'installation, la version, les connecteurs configurés et
+  des compteurs (appels, sièges) ; aucun e-mail, jeton, requête ni résultat ne quitte le hub ([sécurité § 4](docs/admin/securite.md#4-télémétrie-clevoa)).
 * Limites actuelles : SharePoint, Dropbox et MyReport non vérifiés sur un vrai compte ; cloisonnement observé sur les
   systèmes réels avec un compte administrateur seulement ; capacité démontrée sur bouchons (50 collaborateurs), pas
   encore sur les systèmes réels. Détail : [sécurité](docs/admin/securite.md), [état des fonctionnalités](docs/validation/etat-des-fonctionnalites.md).
@@ -106,5 +106,5 @@ Composants annexes : [bouchon d'entreprise](clevoa-mcp-stub/README.md), [backend
 
 Logiciel propriétaire de Clevoa SASU : [LICENSE.md](LICENSE.md). Les dépendances open source conservent leurs licences
 (MIT, ISC, BSD). Versions : [CHANGELOG.md](CHANGELOG.md) et
-[releases GitHub](https://github.com/sirkazey/Clevoa-IA-gateway/releases) ; version courante **1.3.1**
+[releases GitHub](https://github.com/sirkazey/Clevoa-IA-gateway/releases) ; version courante **1.3.2**
 (`hub/version.js`), affichée sur le portail et dans les journaux de démarrage.

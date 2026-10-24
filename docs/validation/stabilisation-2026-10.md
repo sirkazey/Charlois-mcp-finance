@@ -75,3 +75,25 @@ bouchon 11/11 ; documentation réussie. Une exécution en mode production a mont
 reproduits sur 9 relances (4 suites complètes, 5 fichiers SSO seuls) : aléa consigné, à surveiller en CI.
 Non exécuté : déploiement AWS, `serverless package` (Serverless Framework v4 non installé, compte requis), DynamoDB et
 SNS réels.
+
+Revues du lot 2, premier passage :
+
+* agent F (sécurité) : « corrections requises », aucune anomalie critique. Majeure : le hub journalisait tels quels des
+  champs renvoyés par le backend (injection de fausses lignes de journal). Mineures retenues : redirections suivies
+  avec la clé, compteur remis à zéro après l'envoi, 503 explicite sur la configuration, empreinte courte de clé
+  stockée, taille contrôlée après décodage base64, sujet SNS non chiffré, conservation incomplète dans la doc,
+  incohérence de version.
+* agent E (architecture) : « corrections requises ». Fiches orphelines qui alerteraient pendant 400 jours ; identifiant
+  copié par la restauration trimestrielle en pré-production ; README incomplet.
+
+Corrections : statut et version minimale filtrés avant journalisation (test d'injection), `redirect: "error"`,
+compteur décrémenté du nombre envoyé, 503 sans détail, entrées `client=clé` nommées obligatoires, taille contrôlée
+avant décodage, sujet SNS chiffré (KMS géré par AWS), fiche `client#installation#environnement`, installations
+« perdues » sans alerte au-delà de 30 jours, échec SNS sans échec de la fonction, retrait d'une fiche documenté,
+préversions comparées comme côté backend, version portée à 1.3.2, conservation complète (TTL, PITR 35 jours,
+CloudWatch, e-mails). Restent documentées comme limites : rôle IAM commun aux deux fonctions, pas de limitation de
+débit par route, quota de concurrence du compte AWS.
+
+Tests après corrections : backend 15/15 ; hub 82 tests (81 réussis, 1 ignoré en pré-prod ; 80 réussis, 2 ignorés en
+production) ; bouchon 11/11 ; documentation réussie ; scénario de sauvegarde et restauration (A à L) joué en local
+sous Docker sur la stack pré-prod : tous les scénarios passent.

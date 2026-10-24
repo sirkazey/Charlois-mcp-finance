@@ -23,10 +23,11 @@ export const payload = (connectors, seats = 0, installation) => ({
   seats, // fourni par le hub (store.seats) : le module ne lit jamais le store lui-même
 });
 
-/** Vrai si la version a est strictement inférieure à b (X.Y.Z, préversion ignorée). */
+/** Vrai si la version a est strictement inférieure à b (X.Y.Z ; une préversion passe avant la version finale, comme côté Clevoa). */
 const older = (a, b) => {
-  const x = a.split("-")[0].split(".").map(Number), y = String(b).split("-")[0].split(".").map(Number);
-  for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0);
+  const parse = (v) => { const [core, pre] = String(v).split("-"); return [...core.split(".").map(Number), pre ? 0 : 1]; };
+  const x = parse(a), y = parse(b);
+  for (let i = 0; i < 4; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0);
   return false;
 };
 
@@ -35,13 +36,17 @@ export async function send(connectors, seats = () => 0, installation = () => und
   if (!KEY) return null;
   try {
     const body = payload(connectors, seats(), installation());
-    const r = await fetch(URL_, { method: "POST", headers: { "Content-Type": "application/json", "X-Clevoa-Key": KEY }, body: JSON.stringify(body), signal: AbortSignal.timeout(TIMEOUT) });
+    // redirect "error" : la clé et le payload ne partent jamais vers une autre adresse que CLEVOA_URL.
+    const r = await fetch(URL_, { method: "POST", redirect: "error", headers: { "Content-Type": "application/json", "X-Clevoa-Key": KEY }, body: JSON.stringify(body), signal: AbortSignal.timeout(TIMEOUT) });
     const data = await r.json().catch(() => ({}));
-    if (r.ok) requests = 0;
-    console.log(`[telemetry] ${r.status} ${data.status ?? ""} (${body.requests} requêtes)`);
-    if (r.ok && typeof data.minimum === "string" && /^\d+\.\d+\.\d+/.test(data.minimum) && older(VERSION, data.minimum))
-      console.warn(`[telemetry] version ${VERSION} inférieure au minimum ${data.minimum} annoncé par Clevoa : mise à jour à planifier (docs/admin/exploitation.md)`);
-    return r.ok ? data.status ?? "ok" : null;
+    if (r.ok) requests = Math.max(0, requests - body.requests); // les appels comptés pendant l'envoi restent pour le prochain
+    // Rien de la réponse n'est journalisé tel quel : statut court en minuscules, version X.Y.Z stricte, sinon ignorés.
+    const status = typeof data.status === "string" && /^[a-z]{1,20}$/.test(data.status) ? data.status : "";
+    const minimum = typeof data.minimum === "string" && /^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(data.minimum) ? data.minimum : null;
+    console.log(`[telemetry] ${r.status} ${status} (${body.requests} requêtes)`);
+    if (r.ok && minimum && older(VERSION, minimum))
+      console.warn(`[telemetry] version ${VERSION} inférieure au minimum ${minimum} annoncé par Clevoa : mise à jour à planifier (docs/admin/exploitation.md)`);
+    return r.ok ? status || "ok" : null;
   } catch (e) {
     console.error(`[telemetry] échec : ${e.name === "TimeoutError" ? "délai dépassé" : e.message}`);
     return null;

@@ -7,9 +7,9 @@ de bout en bout, bouchons rapides pour la charge. Aucun outil n'est jamais lanc�
 
 | Suite | Commande | Contenu |
 |---|---|---|
-| Hub, pré-production | `cd hub && npm test` | 81 tests `node:test` (80 exécutés, 1 réservé à la production) : transports MCP, lecture seule, refresh et révocation, cache, OAuth et PKCE, SSO (anonymes, usurpation, cloisonnement des clés), jetons personnels, portail, simulateurs, Graph, proxys MCP, télémétrie (identifiant d'installation, essais bornés, backend en panne), boucle de sauvegarde (`backup.test.js`, sans Docker) |
-| Hub, verrous de production | `cd hub && APP_ENV=production npm test` | même suite sous `APP_ENV=production` (79 exécutés, 2 réservés à la pré-production) |
-| Backend Clevoa | `cd clevoa-backend && npm test` | 13 tests sans AWS : clés client, validation stricte, persistance par installation, séparation des clients, rapport de silence et de version, adaptateur DynamoDB |
+| Hub, pré-production | `cd hub && npm test` | 82 tests `node:test` (81 exécutés, 1 réservé à la production) : transports MCP, lecture seule, refresh et révocation, cache, OAuth et PKCE, SSO (anonymes, usurpation, cloisonnement des clés), jetons personnels, portail, simulateurs, Graph, proxys MCP, télémétrie (identifiant d'installation, essais bornés, backend en panne), boucle de sauvegarde (`backup.test.js`, sans Docker) |
+| Hub, verrous de production | `cd hub && APP_ENV=production npm test` | même suite sous `APP_ENV=production` (80 exécutés, 2 réservés à la pré-production) |
+| Backend Clevoa | `cd clevoa-backend && npm test` | 15 tests sans AWS : clés client, validation stricte, persistance par installation, séparation des clients, rapport de silence et de version, adaptateur DynamoDB |
 | Bouchon, bout en bout | `cd clevoa-mcp-stub && npm test` | 11 tests : le vrai hub branché sur le bouchon, flux OAuth et SSO via les mires, PKCE, droits de Marie et Paul, fichiers, télémétrie |
 | Sauvegarde et restauration | `BACKUP_DIR="$PWD/backups" ops/test-backup-restore.sh` (Docker requis, stack `docker-compose.dev.yml` démarrée) | scénarios A–L : sauvegardes successives sans doublon, corruption et perte de `users.json`, sauvegarde invalide, restauration d'anciens et nouveaux noms, incohérence conteneur / volume refusée, sauvegarde manuelle, mauvaise `ENCRYPTION_KEY` |
 | Charge | `node loadtest/run.js` (≈ 15 min) | 6 scénarios sur bouchons (la référence en HTTP puis en SSE), 50 collaborateurs ([outils](../../loadtest/README.md), [rapport v1.2.1](../validation/charge-v1.2.1.md)) |

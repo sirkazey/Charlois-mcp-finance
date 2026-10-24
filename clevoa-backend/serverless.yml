@@ -14,10 +14,11 @@ provider:
   architecture: arm64            # Graviton : moins cher que x86 à performance égale
   logRetentionInDays: 90         # journaux CloudWatch conservés 90 jours
   environment:
-    CLEVOA_KEYS: ${env:CLEVOA_KEYS, ""}         # « client=clé » séparés par des virgules (vide = la fonction refuse tout, 503)
+    CLEVOA_KEYS: ${env:CLEVOA_KEYS, ""}         # « client=clé » séparés par des virgules ; entrée sans nom ignorée ; vide = la fonction refuse tout (503)
     TELEMETRY_TABLE: ${self:custom.table}
     RETENTION_DAYS: ${env:RETENTION_DAYS, "400"}  # fiche d'une installation supprimée (TTL) N jours après son dernier contact
     SILENCE_HOURS: ${env:SILENCE_HOURS, "48"}     # installation silencieuse au-delà de N heures sans contact (envoi quotidien)
+    SILENCE_MAX_DAYS: ${env:SILENCE_MAX_DAYS, "30"}  # au-delà de N jours, « perdue » : listée dans le rapport, plus d'alerte
     MIN_VERSION: ${env:MIN_VERSION, ""}           # version minimale supportée : le hub en dessous l'écrit dans ses journaux, le rapport la signale
     LATEST_VERSION: ${env:LATEST_VERSION, ""}     # dernière version publiée, renvoyée au hub pour information
     ALERT_TOPIC_ARN: !Ref AlertTopic
@@ -40,7 +41,7 @@ functions:
   telemetry:
     handler: handler.telemetry   # fichier handler.js, export `telemetry`
     description: Réception de la télémétrie quotidienne des hubs Clevoa AI Gateway
-    reservedConcurrency: 5       # plafond de coût et de charge : au-delà, API Gateway répond 429 et le hub retente plus tard
+    reservedConcurrency: 5       # plafond de coût et de charge (le compte doit disposer de plus de 10 exécutions simultanées) ; au-delà, l'appel échoue et le hub retente
     events:
       - httpApi:                 # API Gateway v2 (HTTP API) : moins cher et plus simple que REST API
           method: POST
@@ -73,6 +74,7 @@ resources:
       Type: AWS::SNS::Topic             # abonnement e-mail à créer une fois (README) : aucune adresse dans ce fichier
       Properties:
         TopicName: ${self:service}-${sls:stage}-alertes
+        KmsMasterKeyId: alias/aws/sns     # messages chiffrés au repos (clé gérée par AWS)
 
 package:
   patterns:                      # n'embarquer que le code utile dans le zip envoyé à Lambda

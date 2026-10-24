@@ -73,7 +73,7 @@ un compose collé à la main laisse `mcp-backup` sans script.
 4. **https** : le nginx fourni (profil `proxy`, `HUB_PORT=127.0.0.1:8080`, `CERTS_DIR`, `COMPOSE_PROFILES=proxy`) ou un
    reverse proxy existant : [exploitation § 6](exploitation.md#6-reverse-proxy-nginx-https). La prise en compte de
    `COMPOSE_PROFILES` comme variable de stack est à vérifier sur votre Portainer.
-5. Premier démarrage : la ligne de journal `Hub MCP v1.3.1 · ENV: PRE-PROD · https://…` confirme la version et
+5. Premier démarrage : la ligne de journal `Hub MCP v1.3.2 · ENV: PRE-PROD · https://…` confirme la version et
    l'environnement ; le portail affiche le badge correspondant.
 
 **Pré-production avec des systèmes réels** : une variable **vide** garde le défaut vers le bouchon. Pour brancher un vrai

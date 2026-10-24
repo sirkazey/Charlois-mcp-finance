@@ -12,7 +12,7 @@ const parse = (r) => ({ status: r.statusCode, body: JSON.parse(r.body) });
 let db;
 
 beforeEach(() => {
-  process.env.CLEVOA_KEYS = "charlois=cle-charlois, autre=cle-autre, cle-sans-nom";
+  process.env.CLEVOA_KEYS = "charlois=cle-charlois, autre=cle-autre, cle-sans-nom, troisieme=cle-troisieme";
   for (const n of ["MIN_VERSION", "LATEST_VERSION", "SILENCE_HOURS", "RETENTION_DAYS", "ALERT_TOPIC_ARN", "TELEMETRY_TABLE"]) delete process.env[n];
   db = memoryStore(); setStore(db);
 });
@@ -20,7 +20,7 @@ beforeEach(() => {
 test("Fermé par défaut : CLEVOA_KEYS vide → 503, aucune clé acceptée", async () => {
   process.env.CLEVOA_KEYS = "";
   const r = parse(await telemetry(ev(ok)));
-  assert.equal(r.status, 503); assert.equal(r.body.status, "misconfigured");
+  assert.equal(r.status, 503); assert.equal(r.body.status, "unavailable"); assert.equal(r.body.error, undefined, "aucun détail de configuration pour l'appelant");
   assert.equal((await db.list()).length, 0);
 });
 
@@ -28,6 +28,7 @@ test("Clé absente ou inconnue → 401, rien n'est enregistré", async () => {
   assert.equal((await telemetry(ev(ok, null))).statusCode, 401);
   assert.equal((await telemetry(ev(ok, "cle-inconnue"))).statusCode, 401);
   assert.equal((await telemetry(ev(ok, "cle-charloi"))).statusCode, 401, "préfixe d'une clé valide refusé");
+  assert.equal((await telemetry(ev(ok, "cle-sans-nom"))).statusCode, 401, "entrée sans nom de client ignorée");
   assert.equal((await db.list()).length, 0);
 });
 
@@ -36,7 +37,7 @@ test("Envoi valide : fiche de l'installation persistée (client, version, connec
   assert.equal(r.status, 200); assert.equal(r.body.status, "active"); assert.ok(r.body.recorded);
   assert.equal(r.body.totalToday, undefined, "aucune information sur les autres installations");
   const [it] = await db.list();
-  assert.equal(it.id, `charlois#${ID_A}`);
+  assert.equal(it.id, `charlois#${ID_A}#PRODUCTION`);
   assert.deepEqual({ client: it.client, version: it.version, env: it.env, requests: it.requests, seats: it.seats }, { client: "charlois", version: "1.3.2", env: "PRODUCTION", requests: 42, seats: 3 });
   assert.deepEqual(it.connectors, { salesforce: true, sagex3: false });
   assert.equal(it.firstSeen, it.lastSeen);
@@ -55,21 +56,28 @@ test("Contacts successifs : une seule fiche, firstSeen conservé, version mise �
   assert.equal(all[0].version, "1.3.3"); assert.equal(all[0].requests, 7);
 });
 
-test("Séparation : même identifiant d'installation sous deux clés = deux fiches ; une clé sans nom est rangée sous son empreinte", async () => {
+test("Séparation : même identifiant d'installation sous deux clés = deux fiches, chacune rangée sous son client", async () => {
   await telemetry(ev(ok, "cle-charlois"));
   await telemetry(ev({ ...ok, version: "9.9.9" }, "cle-autre"));
-  await telemetry(ev({ ...ok, installation: ID_B }, "cle-sans-nom"));
+  await telemetry(ev({ ...ok, installation: ID_B }, "cle-troisieme"));
   const ids = (await db.list()).map((i) => i.id).sort();
   assert.equal(ids.length, 3);
-  assert.ok(ids.includes(`autre#${ID_A}`) && ids.includes(`charlois#${ID_A}`));
-  assert.match(ids.find((i) => i.endsWith(ID_B)), /^k-[0-9a-f]{8}#/);
-  assert.equal((await db.list()).find((i) => i.id === `charlois#${ID_A}`).version, "1.3.2", "l'autre client n'a pas écrasé la fiche");
+  assert.ok(ids.includes(`autre#${ID_A}#PRODUCTION`) && ids.includes(`charlois#${ID_A}#PRODUCTION`) && ids.includes(`troisieme#${ID_B}#PRODUCTION`));
+  assert.equal((await db.list()).find((i) => i.id === `charlois#${ID_A}#PRODUCTION`).version, "1.3.2", "l'autre client n'a pas écrasé la fiche");
+});
+
+test("Même identifiant en production et en pré-production (sauvegarde restaurée) : deux fiches distinctes, même avec une seule clé", async () => {
+  await telemetry(ev(ok));
+  await telemetry(ev({ ...ok, env: "PRE-PROD", version: "1.3.3" }));
+  const all = await db.list();
+  assert.deepEqual(all.map((i) => i.id).sort(), [`charlois#${ID_A}#PRE-PROD`, `charlois#${ID_A}#PRODUCTION`]);
+  assert.equal(all.find((i) => i.env === "PRODUCTION").version, "1.3.2", "la pré-production ne masque pas la production");
 });
 
 test("Hub antérieur à 1.3.2 (sans identifiant) : accepté, une fiche par environnement", async () => {
   const { installation, ...legacy } = ok;
   assert.equal((await telemetry(ev({ ...legacy, env: "PRE-PROD" }))).statusCode, 200);
-  assert.equal((await db.list())[0].id, "charlois#ancienne-PRE-PROD");
+  assert.equal((await db.list())[0].id, "charlois#ancienne#PRE-PROD");
 });
 
 test("Payload invalide : JSON, champs supplémentaires, types, bornes, taille, identifiant incorrect", async () => {
@@ -91,6 +99,7 @@ test("Payload invalide : JSON, champs supplémentaires, types, bornes, taille, i
   assert.equal(await bad([ok]), 400);
   assert.equal(await bad({ ...ok, connectors: Object.fromEntries(Array.from({ length: 21 }, (_, i) => [`c${i}`, true])) }), 400);
   assert.equal((await telemetry(ev(JSON.stringify(ok) + " ".repeat(5000)))).statusCode, 413);
+  assert.equal((await telemetry({ headers: { "x-clevoa-key": "cle-autre" }, isBase64Encoded: true, body: "A".repeat(20000) })).statusCode, 413, "taille contrôlée avant décodage base64");
   assert.equal((await db.list()).length, 0, "rien n'est enregistré");
   assert.equal(validate(ok), null);
 });
@@ -125,8 +134,10 @@ test("Rapport : installations silencieuses au-delà de SILENCE_HOURS et versions
   const published = [];
   const publish = async (subject, message) => published.push({ subject, message });
 
+  await db.put({ id: "charlois#ancienne#PRODUCTION", client: "charlois", env: "PRODUCTION", version: "1.3.1", lastSeen: "2026-09-01T03:00:00Z" });
   let r = await report({}, { now, publish });
-  assert.equal(r.total, 3);
+  assert.equal(r.total, 4);
+  assert.deepEqual(r.lost.map((s) => s.id), ["charlois#ancienne#PRODUCTION"], "au-delà de 30 jours : perdue, sans alerte");
   assert.deepEqual(r.silent.map((s) => s.id), ["charlois#b"], "48 h sans contact par défaut");
   assert.deepEqual(r.outdated, [], "pas de minimum configuré");
   assert.equal(published.length, 0, "sans ALERT_TOPIC_ARN, rien n'est publié");
@@ -137,7 +148,15 @@ test("Rapport : installations silencieuses au-delà de SILENCE_HOURS et versions
   assert.deepEqual(r.outdated.map((s) => s.id).sort(), ["autre#c", "charlois#b"]);
   assert.equal(published.length, 1);
   assert.match(published[0].message, /charlois#b/);
+  assert.ok(!published[0].message.includes("ancienne"), "une fiche perdue n'alimente pas l'alerte, même sous la version minimale");
   assert.ok(!/cle-/.test(published[0].message), "aucune clé dans l'alerte");
+});
+
+test("Rapport : une alerte SNS en échec n'interrompt pas la fonction (pas de doublon par nouvel essai)", async () => {
+  process.env.ALERT_TOPIC_ARN = "arn:aws:sns:eu-west-3:000000000000:test";
+  await db.put({ id: "charlois#b", client: "charlois", env: "PRE-PROD", version: "1.3.1", lastSeen: new Date(Date.now() - 72 * 3600_000).toISOString() });
+  const r = await report({}, { publish: async () => { throw Object.assign(new Error("x"), { name: "AuthorizationError" }); } });
+  assert.equal(r.silent.length, 1); assert.equal(r.alertError, "AuthorizationError");
 });
 
 test("Rapport sans alerte : rien n'est publié même avec ALERT_TOPIC_ARN", async () => {

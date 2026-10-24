@@ -23,7 +23,7 @@ Assistant IA (Claude Code, Claude Desktop, ChatGPT, Copilot)
 │ version.js     VERSION stricte + APP_ENV (PRODUCTION / PRE-PROD)     │
 │ connectors/    salesforce · sagex3 · sharepoint · dropbox · myreport │
 │ public/        index.html, le portail                                │
-│ test/          node:test, amont mocké, 81 tests                      │
+│ test/          node:test, amont mocké, 82 tests                      │
 └───┬─────────────┬───────────────┬───────────────┬───────────────┬────┘
     ▼ MCP HTTP    ▼ REST Syracuse ▼ Graph (GET)   ▼ MCP HTTP      ▼ MCP SSE
  Salesforce    Sage X3 24R1    SharePoint      Dropbox (MCP    MyReport Server

@@ -13,7 +13,7 @@ Socle de maintenance, sans nouvelle fonction métier (périmètre gelé à la 1.
 
 ### Ajouté
 - Télémétrie : identifiant aléatoire d'installation (conservé dans `users.json` chiffré), délai de 10 s par envoi, avertissement dans les journaux quand Clevoa annonce une version minimale supérieure.
-- Backend Clevoa : fiche par installation dans DynamoDB (expirée 400 jours après le dernier contact), rapport quotidien des installations silencieuses et des versions sous le minimum (CloudWatch, alerte SNS), validation stricte et limite de 4 Ko, clé client jamais stockée, 13 tests sans AWS en CI.
+- Backend Clevoa : fiche par installation dans DynamoDB (expirée 400 jours après le dernier contact), rapport quotidien des installations silencieuses et des versions sous le minimum (CloudWatch, alerte SNS), validation stricte et limite de 4 Ko, clé client jamais stockée, 15 tests sans AWS en CI.
 
 ### Modifié
 - Télémétrie : après trois nouveaux essais en échec, retour à l'horaire quotidien (auparavant un essai toutes les 30 minutes tant que Clevoa restait injoignable) ; la réponse du backend ne donne plus le nombre d'envois du jour tous clients confondus.

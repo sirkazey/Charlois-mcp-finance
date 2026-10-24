@@ -14,12 +14,14 @@ const SEMVER = /^\d{1,4}\.\d{1,4}\.\d{1,4}(-[0-9A-Za-z.-]{1,20})?$/;
 const env = (n, d) => process.env[n] || d;
 const hash = (s) => createHash("sha256").update(s).digest();
 
-/** Clés clients acceptées : CLEVOA_KEYS = « client=clé » ou « clé » séparées par des virgules. Liste vide = AUCUNE clé acceptée. */
+/** Clés clients acceptées : CLEVOA_KEYS = « client=clé » séparées par des virgules (nom : lettres minuscules, chiffres, tirets).
+ *  Une entrée sans nom est ignorée. Liste vide = AUCUNE clé acceptée. Seul le nom du client est enregistré, jamais la clé. */
 function clients() {
-  return (process.env.CLEVOA_KEYS || "").split(",").map((e) => e.trim()).filter(Boolean).map((e) => {
+  return (process.env.CLEVOA_KEYS || "").split(",").map((e) => e.trim()).filter(Boolean).flatMap((e) => {
     const i = e.indexOf("=");
-    const [name, key] = i > 0 ? [e.slice(0, i).trim(), e.slice(i + 1).trim()] : [null, e];
-    return { client: name || `k-${hash(key).toString("hex").slice(0, 8)}`, digest: hash(key) }; // jamais la clé elle-même en base
+    const name = e.slice(0, Math.max(i, 0)).trim(), key = e.slice(i + 1).trim();
+    if (i <= 0 || !/^[a-z0-9-]{1,40}$/.test(name) || !key) { console.error("[clevoa] entrée de CLEVOA_KEYS ignorée : format client=clé attendu"); return []; }
+    return [{ client: name, digest: hash(key) }];
   });
 }
 /** Client correspondant à la clé présentée (comparaison à temps constant sur les empreintes), ou null. */
@@ -116,10 +118,11 @@ export const setStore = (s) => { current = s; };
 export async function telemetry(event) {
   const headers = Object.fromEntries(Object.entries(event.headers || {}).map(([k, v]) => [k.toLowerCase(), v]));
   const list = clients();
-  if (!list.length) return reply(503, { status: "misconfigured", error: "CLEVOA_KEYS non configurée : aucune clé acceptée" }); // fermé par défaut
+  if (!list.length) { console.error("[clevoa] CLEVOA_KEYS vide : aucune clé acceptée"); return reply(503, { status: "unavailable" }); } // fermé par défaut, sans détail pour l'appelant
   const client = identify(headers["x-clevoa-key"], list);
   if (!client) return reply(401, { status: "unauthorized", error: "clé client absente ou inconnue" });
 
+  if ((event.body || "").length > MAX_BODY * 2) return reply(413, { status: "invalid", error: "payload trop volumineux" }); // avant tout décodage
   const raw = event.isBase64Encoded ? Buffer.from(event.body || "", "base64").toString() : event.body || "";
   if (Buffer.byteLength(raw) > MAX_BODY) return reply(413, { status: "invalid", error: "payload trop volumineux" });
   let p;
@@ -128,10 +131,11 @@ export async function telemetry(event) {
   if (err) return reply(400, { status: "invalid", error: err });
 
   const now = new Date();
-  // Une installation est rangée sous son client : une autre clé ne peut ni la lire ni l'écraser, même avec le même identifiant.
-  const installation = p.installation ?? `ancienne-${p.env ?? "inconnu"}`; // hubs antérieurs à 1.3.2 : une fiche par environnement
+  // Fiche « client#installation#environnement » : une autre clé ne peut ni la lire ni l'écraser, et une pré-production restaurée
+  // depuis une sauvegarde de production (même identifiant) garde sa propre fiche.
+  const installation = p.installation ?? "ancienne"; // hubs antérieurs à 1.3.2 : une fiche par client et environnement
   const item = {
-    id: `${client}#${installation}`, client, installation, version: p.version, env: p.env ?? null, connectors: p.connectors,
+    id: `${client}#${installation}#${p.env ?? "inconnu"}`, client, installation, version: p.version, env: p.env ?? null, connectors: p.connectors,
     requests: p.requests, seats: p.seats ?? null, reportedDate: p.date ?? null, lastSeen: now.toISOString(),
     expiresAt: Math.floor(now.getTime() / 1000) + Number(env("RETENTION_DAYS", "400")) * 86400, // TTL DynamoDB (secondes)
   };
@@ -146,16 +150,21 @@ export async function telemetry(event) {
 }
 
 // ---------- Fonction « report » (planifiée chaque jour) ----------
-/** Installations silencieuses (aucun contact depuis SILENCE_HOURS heures, 48 par défaut) et versions sous MIN_VERSION. */
+/** Installations silencieuses (aucun contact depuis SILENCE_HOURS heures, 48 par défaut) et versions sous MIN_VERSION.
+ *  Au-delà de SILENCE_MAX_DAYS jours (30 par défaut), une installation muette est rangée parmi les « perdues » sans alerte :
+ *  réinstallation, passage d'un hub antérieur à 1.3.2, fiche à retirer (README). L'alerte ne devient pas un bruit de fond. */
 export async function report(_event = {}, { now = Date.now(), publish } = {}) {
   const items = await (await store()).list();
   const silenceMs = Number(env("SILENCE_HOURS", "48")) * 3600_000;
   const min = process.env.MIN_VERSION;
   const row = (i) => ({ id: i.id, client: i.client, env: i.env, version: i.version, lastSeen: i.lastSeen });
-  const silent = items.filter((i) => now - Date.parse(i.lastSeen) > silenceMs).map(row);
-  const outdated = min ? items.filter((i) => compareVersions(i.version, min) < 0).map(row) : [];
-  const result = { generatedAt: new Date(now).toISOString(), total: items.length, silent, outdated, installations: items.map(row) };
-  console.log("[clevoa] rapport", JSON.stringify({ total: result.total, silent: silent.length, outdated: outdated.length }));
+  const lostMs = Number(env("SILENCE_MAX_DAYS", "30")) * 86400_000;
+  const age = (i) => now - Date.parse(i.lastSeen);
+  const silent = items.filter((i) => age(i) > silenceMs && age(i) <= lostMs).map(row);
+  const lost = items.filter((i) => age(i) > lostMs).map(row);
+  const outdated = min ? items.filter((i) => age(i) <= lostMs && compareVersions(i.version, min) < 0).map(row) : [];
+  const result = { generatedAt: new Date(now).toISOString(), total: items.length, silent, outdated, lost, installations: items.map(row) };
+  console.log("[clevoa] rapport", JSON.stringify({ total: result.total, silent: silent.length, outdated: outdated.length, lost: lost.length }));
   for (const s of silent) console.log("[clevoa] ALERTE silence", JSON.stringify(s));
   for (const o of outdated) console.log("[clevoa] ALERTE version", JSON.stringify(o));
   if ((silent.length || outdated.length) && process.env.ALERT_TOPIC_ARN) {
@@ -166,7 +175,8 @@ export async function report(_event = {}, { now = Date.now(), publish } = {}) {
       const sns = await import("@aws-sdk/client-sns"); // fourni par le runtime Lambda Node 22
       await new sns.SNSClient({}).send(new sns.PublishCommand({ TopicArn: process.env.ALERT_TOPIC_ARN, Subject: subject, Message: message }));
     });
-    await send("Clevoa AI Gateway : installations à surveiller", text);
+    try { await send("Clevoa AI Gateway : installations à surveiller", text); }
+    catch (e) { result.alertError = e.name; console.error("[clevoa] échec de l'alerte SNS", e.name); } // pas d'échec de la fonction : pas de doublon par nouvel essai
   }
   return result;
 }
