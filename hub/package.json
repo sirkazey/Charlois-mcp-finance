@@ -3,7 +3,7 @@
   "version": "1.2.1",
   "private": true,
   "type": "module",
-  "description": "Charlois AI Gateway : hub MCP en lecture seule vers Salesforce, Sage X3, SharePoint, Dropbox et MyReport, avec les droits de chaque collaborateur",
+  "description": "Clevoa AI Gateway : hub MCP en lecture seule vers Salesforce, Sage X3, SharePoint, Dropbox et MyReport, avec les droits de chaque collaborateur",
   "scripts": {
     "start": "node server.js",
     "test": "node --test test/*.test.js"

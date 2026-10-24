@@ -1,17 +1,19 @@
 # Journal des tests sur systèmes réels
 
-Ce journal consigne ce qui a été **réellement exécuté** contre les systèmes Charlois, par qui, avec quel résultat, et ce que
-le hub a dû corriger. Les tests automatisés (73 tests hub, 11 tests bouchon, scénario CI de sauvegarde et restauration)
+Document de validation : il consigne ce qui a été **réellement exécuté** contre les systèmes du client. Il est complété
+à chaque campagne, jamais réécrit. Tests restants et limites : [état des fonctionnalités](etat-des-fonctionnalites.md).
+
+Chaque entrée dit ce qui a été exécuté contre les systèmes Charlois, avec quel résultat, et ce que le hub a dû corriger. Les tests automatisés (77 tests hub, 11 tests bouchon, scénario CI de sauvegarde et restauration)
 tournent à chaque commit ; ils ne sont pas listés ici.
 
-Compte utilisé pour tous les tests : Alexandre Chebrou de Lespinats, profil **administrateur** sur les deux systèmes.
+Compte utilisé pour tous les tests : le DSI du Groupe Charlois, profil **administrateur** sur les deux systèmes.
 Conséquence : le cloisonnement (un utilisateur restreint ne voit que ses données) n'est pas encore prouvé sur les vrais
 systèmes. C'est le test manquant prioritaire.
 
 ## 2026-10-23 · Sage X3 préproduction (4CAD Cloud, Syracuse 24R1)
 
 Instance `x3-test-ext-groupecharlois.4cadcloud2.com`, point de connexion `X3TST_CHREC` (dossier « Recette CHARLOIS
-Salesforce PàP », copie fidèle des données), utilisateur X3 `ACHEB`.
+Salesforce PàP », copie fidèle des données), utilisateur X3 administrateur.
 
 | # | Test | Résultat | Suite donnée |
 |---|---|---|---|
@@ -57,16 +59,16 @@ cliente externe « MCP Charlois » créée le jour même (PKCE, JWT, secret exig
 | F5 | Claude Desktop : « 5 derniers comptes modifiés » | 5 comptes, dont modifications par « Interface X3 » (interface ERP active en préprod) | OK ; SOQL sans WHERE accepté → `LIMIT` par défaut ajouté |
 | F6 | Dump complet de `salesforce_tools` | Schémas d'arguments réels (`q`, `objects`, `sobject-name`, `id`, `relationship-path`) | Bouchon et mocks alignés |
 
-## Tests non encore réalisés
+## Tests non encore réalisés (état au 24 octobre 2026)
 
 | Test | Pourquoi il compte | Prérequis |
 |---|---|---|
 | Cloisonnement avec un compte **non administrateur** (Sage et Salesforce) | Seule preuve que le hub n'élargit pas les droits | Un compte de test restreint sur chaque système |
 | Expiration et renouvellement réels du jeton Salesforce (JWT ~ 2 h, rotation du refresh token) | Vérifié sur le bouchon, pas sur Salesforce | Laisser une session ouverte plus de 2 h puis interroger |
 | Révocation : mot de passe Syracuse changé, autorisation Salesforce révoquée | Voyant rouge et message de reconnexion attendus | Action volontaire sur chaque système |
-| Salesforce production | Même procédure, org de production, serveurs d'écriture désactivés | Confirmation de l'intégrateur (Xavier, 4CAD) |
+| Salesforce production | Même procédure, org de production, serveurs d'écriture désactivés | Confirmation de l'intégrateur |
 | SharePoint, Dropbox | Jamais branchés sur un vrai compte | App Entra ID déléguée ; app Dropbox |
 | MyReport | Serveur MCP annoncé par l'éditeur, non livré | Absys Cyborg |
-| Restauration sur le serveur de pré-prod (`sudo ops/restore.sh`) | Jouée en CI à chaque commit, pas encore sur un serveur Charlois ; à faire une fois par trimestre (`EXPLOITATION.md` § 5) | Accès au serveur, `ENCRYPTION_KEY` du coffre |
+| Restauration sur le serveur de pré-prod (`sudo ops/restore.sh`) | Jouée en CI à chaque commit, pas encore sur un serveur Charlois ; à faire une fois par trimestre ([exploitation § 5](../admin/exploitation.md#5-restauration)) | Accès au serveur, `ENCRYPTION_KEY` du coffre |
 | SSO Entra en mode `entra` | Jamais exercé contre Microsoft, seulement contre le bouchon | URI de redirection sur l'application Entra, `MS_TENANT_ID` en GUID |
 | Comparaison croisée Coppola (Sage + Salesforce dans une même réponse, deux lignes Source) | Vérifie la consigne par défaut du serveur MCP | Redéploiement du 23/10 soir |

@@ -1,7 +1,7 @@
-# Rapport de charge – Charlois AI Gateway v1.2.1
+# Rapport de charge – Clevoa AI Gateway v1.2.1 (instance Charlois, release publiée sous le nom « Charlois AI Gateway »)
 
 Release testée : v1.2.1, commit `9c0f79ea49ef8e445a1f768154911bc0e7ed809b`, code applicatif inchangé (branche `test/charge-v1.2.1`, ajouts sous `loadtest/` uniquement).
-Campagne du 24 octobre 2026, 08:08 → 08:35 UTC. Outils et mode d'emploi : [`loadtest/README.md`](README.md). Résultats bruts : [`loadtest/results/`](results/).
+Campagne du 24 octobre 2026, 08:08 → 08:35 UTC. Outils et mode d'emploi : [`loadtest/README.md`](../../loadtest/README.md). Résultats bruts : [`loadtest/results/`](../../loadtest/results/).
 
 ## 1. Verdict
 
@@ -156,7 +156,7 @@ Aucune correction n'est nécessaire pour la qualification sur bouchons. Les poin
 3. **Réutiliser la session MCP Salesforce par utilisateur** (ou, a minima, tenter une seule fois de rouvrir la session sur 429) seulement si la recette réelle montre une latence Salesforce ou des 429 gênants. Sur bouchons, le surcoût est de 10 ms par appel : pas de quoi justifier le changement aujourd'hui.
 4. **Décider de `MYREPORT_MAX_PER_MIN`** avec le responsable MyReport : 20/min pour 50 collaborateurs est le premier plafond atteint ; aucune modification de code, variable d'environnement existante.
 5. **Facultatif, si un client emballé est observé** : un plafond par clé sur `/mcp` et `/messages` (même mécanisme `hit()` que le portail, en mémoire). Non justifié par les mesures actuelles.
-6. **Surveillance en exploitation** : relever la RSS du conteneur `mcp-hub` une fois par jour pendant les premières semaines (`docker stats`, déjà documenté dans `EXPLOITATION.md`) pour confirmer l'absence de fuite sur la durée, et noter les délais Sage > 30 s dans les logs.
+6. **Surveillance en exploitation** : relever la RSS du conteneur `mcp-hub` une fois par jour pendant les premières semaines (`docker stats`, [exploitation](../admin/exploitation.md)) pour confirmer l'absence de fuite sur la durée, et noter les délais Sage > 30 s dans les logs.
 
 ## 8. Limites de la campagne
 
@@ -164,5 +164,5 @@ Aucune correction n'est nécessaire pour la qualification sur bouchons. Les poin
 - Générateur, hub et bouchons sur la même machine 4 vCPU : le hub a utilisé au plus 29 % d'un cœur, la contention n'a donc pas faussé les mesures, mais l'extrapolation « 3 000 appels/min par cœur » n'a pas été vérifiée.
 - Durée de 27 minutes : la stabilité mémoire sur une journée n'est pas démontrée.
 - Nombre de sessions côté hub non exposé par l'application : compté côté client. Sessions SSE abandonnées sans fermeture TCP non testées.
-- Le générateur a été corrigé pendant la campagne (la remise à zéro des compteurs des bouchons effaçait aussi la panne injectée ; le délai Sage était classé « autre » ; le 429 Salesforce était classé « autre » faute de code dans le message). Les scénarios 1 à 5 n'étaient pas affectés ; le scénario 6 a été rejoué intégralement après correction (`results/campagne_defaillances.json`).
-- Taux d'erreur par connecteur et par type : disponible dans `latencyPerTool[*].errors` de chaque JSON ; seuls MyReport (plafond) et les phases de défaillance en comportent.
+- Le générateur a été corrigé pendant la campagne (la remise à zéro des compteurs des bouchons effaçait aussi la panne injectée ; le délai Sage était classé « autre » ; le 429 Salesforce était classé « autre » faute de code dans le message). Les scénarios 1 à 5 n'étaient pas affectés ; le scénario 6 a été rejoué intégralement après correction (`loadtest/results/campagne_defaillances.json`).
+- Taux d'erreur par connecteur et par type : disponible dans `latencyPerTool[*].errors` de chaque fichier JSON de `loadtest/results/` ; seuls MyReport (plafond) et les phases de défaillance en comportent.

@@ -1,4 +1,6 @@
-# Campagne de charge du hub (bouchons uniquement)
+# Outils de charge (bouchons uniquement)
+
+Rapport de la campagne jouée sur la release v1.2.1 : [docs/validation/charge-v1.2.1.md](../docs/validation/charge-v1.2.1.md).
 
 Outils reproductibles pour mesurer ce que le hub MCP tient avec N collaborateurs, **sans jamais toucher un système réel** :
 les backends (Salesforce, Sage X3, Graph/SharePoint, Dropbox, MyReport, Clevoa) sont imités par `mock-backends.js`,
