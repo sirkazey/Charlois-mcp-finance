@@ -2,7 +2,7 @@
 // contre le mock, déconnexion, et cohérence des URL appelées par public/index.html avec les routes du serveur.
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { startUpstream } from "./helpers/upstream.js";
 import { startHub, HUB_DIR, freePort } from "./helpers/hub.js";
@@ -305,12 +305,26 @@ test("index.html : chaque URL appelée (fetch / href) correspond à une route du
   for (const m of html.matchAll(/\bfetch\(\s*"([^"]+)"(?:\s*\+\s*\w+(?:\s*\+\s*"([^"]+)")?)?/g)) {
     if (m[0].includes("+")) systems.forEach((s) => urls.add(m[1] + s + (m[2] || ""))); else urls.add(m[1]);
   }
+  const statics = new Set();
   for (const m of html.matchAll(/href="([^"]+)"/g)) {
     const u = m[1];
-    if (/^https?:/.test(u)) continue;
+    if (/^https?:/.test(u) || u.startsWith("#")) continue; // liens externes, ancres et icônes du sprite SVG
     const dyn = /\$\{(?:esc\()?s\.id\)?\}/; // ${s.id} ou ${esc(s.id)}
-    if (dyn.test(u)) ["sagex3", "sharepoint"].forEach((s) => urls.add(u.replace(dyn, s))); else urls.add(u); // href OAuth : systèmes avec OAuth
+    if (dyn.test(u)) ["sagex3", "sharepoint"].forEach((s) => urls.add(u.replace(dyn, s))); // href OAuth : systèmes avec OAuth
+    else if (u.includes("${")) continue; // ancre calculée côté navigateur (prochaine étape)
+    else if (existsSync(join(HUB_DIR, "public", u))) statics.add(u); // logo, police, favicon : fichiers servis par express.static
+    else urls.add(u);
   }
+  for (const m of html.matchAll(/src="(\/[^"]+)"/g)) statics.add(m[1]);
+  for (const m of html.matchAll(/url\("(\/[^"]+)"\)/g)) statics.add(m[1]);
+  // Chaque ressource citée doit exister dans public/ ; on n'interroge le hub qu'avec les chemins de la liste des fichiers
+  // (jamais une valeur lue dans le HTML).
+  const served = readdirSync(join(HUB_DIR, "public"), { recursive: true }).map((f) => "/" + String(f).split("\\").join("/"));
+  for (const u of statics) assert.ok(served.includes(u), `ressource absente de public/ : ${u}`);
+  for (const path of served.filter((f) => statics.has(f))) {
+    assert.equal((await fetch(`${hub.url}${path}`)).status, 200, `ressource statique ${path}`);
+  }
+  assert.ok(statics.has("/brand/clevoa-logo-couleur.svg") && statics.has("/fonts/outfit-variable-latin.woff2"), [...statics].join(", "));
   assert.ok(urls.has("/api/me") && urls.has("/api/disconnect/sagex3") && urls.has("/auth/sagex3") && urls.has("/api/test/sagex3") && urls.has("/api/myreport/apikey"), [...urls].join(", "));
 
   // Routes déclarées dans server.js et oauth.js (app.get/post/all et r.get)

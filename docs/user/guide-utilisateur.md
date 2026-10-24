@@ -8,26 +8,29 @@ l'assistant interroge les outils **avec vos droits, en lecture seule**.
 
 1. Ouvrir l'adresse du portail communiquée par votre DSI (exemple : `https://mcp.<entreprise>.fr`). Si le SSO
    Microsoft Entra ID est activé, votre identité est reconnue automatiquement ; sinon le portail vous attribue une clé
-   personnelle au premier passage.
-2. Sur chaque carte, cliquer **Se connecter** :
+   personnelle au premier passage. En haut de page, trois étapes indiquent où vous en êtes et la prochaine action :
+   connecter vos outils, les vérifier, brancher votre assistant.
+2. Dans **Vos outils**, chaque carte indique l'état de l'outil (« À connecter », « Connecté », « Simulé », « Non
+   configuré »). Cliquer **Se connecter** :
    * **Salesforce, SharePoint / OneDrive, Dropbox** : page de connexion de l'éditeur, puis autorisation « lecture ».
    * **Sage X3** : selon la configuration de votre DSI, saisir votre identifiant et votre mot de passe Syracuse, ou votre
      clé d'API Syracuse (chiffrés dans le hub, jamais renvoyés au navigateur) ; OAuth si elle l'a configuré.
    * **MyReport** : coller votre jeton personnel MyReport Server.
-3. Cliquer **Tester** sur chaque carte : voyant vert avec le détail (outils ou tables disponibles), rouge avec le message
-   d'erreur. Un voyant rouge n'empêche pas les autres outils de fonctionner.
+3. Cliquer **Tester** sur une carte, ou **Tout tester** : encadré vert « Accès vérifié » avec le détail (outils ou
+   tables disponibles), encadré rouge avec le message d'erreur. Une erreur n'empêche pas les autres outils de fonctionner.
 
-Les boutons grisés correspondent aux outils que votre DSI n'a pas configurés. En pré-production, Sage X3 et MyReport
+Un outil « Non configuré » doit d'abord être activé par votre DSI. En pré-production, Sage X3 et MyReport
 peuvent tourner en **simulateur** : les données sont inventées et étiquetées comme telles.
 
 ## 2. Brancher l'assistant
 
-Le portail affiche deux blocs de configuration prêts à copier. Votre clé y figure : ne la partagez jamais, elle vaut
-pour tous vos outils connectés.
+La section **Branchez votre assistant IA** propose deux onglets, chacun avec ses instructions et un bloc de
+configuration prêt à copier. Votre clé y figure : elle est masquée à l'écran (bouton **Afficher la clé**), mais le
+bouton **Copier** la copie en entier. Ne la partagez jamais : elle vaut pour tous vos outils connectés.
 
 ### Claude Code, ChatGPT, Copilot et clients MCP HTTP
 
-Bloc **Votre connecteur** : URL `<portail>/mcp` et en-tête `Authorization: Bearer <clé>`.
+Onglet **Claude Code, ChatGPT, Copilot** : URL `<portail>/mcp` et en-tête `Authorization: Bearer <clé>`.
 
 * Claude Code : coller le bloc dans un fichier `.mcp.json` à la racine du projet (ou dans `~/.claude.json` pour tous
   les projets), relancer `claude` ; la commande `/mcp` liste le serveur sous le nom indiqué par le portail (`clevoa-gateway` par
@@ -44,7 +47,7 @@ Claude Desktop n'accepte pas d'en-tête sur un serveur distant : le bloc **Claud
 `mcp-remote`. Prérequis : Node.js LTS installé (`node -v`). Libellés vérifiés sur Claude Desktop pour Windows le
 23 octobre 2026.
 
-1. Portail → bloc « Claude Desktop » → Copier.
+1. Portail → onglet « Claude Desktop » → Copier.
 2. Claude Desktop → nom d'utilisateur en bas à gauche → Paramètres → Développeur → **Modifier la configuration** : ouvre
    le dossier de `claude_desktop_config.json` (`%APPDATA%\Claude`).
 3. Coller l'entrée (nommée comme sur le portail, `clevoa-gateway` par défaut) **à l'intérieur** du `mcpServers` existant. Fichier vide : coller le bloc entier.
@@ -59,8 +62,8 @@ poser l'en-tête d'autorisation.
 
 ## 3. Poser des questions et lire les réponses
 
-Le **bar à prompts** du portail (onglets Onboarding, Analyse de données, Contrôle de gestion) donne des questions de
-départ, par exemple « Quel est le chiffre d'affaires facturé des 12 derniers mois, par mois ? ».
+La section **Exemples de questions** du portail (onglets Prise en main, Analyse de données, Contrôle de gestion) donne
+des questions de départ, à copier d'un clic, par exemple « Quel est le chiffre d'affaires facturé des 12 derniers mois, par mois ? ».
 
 Chaque résultat se termine par une ligne **« Source : … »** : `Source : Sage X3 · dossier X3TST_CHREC`,
 `Source : Salesforce · sandbox preprod` ou `· production`. L'assistant est instruit de la citer ; elle permet de
@@ -89,9 +92,9 @@ Outils exposés à l'assistant : `salesforce_tools`, `salesforce_call` · `sagex
 
 ## 4. Gérer sa clé
 
-* **Régénérer la clé** (bouton du portail) : l'ancienne cesse de fonctionner aussitôt. À faire si vous pensez qu'elle a
+* **Régénérer la clé** (encadré « Votre clé personnelle », après confirmation) : l'ancienne cesse de fonctionner aussitôt. À faire si vous pensez qu'elle a
   été vue par quelqu'un, et à recopier dans votre assistant.
-* **Se déconnecter** (avec le SSO) ferme la session du portail puis la session Microsoft du navigateur : indispensable
+* **Se déconnecter** (avec le SSO, icône à droite de votre nom) ferme la session du portail puis la session Microsoft du navigateur : indispensable
   sur un poste partagé.
 * **Déconnecter un outil** retire vos jetons pour ce système ; l'assistant reçoit alors « Non connecté » jusqu'à une
   nouvelle connexion.
