@@ -27,6 +27,7 @@ en une heure. Pas de framework, pas de base de données, pas de service en plus 
 | `docs/developer/` | développeur | architecture, conventions, connecteurs, tests |
 | `docs/validation/` | DSI, recette | ce qui est vérifié, mesuré, et les limites connues |
 | `docs/history/` | archives | audits, décisions, feuilles de route datées : figés, jamais réécrits |
+| `docs/roadmap-produit.md` | tous | la seule roadmap active : axes, statuts, critères de sortie |
 
 Fichiers en minuscules avec tirets (`guide-utilisateur.md`), un sujet par fichier, pas de fichier de moins de vingt
 lignes (on fusionne). Un composant annexe (`clevoa-mcp-stub/`, `clevoa-backend/`, `loadtest/`) garde son `README.md`
@@ -47,7 +48,7 @@ lignes (on fusionne). Un composant annexe (`clevoa-mcp-stub/`, `clevoa-backend/`
 
 ### Statut des fonctionnalités
 
-Quatre mots, toujours les mêmes, dans [l'état des fonctionnalités](validation/etat-des-fonctionnalites.md) et partout
+Cinq mots, toujours les mêmes, dans [l'état des fonctionnalités](validation/etat-des-fonctionnalites.md) et partout
 où un connecteur est décrit :
 
 | Statut | Signification |
@@ -55,7 +56,8 @@ où un connecteur est décrit :
 | **disponible** | livré dans la version courante et vérifié sur le système réel |
 | **testé sur bouchon** | livré, couvert par les tests automatisés, jamais confronté au vrai système |
 | **expérimental** | livré sans garantie, à activer explicitement, peut changer |
-| **prévu** | décrit dans une feuille de route, non livré ; ne jamais le présenter comme existant |
+| **prévu** | inscrit dans la [roadmap produit](roadmap-produit.md), non livré ; ne jamais le présenter comme existant |
+| **non planifié** | évoqué dans une archive, écarté de la roadmap active ; ne revient qu'avec une nouvelle décision |
 
 ### Secrets et données sensibles
 

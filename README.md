@@ -81,7 +81,8 @@ Suite détaillée : [installation](docs/admin/installation.md).
 | Administrateur | [Installation](docs/admin/installation.md) · [Configuration des connecteurs](docs/admin/configuration.md) · [SSO Entra ID](docs/admin/sso-entra.md) · [Exploitation, sauvegarde, restauration](docs/admin/exploitation.md) · [Sécurité](docs/admin/securite.md) |
 | Développeur | [Architecture](docs/developer/architecture.md) · [Écrire un connecteur](docs/developer/connecteurs.md) · [Tests et analyses](docs/developer/tests.md) · [Contribuer](docs/CONTRIBUTING.md) |
 | Validation | [État des fonctionnalités et limites](docs/validation/etat-des-fonctionnalites.md) · [Journal des tests réels](docs/validation/journal-tests-reels.md) · [Campagne de charge v1.2.1](docs/validation/charge-v1.2.1.md) |
-| Historique | [Audits d'octobre 2026](docs/history/audit-2026-10.md) · [Décisions](docs/history/decisions.md) · [Feuille de route](docs/history/roadmap-2026-10.md) |
+| Produit | [Roadmap produit](docs/roadmap-produit.md) : qualification, maintenance, intégrations sur besoin client |
+| Historique | [Audits d'octobre 2026](docs/history/audit-2026-10.md) · [Décisions](docs/history/decisions.md) · [Feuille de route d'octobre 2026 (archive)](docs/history/roadmap-2026-10.md) |
 
 Composants annexes : [bouchon d'entreprise](clevoa-mcp-stub/README.md), [backend de télémétrie Clevoa](clevoa-backend/README.md),
 [outils de charge](loadtest/README.md). Index complet : [docs/README.md](docs/README.md).

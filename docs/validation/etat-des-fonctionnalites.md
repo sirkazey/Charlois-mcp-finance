@@ -1,8 +1,8 @@
 # État des fonctionnalités et limites connues
 
 Version 1.3.1. Statuts selon [les conventions](../CONTRIBUTING.md#statut-des-fonctionnalités) : **disponible** (vérifié
-sur le système réel), **testé sur bouchon** (tests automatisés et simulateur seulement), **expérimental**, **prévu**.
-Preuves : [journal des tests réels](journal-tests-reels.md), [campagne de charge](charge-v1.2.1.md), CI.
+sur le système réel), **testé sur bouchon** (tests automatisés et simulateur seulement), **expérimental**, **prévu**, **non planifié**.
+Évolutions : [roadmap produit](../roadmap-produit.md). Preuves : [journal des tests réels](journal-tests-reels.md), [campagne de charge](charge-v1.2.1.md), CI.
 
 ## 1. Fonctionnalités
 
@@ -25,8 +25,7 @@ Preuves : [journal des tests réels](journal-tests-reels.md), [campagne de charg
 | Reverse proxy nginx (profil `proxy`) | testé sur bouchon | `docker compose config` en local ; non exercé en CI (Trivy n'analyse que la configuration des fichiers Compose) | déploiement réel ; `COMPOSE_PROFILES` sous Portainer |
 | Télémétrie Clevoa et backend Lambda | testé sur bouchon | tests hub (handler exécuté localement) | déploiement AWS, nom de domaine `clevoa.fr` |
 | Capacité 50 collaborateurs | démontrée sur bouchons | [campagne de charge](charge-v1.2.1.md) | recette de charge sur la préproduction réelle |
-| Mini-portail d'administration (retrait d'une entrée, suspension) | prévu | [feuille de route](../history/roadmap-2026-10.md) | |
-| Santé des connecteurs, tableau de bord Clevoa, connecteurs MCP déclaratifs | prévu | [feuille de route](../history/roadmap-2026-10.md) | |
+| Mini-portail d'administration, santé des connecteurs, tableau de bord graphique, connecteurs MCP déclaratifs | non planifié | gel fonctionnel de la 1.3.1 ([roadmap](../roadmap-produit.md#5-hors-roadmap)) | |
 
 ## 2. Limites connues
 
