@@ -5,6 +5,7 @@ Une section par version, trois lignes au plus par rubrique. La version est celle
 ## [Non publié]
 
 ### Ajouté
+- Exploitation : sauvegarde automatique quotidienne de `users.json` (conteneur `mcp-backup`, `BACKUP_DIR`, `BACKUP_KEEP_DAYS`), scripts `ops/backup.sh` et `ops/restore.sh` (détection d'une mauvaise `ENCRYPTION_KEY`), reverse proxy nginx en profil Compose `proxy` (`ops/nginx/mcp.conf`, `CERTS_DIR`, `HUB_PORT=127.0.0.1:8080`), guide `EXPLOITATION.md` pour un administrateur non spécialiste de Docker ; job CI qui joue sauvegarde, perte et restauration sur la stack pré-prod.
 - SSO Microsoft Entra ID du portail (`SSO_MODE=entra`, OIDC code + PKCE via le routeur OAuth existant) : clé MCP liée à l'identité Entra, visiteur anonyme sans clé, SharePoint connecté sans interaction après le SSO (`prompt=none`) sinon parcours interactif ; `SSO_MODE=mock` sur la mire Entra du bouchon (Marie, Paul), interdit en production. Régénération de clé (`POST /api/key/rotate`) et déconnexion du portail enchaînant sur la déconnexion Microsoft. Guide § 5.
 - Audit indépendant du SSO (sécurité, simplicité) : clé toujours fraîche à la première liaison (ni fixation de session, ni clé antérieure au SSO reprise) ; jetons SharePoint acceptés seulement pour le compte Microsoft de l'identité ; POST du portail refusés depuis une autre origine ; clés temporaires jamais persistées et purgées ; limite de 60 requêtes/min par IP sur `/auth` (aussi sans SSO) ; bouchon vérifiant PKCE et honorant `prompt=none`.
 

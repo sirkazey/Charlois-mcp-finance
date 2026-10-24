@@ -11,7 +11,8 @@ module de 60 à 180 lignes dans `hub/connectors/`.
 
 **Documents de référence** : [`GUIDE_CONFIGURATION.md`](GUIDE_CONFIGURATION.md) (procédures de configuration vérifiées,
 connecteur par connecteur), [`JOURNAL_TESTS.md`](JOURNAL_TESTS.md) (tests exécutés sur les systèmes réels et tests
-restants), [`AUDIT_ROADMAP.md`](AUDIT_ROADMAP.md) (audit de clôture, backlog, roadmap), [`CHANGELOG.md`](CHANGELOG.md).
+restants), [`EXPLOITATION.md`](EXPLOITATION.md) (sauvegarde, restauration, reverse proxy nginx, pannes courantes, pour
+l'administrateur), [`AUDIT_ROADMAP.md`](AUDIT_ROADMAP.md) (audit de clôture, backlog, roadmap), [`CHANGELOG.md`](CHANGELOG.md).
 
 ```
 Assistant IA (Claude Code, Claude Desktop, ChatGPT, Copilot)
