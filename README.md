@@ -179,7 +179,7 @@ la connexion par identifiant et mot de passe ; Clevoa → `CLEVOA_URL`. Toutes c
 (badge « ENV: PRE-PROD », diagnostic) et la suite `npm test` → fusionner `dev` dans `main` (`git merge --ff-only dev`)
 → la stack de production se met à jour. Ne jamais committer directement sur `main`.
 
-**Version** : `hub/version.js` porte la version stricte (actuellement `1.2.0`, alignée sur `hub/package.json`),
+**Version** : `hub/version.js` porte la version stricte (actuellement `1.2.1`, alignée sur `hub/package.json`),
 affichée dans les logs de démarrage, dans l'en-tête et le pied de page du portail, dans `/api/me` et dans chaque envoi de
 télémétrie. L'incrémenter à chaque fusion dans `main`.
 
