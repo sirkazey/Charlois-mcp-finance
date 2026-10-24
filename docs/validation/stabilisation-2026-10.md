@@ -235,7 +235,7 @@ dépendance. Image : base figée, npm retiré, Trivy image propre (lot 4).
 Analyses exécutées en local sur la branche : Gitleaks 8.30.1 (aucune fuite), Semgrep 1.181.1 (aucun constat), Trivy
 0.67.2 (image : 0 après retrait de npm), CodeQL `security-extended` (une alerte nouvelle corrigée ; restent cinq alertes
 antérieures à la mission : bouchon de test sans limitation de débit et deux expressions coûteuses, `store.js:58`
-injection de propriété — nom de système toujours validé par la liste des connecteurs —, requête de test construite
+injection de propriété — nom de système validé par une table des connecteurs sans prototype depuis la revue du lot 5 —, requête de test construite
 depuis la liste des fichiers du portail).
 
 **Tests réels impossibles depuis cet environnement**, consignés dans
@@ -245,4 +245,14 @@ sur le serveur du client, charge en préproduction réelle, exactitude financiè
 réelles avec Claude Code, ChatGPT et Copilot, backend AWS déployé, mise à jour et retour arrière sous Portainer,
 diagnostic chez le client. Aucun n'est présenté comme fait.
 
-Tests : hub 101 tests (100 réussis, 1 ignoré en pré-prod ; 99 réussis, 2 ignorés en production) ; documentation réussie.
+Tests : hub 102 tests (101 réussis, 1 ignoré en pré-prod ; 100 réussis, 2 ignorés en production) ; documentation réussie.
+
+Revue de l'agent F (sécurité) : « corrections requises » (mineure) : la justification CodeQL de `store.js:58` était
+inexacte, car les tables `byId` de `server.js` et `oauth.js` étaient des objets ordinaires (`__proto__`, `constructor`,
+`toString` passaient le contrôle de route, sans effet sur les données, constaté par sonde). Corrigé dans le code : tables
+sans prototype ; test qui échoue avant correction et passe après (routes `disconnect`, `apikey`, `test`, `auth`).
+
+Revue de l'agent E (architecture) : « corrections requises » : compatibilité avec Claude Code, ChatGPT et Copilot
+présentée sans réserve dans le README ; statut HTTP non vérifié dans deux des trois cas du test « jamais de 500 ». Corrigé :
+limite explicite dans le README et le guide utilisateur, statut vérifié dans les trois cas ; délais d'attente amont
+ajoutés aux limites connues (seul Sage X3 a un délai explicite).

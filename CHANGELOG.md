@@ -18,7 +18,7 @@ gelé à la 1.3.1). La 1.3.2 sera publiée après la recette sur l'installation 
 
 - Diagnostic exportable : `docker exec <conteneur> node diagnostic.js` produit un rapport JSON (version, santé, fichier chiffré, connecteurs, joignabilité, télémétrie) sans aucun secret, jeton, e-mail, URL ni donnée métier ; contrôle de santé Docker du hub (`healthy` dans Portainer).
 - Sécurité de l'image : scan Trivy de l'image du hub construite, CI hebdomadaire sur `main`, `npm audit` en CI ; npm, corepack et yarn retirés de l'image d'exécution (10 vulnérabilités hautes de leurs dépendances embarquées, inutilisées par le hub) ; procédure de version corrective de sécurité.
-- Compatibilité MCP : 8 tests en JSON-RPC brut (négociation des révisions 2024-10-07 à 2025-11-25, identité et consignes du serveur, schémas et annotations `readOnlyHint` des 14 outils, erreurs sans 500, reconnexion SSE, journaux détaillés sans argument, résultat ni secret).
+- Compatibilité MCP : 9 tests en JSON-RPC brut (négociation des révisions 2024-10-07 à 2025-11-25, identité et consignes du serveur, schémas et annotations `readOnlyHint` des 14 outils, erreurs sans 500, reconnexion SSE, journaux détaillés sans argument, résultat ni secret) ; tables des connecteurs sans prototype (`__proto__`, `constructor`… ne désignent plus aucun système).
 - Versions figées et retour arrière : installations déployées depuis un tag Git (jamais une branche), image de base Node figée par empreinte, cohérence de version vérifiée par test, scénario `ops/test-rollback.sh` (courante → précédente → courante sur le même volume) en CI.
 
 ### Modifié

@@ -71,8 +71,10 @@ test("Erreurs : outil inconnu, arguments invalides, méthode inconnue → erreur
   assert.equal(unknown.status, 200);
   assert.ok(unknown.body.error || unknown.body.result?.isError, JSON.stringify(unknown.body));
   const badArgs = await rpc({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "sagex3_query", arguments: { representation: 42 } } });
+  assert.equal(badArgs.status, 200);
   assert.ok(badArgs.body.error || badArgs.body.result?.isError, "arguments hors schéma refusés");
   const method = await rpc({ jsonrpc: "2.0", id: 5, method: "resources/write", params: {} });
+  assert.equal(method.status, 200);
   assert.equal(method.body.error?.code, -32601, "méthode inconnue");
 });
 
@@ -105,4 +107,16 @@ test("Journaux détaillés (LOG_LEVEL=debug) : nom de l'outil et durée seulemen
     for (const s of ["ARGUMENT-SECRET-42", "ARGUMENT-SECRET-43", KEY, "sage-token-alice", "sf-token-alice", "alice@example.com"]) assert.ok(!logs.includes(s), `fuite dans les journaux : ${s}`);
     assert.ok(ok.length > 0);
   } finally { await dbg.stop(); }
+});
+
+test("Noms de système hérités du prototype (__proto__, constructor, toString) : aucune route ne les accepte", async () => {
+  const me = await fetch(`${hub.url}/api/me`);
+  const cookie = me.headers.get("set-cookie").split(";")[0];
+  for (const name of ["__proto__", "constructor", "toString", "hasOwnProperty"]) {
+    const post = (path, body) => fetch(`${hub.url}${path}`, { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify(body ?? {}) });
+    assert.equal((await post(`/api/disconnect/${name}`)).status, 404, `disconnect ${name}`);
+    assert.equal((await post(`/api/${name}/apikey`, { apiKey: "x" })).status, 404, `apikey ${name}`);
+    assert.equal((await fetch(`${hub.url}/api/test/${name}`, { headers: { Cookie: cookie } })).status, 404, `test ${name}`);
+    assert.equal((await fetch(`${hub.url}/auth/${name}`, { headers: { Cookie: cookie }, redirect: "manual" })).status, 400, `auth ${name}`);
+  }
 });

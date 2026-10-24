@@ -69,7 +69,7 @@ Sur le portail : « Se connecter » à chaque outil (mires du bouchon sur `http:
 vérifier les voyants du diagnostic, copier le bloc de configuration dans l'assistant. Sans Docker :
 
 ```bash
-cd hub && npm install && npm test                      # 101 tests, aucun réseau
+cd hub && npm install && npm test                      # 102 tests, aucun réseau
 ```
 
 Suite détaillée : [installation](docs/admin/installation.md).
@@ -98,7 +98,8 @@ Composants annexes : [bouchon d'entreprise](clevoa-mcp-stub/README.md), [backend
   `SF_MAX_PER_MIN`), en-têtes de sécurité HTTP, conteneur sans privilèges en lecture seule.
 * Télémétrie vers Clevoa réduite à un identifiant aléatoire d'installation, la version, les connecteurs configurés et
   des compteurs (appels, sièges) ; aucun e-mail, jeton, requête ni résultat ne quitte le hub ([sécurité § 4](docs/admin/securite.md#4-télémétrie-clevoa)).
-* Limites actuelles : SharePoint, Dropbox et MyReport non vérifiés sur un vrai compte ; cloisonnement observé sur les
+* Limites actuelles : seul Claude Desktop est vérifié en réel, Claude Code, ChatGPT et Copilot sont testés au niveau du
+  protocole MCP seulement ; SharePoint, Dropbox et MyReport non vérifiés sur un vrai compte ; cloisonnement observé sur les
   systèmes réels avec un compte administrateur seulement ; capacité démontrée sur bouchons (50 collaborateurs), pas
   encore sur les systèmes réels. Détail : [sécurité](docs/admin/securite.md), [état des fonctionnalités](docs/validation/etat-des-fonctionnalites.md).
 

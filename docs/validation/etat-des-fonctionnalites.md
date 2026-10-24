@@ -45,6 +45,9 @@ sur le système réel), **testé sur bouchon** (tests automatisés et simulateur
 * **SSO** : un compte désactivé dans Entra garde sa clé MCP jusqu'à régénération ; aucun outil ne retire une entrée
   de `users.json` ; activer le SSO sur une instance existante invalide toutes les clés antérieures.
 * **Sessions SSE** abandonnées sans fermeture TCP : pas de délai d'inactivité propre au hub ; non mesuré.
+* **Délais d'attente amont** : explicite pour Sage X3 seulement (30 s par requête) ; SharePoint (Graph) et les proxys
+  MCP (Salesforce, Dropbox, MyReport) s'en remettent aux délais par défaut de Node et du client du SDK MCP ; non mesurés
+  sur les systèmes réels.
 * **Routes MCP non plafonnées** par clé : un client emballé peut saturer un backend réel.
 * **Mémoire** : stable sur 27 minutes de charge (RSS ≤ 132 Mo), non démontrée sur une journée.
 * **Capacité réelle** : latences et quotas des systèmes réels non mesurés ; throttling Graph 429 non testé.
