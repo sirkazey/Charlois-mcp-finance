@@ -20,6 +20,9 @@ Socle multi-client : plus aucune valeur propre à Charlois dans le code du hub.
 - Portail : « Département Finance » codé en dur retiré ; titre « Clevoa AI Gateway ». Exemples d'URL des fichiers Compose neutres (`mcp.exemple.fr`).
 - Documentation mise à jour (variables d'instance, chemins du bouchon, 78 tests).
 
+### Sécurité
+- Dépendance `body-parser` 2.3.0 → 2.4.0 (CVE-2026-111181, déni de service via flux de décompression non géré, signalée par Trivy le 24/10 sur `main` aussi) dans le hub et le bouchon ; aucune autre dépendance modifiée.
+
 ## [1.2.1] – 2026-10-24
 
 Lot « fiabilisation » : SSO Microsoft Entra ID du portail (inactif sans `SSO_MODE`), corrections de l'audit indépendant du SSO,
