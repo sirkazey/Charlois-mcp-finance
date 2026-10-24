@@ -38,7 +38,7 @@ test("GET /api/me sans cookie : pose mcp_key et renvoie {key, mcpUrl, systems[5]
   cookie = `mcp_key=${key}`;
 
   const me = await r.json();
-  assert.match(me.version, /^\d+\.\d+\.\d+$/, "version stricte");
+  assert.match(me.version, /^\d+\.\d+\.\d+(-rc\.\d+)?$/, "version stricte (X.Y.Z, ou X.Y.Z-rc.N pour une candidate)");
   assert.equal(me.env, process.env.APP_ENV === "production" ? "PRODUCTION" : "PRE-PROD");
   assert.equal(me.key, key);
   assert.equal(me.email, null);
@@ -382,7 +382,7 @@ test("Production : le hub refuse de démarrer avec une PUBLIC_URL non https (hor
   await assert.rejects(startHub({ upstreamUrl: up.url, env: { APP_ENV: "production", PUBLIC_URL: "http://hub.example.com" } }), /PUBLIC_URL doit être en https/);
   const prod = await startHub({ upstreamUrl: up.url, env: { APP_ENV: "production", LOG_LEVEL: "info" } }); // PUBLIC_URL http://127.0.0.1 : test local toléré
   try {
-    assert.match(prod.logs(), /Hub MCP v\d+\.\d+\.\d+ · ENV: PRODUCTION/);
+    assert.match(prod.logs(), /Hub MCP v\d+\.\d+\.\d+(-rc\.\d+)? · ENV: PRODUCTION/);
     const me = await fetch(`${prod.url}/api/me`).then((x) => x.json());
     assert.equal(me.env, "PRODUCTION");
   } finally { await prod.stop(); }

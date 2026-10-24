@@ -5,7 +5,8 @@ outils métier d'une entreprise : CRM Salesforce, ERP Sage X3, documents SharePo
 MyReport. Chaque appel porte le jeton **personnel** du collaborateur : l'assistant ne voit que ce que le collaborateur
 a déjà le droit de voir, et le hub n'a aucun compte technique.
 
-Édité par Clevoa SASU. Première instance déployée pour le Groupe Charlois (direction financière). Chaque instance porte son
+Édité par Clevoa SASU. Premier client : Groupe Charlois (direction financière) ; qualification en cours sur sa
+préproduction, aucune instance en production. Chaque instance porte son
 propre nom de serveur MCP et son libellé (`MCP_SERVER_NAME`, `INSTANCE_LABEL`).
 
 ## Ce que fait la passerelle
@@ -68,7 +69,7 @@ Sur le portail : « Se connecter » à chaque outil (mires du bouchon sur `http:
 vérifier les voyants du diagnostic, copier le bloc de configuration dans l'assistant. Sans Docker :
 
 ```bash
-cd hub && npm install && npm test                      # 78 tests, aucun réseau
+cd hub && npm install && npm test                      # 102 tests, aucun réseau
 ```
 
 Suite détaillée : [installation](docs/admin/installation.md).
@@ -81,7 +82,8 @@ Suite détaillée : [installation](docs/admin/installation.md).
 | Administrateur | [Installation](docs/admin/installation.md) · [Configuration des connecteurs](docs/admin/configuration.md) · [SSO Entra ID](docs/admin/sso-entra.md) · [Exploitation, sauvegarde, restauration](docs/admin/exploitation.md) · [Sécurité](docs/admin/securite.md) |
 | Développeur | [Architecture](docs/developer/architecture.md) · [Écrire un connecteur](docs/developer/connecteurs.md) · [Tests et analyses](docs/developer/tests.md) · [Contribuer](docs/CONTRIBUTING.md) |
 | Validation | [État des fonctionnalités et limites](docs/validation/etat-des-fonctionnalites.md) · [Journal des tests réels](docs/validation/journal-tests-reels.md) · [Campagne de charge v1.2.1](docs/validation/charge-v1.2.1.md) |
-| Historique | [Audits d'octobre 2026](docs/history/audit-2026-10.md) · [Décisions](docs/history/decisions.md) · [Feuille de route](docs/history/roadmap-2026-10.md) |
+| Produit | [Roadmap produit](docs/roadmap-produit.md) : qualification, maintenance, intégrations sur besoin client |
+| Historique | [Audits d'octobre 2026](docs/history/audit-2026-10.md) · [Décisions](docs/history/decisions.md) · [Feuille de route d'octobre 2026 (archive)](docs/history/roadmap-2026-10.md) |
 
 Composants annexes : [bouchon d'entreprise](clevoa-mcp-stub/README.md), [backend de télémétrie Clevoa](clevoa-backend/README.md),
 [outils de charge](loadtest/README.md). Index complet : [docs/README.md](docs/README.md).
@@ -94,9 +96,10 @@ Composants annexes : [bouchon d'entreprise](clevoa-mcp-stub/README.md), [backend
   claude.ai web et mobile ne sont donc pas pris en charge (choix assumé : le hub reste sur le réseau interne).
 * Limitation de débit par adresse IP, plafonds d'appels sortants par connecteur (`MYREPORT_MAX_PER_MIN`,
   `SF_MAX_PER_MIN`), en-têtes de sécurité HTTP, conteneur sans privilèges en lecture seule.
-* Télémétrie vers Clevoa limitée à des compteurs (version, connecteurs configurés, nombre d'appels et de sièges) ;
-  aucun e-mail, jeton, requête ni résultat ne quitte le hub.
-* Limites actuelles : SharePoint, Dropbox et MyReport non vérifiés sur un vrai compte ; cloisonnement observé sur les
+* Télémétrie vers Clevoa réduite à un identifiant aléatoire d'installation, la version, les connecteurs configurés et
+  des compteurs (appels, sièges) ; aucun e-mail, jeton, requête ni résultat ne quitte le hub ([sécurité § 4](docs/admin/securite.md#4-télémétrie-clevoa)).
+* Limites actuelles : seul Claude Desktop est vérifié en réel, Claude Code, ChatGPT et Copilot sont testés au niveau du
+  protocole MCP seulement ; SharePoint, Dropbox et MyReport non vérifiés sur un vrai compte ; cloisonnement observé sur les
   systèmes réels avec un compte administrateur seulement ; capacité démontrée sur bouchons (50 collaborateurs), pas
   encore sur les systèmes réels. Détail : [sécurité](docs/admin/securite.md), [état des fonctionnalités](docs/validation/etat-des-fonctionnalites.md).
 
@@ -104,5 +107,5 @@ Composants annexes : [bouchon d'entreprise](clevoa-mcp-stub/README.md), [backend
 
 Logiciel propriétaire de Clevoa SASU : [LICENSE.md](LICENSE.md). Les dépendances open source conservent leurs licences
 (MIT, ISC, BSD). Versions : [CHANGELOG.md](CHANGELOG.md) et
-[releases GitHub](https://github.com/sirkazey/Clevoa-IA-gateway/releases) ; version courante **1.3.1**
+[releases GitHub](https://github.com/sirkazey/Clevoa-IA-gateway/releases) ; version courante **1.3.2-rc.1** (candidate, non qualifiée pour la production)
 (`hub/version.js`), affichée sur le portail et dans les journaux de démarrage.

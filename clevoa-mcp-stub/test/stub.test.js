@@ -171,7 +171,7 @@ test("MyReport canin via SSE : synthèse des coûts par race avec le jeton perso
 test("Télémétrie : le hub a envoyé son ping anonyme au bouchon Clevoa", async () => {
   for (let i = 0; i < 40 && !(await fetch(`${stubUrl}/api/v1/telemetry`).then((x) => x.json())).length; i++) await sleep(50);
   const t = await fetch(`${stubUrl}/api/v1/telemetry`).then((x) => x.json());
-  assert.ok(t.length >= 1); assert.deepEqual(Object.keys(t[0]).sort(), ["connectors", "date", "env", "receivedAt", "requests", "seats", "version"]);
+  assert.ok(t.length >= 1); assert.deepEqual(Object.keys(t[0]).sort(), ["connectors", "date", "env", "installation", "receivedAt", "requests", "seats", "version"]);
   assert.equal(t[0].seats, 0, "ping de démarrage : aucun siège encore (Marie et Paul se connectent après) ; le champ est un entier, jamais une identité");
   assert.ok(!JSON.stringify(t).includes("marie"), "aucune identité dans la télémétrie");
 });

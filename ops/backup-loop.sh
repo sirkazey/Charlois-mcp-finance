@@ -10,7 +10,7 @@ log() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $*"; }
 latest() { ls -1 "$DEST"/users-*.json 2>/dev/null | sort | tail -n 1; }
 backup() {
   find "$DEST" -name 'users-*.json.tmp' -mmin +10 -delete 2>/dev/null   # restes d'une interruption antérieure
-  [ -f "$SRC" ] || { log "users.json absent : aucun collaborateur connecté, rien à sauvegarder"; return 1; }
+  [ -f "$SRC" ] || { log "users.json absent : ni collaborateur connecté ni télémétrie active, rien à sauvegarder"; return 1; }
   if [ "$(head -c 5 "$SRC")" != "enc1:" ] || [ "$(wc -c < "$SRC")" -lt "$MIN_BYTES" ]; then
     log "users.json invalide (en-tête ou taille) : sauvegarde refusée, les précédentes sont conservées"; return 1
   fi

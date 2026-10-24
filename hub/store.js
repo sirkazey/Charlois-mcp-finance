@@ -2,7 +2,7 @@
 // users[key] = { email, sso: { sub, tid, upn, name, at }, salesforce: {tokens}, sagex3: {tokens}, sharepoint, dropbox, myreport }
 // La "key" est le secret que l'utilisateur met dans son client MCP. La clé maîtresse vient de ENCRYPTION_KEY.
 import { readFileSync, writeFileSync, mkdirSync, renameSync } from "node:fs";
-import { randomBytes, createHash, createCipheriv, createDecipheriv } from "node:crypto";
+import { randomBytes, randomUUID, createHash, createCipheriv, createDecipheriv } from "node:crypto";
 
 const DIR = process.env.DATA_DIR || "./data";
 const FILE = `${DIR}/users.json`;
@@ -64,6 +64,12 @@ export const store = {
     u.sso = { sub, tid, upn, name, at: new Date().toISOString() };
     if (email) u.email = email; // l'identité Entra fait foi
     save();
+  },
+  /** Identifiant de l'installation pour la télémétrie : UUID aléatoire créé au premier appel, conservé dans le fichier chiffré
+   *  (il suit donc les sauvegardes et restaurations). Ne dit rien du client ni d'un collaborateur. */
+  installationId() {
+    if (!db.installation) { db.installation = randomUUID(); save(); }
+    return db.installation;
   },
   remove(key) { if (store.get(key)) { delete db.users[key]; save(); } },
   /** Oublie les clés anonymes sans identifiant plus vieilles que maxAgeMs (départs SSO abandonnés) ; rien n'est écrit, elles n'ont jamais été persistées. */

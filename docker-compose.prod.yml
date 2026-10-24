@@ -1,4 +1,4 @@
-# PRODUCTION — Stack Portainer alimentée par la branche `main` (Git auto-update, après validation des tests).
+# PRODUCTION — Stack Portainer déployée depuis le tag d'une version publiée (refs/tags/vX.Y.Z), sans mise à jour automatique.
 # Étend docker-compose.yml (base commune) avec les verrous maximaux : télémétrie figée sur l'URL Clevoa de production,
 # conteneur sans privilèges, système de fichiers en lecture seule, journalisation plafonnée, store chiffré (ENCRYPTION_KEY).
 # Portainer : compose path = docker-compose.prod.yml. Le hub refuse de démarrer si PUBLIC_URL n'est pas en https.

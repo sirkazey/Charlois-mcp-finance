@@ -59,7 +59,7 @@ export async function withToken(connector, key, fn) {
 /** Routes /auth/:system et /auth/:system/callback. `getKey(req)` lit l'identité (cookie) de l'utilisateur. */
 export function oauthRouter(connectors, getKey) {
   const r = Router();
-  const byId = Object.fromEntries(connectors.map((c) => [c.id, c]));
+  const byId = Object.assign(Object.create(null), Object.fromEntries(connectors.map((c) => [c.id, c]))); // sans prototype, comme dans server.js
   r.use((_req, res, next) => { res.type("text/plain"); next(); }); // toute erreur part en texte brut : un paramètre reflété (error_description) ne peut pas devenir du HTML
 
   // Avec un SSO (connecteur `bindIdentity`), les flux des systèmes exigent un navigateur déjà identifié ; sans SSO, une clé suffit.

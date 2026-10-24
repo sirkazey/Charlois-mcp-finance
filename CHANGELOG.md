@@ -7,6 +7,24 @@ noms techniques inchangés). Les documents cités par leur ancien nom sont déso
 
 Une section par version, trois lignes au plus par rubrique. La version est celle de `hub/version.js`, le tag Git `vX.Y.Z` et la Release GitHub portent le même numéro.
 
+## [1.3.2-rc.1] – 2026-10-24
+
+Version candidate (non qualifiée pour la production) : socle de maintenance, sans nouvelle fonction métier (périmètre
+gelé à la 1.3.1). La 1.3.2 sera publiée après la recette sur l'installation du premier client. Compte rendu : `docs/validation/stabilisation-2026-10.md`.
+
+### Ajouté
+- Télémétrie : identifiant aléatoire d'installation (conservé dans `users.json` chiffré), délai de 10 s par envoi, avertissement dans les journaux quand Clevoa annonce une version minimale supérieure.
+- Backend Clevoa : fiche par installation dans DynamoDB (expirée 400 jours après le dernier contact), rapport quotidien des installations silencieuses et des versions sous le minimum (CloudWatch, alerte SNS), validation stricte et limite de 4 Ko, clé client jamais stockée, 15 tests sans AWS en CI.
+
+- Diagnostic exportable : `docker exec <conteneur> node diagnostic.js` produit un rapport JSON (version, santé, fichier chiffré, connecteurs, joignabilité, télémétrie) sans aucun secret, jeton, e-mail, URL ni donnée métier ; contrôle de santé Docker du hub (`healthy` dans Portainer).
+- Sécurité de l'image : scan Trivy de l'image du hub construite, CI hebdomadaire sur `main`, `npm audit` en CI ; npm, corepack et yarn retirés de l'image d'exécution (10 vulnérabilités hautes de leurs dépendances embarquées, inutilisées par le hub) ; procédure de version corrective de sécurité.
+- Compatibilité MCP : 9 tests en JSON-RPC brut (négociation des révisions 2024-10-07 à 2025-11-25, identité et consignes du serveur, schémas et annotations `readOnlyHint` des 14 outils, erreurs sans 500, reconnexion SSE, journaux détaillés sans argument, résultat ni secret) ; tables des connecteurs sans prototype (`__proto__`, `constructor`… ne désignent plus aucun système).
+- Versions figées et retour arrière : installations déployées depuis un tag Git (jamais une branche), image de base Node figée par empreinte, cohérence de version vérifiée par test, scénario `ops/test-rollback.sh` (courante → précédente → courante sur le même volume) en CI.
+
+### Modifié
+- Télémétrie : après trois nouveaux essais en échec, retour à l'horaire quotidien (auparavant un essai toutes les 30 minutes tant que Clevoa restait injoignable) ; la réponse du backend ne donne plus le nombre d'envois du jour tous clients confondus.
+- Documentation : roadmap produit unique (`docs/roadmap-produit.md`), décisions de gel fonctionnel et de versions figées, finalité et conservation de la télémétrie.
+
 ## [1.3.1] – 2026-10-24
 
 Refonte graphique et ergonomique du portail aux couleurs Clevoa. Aucun changement de route, d'API, de SSO, de logique MCP
