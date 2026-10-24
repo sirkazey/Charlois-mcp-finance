@@ -7,6 +7,16 @@ noms techniques inchangés). Les documents cités par leur ancien nom sont déso
 
 Une section par version, trois lignes au plus par rubrique. La version est celle de `hub/version.js`, le tag Git `vX.Y.Z` et la Release GitHub portent le même numéro.
 
+## [1.3.1] – 2026-10-24
+
+Refonte graphique et ergonomique du portail aux couleurs Clevoa. Aucun changement de route, d'API, de SSO, de logique MCP
+ni de connecteur. Validation et captures avant/après : `docs/validation/portail-v1.3.1.md`.
+
+### Modifié
+- Portail : charte du kit officiel Clevoa (logos SVG fond clair et sombre, favicons, police Outfit servie par le hub), dans l'esprit du site SOCLE.SI ; progression en trois étapes avec la prochaine action ; une carte par outil (état, connexion, jeton, test et résultat) et « Tout tester » ; configuration de l'assistant en onglets, clé masquée à l'écran et copiée en entier ; écrans dédiés « connexion Microsoft » (SSO) et « passerelle injoignable » ; configuration de l'instance repliable ; thème sombre avec le logo adapté.
+- Accessibilité : lien d'évitement, focus visible, onglets au clavier, champs étiquetés, résultats annoncés ; axe-core WCAG 2.1 A et AA sans violation (clair, sombre, mobile, SSO).
+- Test de cohérence des URL du portail étendu aux ressources statiques (existence dans `public/`, réponse 200) ; documentation (guide utilisateur, architecture, licence : police Outfit sous SIL OFL 1.1 et signes distinctifs Clevoa).
+
 ## [1.3.0] – 2026-10-24
 
 Socle multi-client : plus aucune valeur propre à Charlois dans le code du hub.

@@ -57,5 +57,5 @@ Clés MCP masquées sur toutes les captures ; données issues du bouchon (collab
 ## Limites
 
 Validation sur bouchon seulement : à revoir sur le portail de préproduction réel (SSO Entra, vrais libellés d'erreur
-des éditeurs). Testé avec Chromium ; Firefox et Safari non vérifiés dans cet environnement. Les captures montrent la
-version 1.3.0 du hub : le numéro passe à 1.3.1 à la livraison.
+des éditeurs). Testé avec Chromium ; Firefox et Safari non vérifiés dans cet environnement. Les captures ont été prises avant
+le passage du numéro de version : elles affichent « v1.3.0 », la refonte est livrée en 1.3.1.
