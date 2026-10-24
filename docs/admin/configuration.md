@@ -23,6 +23,10 @@ Les connexions des collaborateurs sont conservées (volume Docker).
 * Sage X3 et MyReport sans URL = simulateur intégré, données inventées et étiquetées ; en production, un connecteur non
   configuré n'est pas exposé du tout.
 * Jamais de commentaire sur la même ligne qu'une valeur vide : Compose le lirait comme la valeur.
+* **Instance** : `MCP_SERVER_NAME` (défaut `clevoa-gateway`) est le nom sous lequel le serveur MCP s'annonce et la clé du
+  bloc `mcpServers` que le portail fait copier ; `INSTANCE_LABEL` (vide = « Clevoa AI Gateway ») est le libellé affiché
+  sur le portail. Les configurations déjà collées chez les collaborateurs ne dépendent pas du nom : le changer n'oblige
+  personne à les refaire.
 
 URI de rappel à déclarer chez chaque fournisseur (toujours `<PUBLIC_URL>` exact, sans barre finale) :
 

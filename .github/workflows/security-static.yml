@@ -22,13 +22,13 @@ jobs:
         with:
           node-version: 22
       - run: npm ci --prefix hub
-      - run: npm ci --prefix charlois-mcp-stub
+      - run: npm ci --prefix clevoa-mcp-stub
       - name: Hub, pré-prod
         run: npm test --prefix hub
       - name: Hub, verrous de production
         run: APP_ENV=production npm test --prefix hub
       - name: Bouchon de bout en bout
-        run: npm test --prefix charlois-mcp-stub
+        run: npm test --prefix clevoa-mcp-stub
   docs:
     name: Documentation (liens Markdown, ancres, fichiers cités)
     runs-on: ubuntu-latest

@@ -7,7 +7,7 @@ import { unreachable } from "../mcpclient.js";
 const LOGIN = (process.env.MS_LOGIN_URL || "https://login.microsoftonline.com").replace(/\/$/, "");
 const TENANT = process.env.MS_TENANT_ID || "common";
 const GRAPH = (process.env.GRAPH_URL || "https://graph.microsoft.com/v1.0").replace(/\/$/, "");
-const SITE = process.env.SP_SITE || ""; // site par défaut, ex. charlois.sharepoint.com:/sites/Finance (vide = OneDrive de l'utilisateur)
+const SITE = process.env.SP_SITE || ""; // site par défaut, ex. exemple.sharepoint.com:/sites/Finance (vide = OneDrive de l'utilisateur)
 const MAX_TEXT = 200_000;
 
 export const id = "sharepoint";

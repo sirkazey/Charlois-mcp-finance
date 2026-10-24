@@ -39,7 +39,7 @@ test("SSO actif : un anonyme n'obtient ni clé ni liste des systèmes ; portail,
   const r = await fetch(`${hub.url}/api/me`);
   assert.equal(r.headers.get("set-cookie"), null, "aucune clé créée pour un anonyme");
   const body = await r.json();
-  assert.deepEqual(body, { version: body.version, env: "PRE-PROD", sso: "mock", email: null, key: null, systems: [] });
+  assert.deepEqual(body, { version: body.version, env: "PRE-PROD", instance: "", sso: "mock", email: null, key: null, systems: [] });
   assert.equal((await fetch(`${hub.url}/api/test/sagex3`)).status, 401);
   assert.equal((await fetch(`${hub.url}/auth/salesforce`, noFollow)).status, 400, "pas de flux OAuth système sans identité");
   assert.equal((await mcpPost()).status, 401);

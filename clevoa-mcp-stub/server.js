@@ -1,4 +1,4 @@
-// Bouchon d'entreprise Charlois : un seul processus qui imite les API réelles joignables par le hub.
+// Bouchon d'entreprise : un seul processus qui imite les API réelles joignables par le hub (jeu de données fictif « Charlois »).
 // Salesforce (REST + OAuth2), Microsoft (Entra + Graph), Dropbox (OAuth2 + serveur MCP Streamable HTTP),
 // Sage X3 Syracuse (REST + IdP OAuth2 / clé d'API / Basic), MyReport Server (serveur MCP SSE), Clevoa (télémétrie).
 import express from "express";
@@ -22,8 +22,8 @@ const sign = (id) => createHmac("sha256", DL_SECRET).update(id).digest("hex").sl
 const deny = (res, status, body) => res.status(status).json(body);
 const strip = (o) => Object.fromEntries(Object.entries(o).filter(([k]) => !k.startsWith("$")));
 
-app.get("/", (_req, res) => res.type("html").send(`<!doctype html><meta charset="utf-8"><title>Bouchon Charlois</title><body style="font:15px system-ui;max-width:720px;margin:40px auto">
-<h1>Bouchon d'entreprise Charlois</h1><p>Imite Salesforce, Microsoft Graph, Dropbox MCP, Sage X3 Syracuse, MyReport MCP et Clevoa avec un jeu de données canin.</p>
+app.get("/", (_req, res) => res.type("html").send(`<!doctype html><meta charset="utf-8"><title>Bouchon d'entreprise Clevoa AI Gateway</title><body style="font:15px system-ui;max-width:720px;margin:40px auto">
+<h1>Bouchon d'entreprise Clevoa AI Gateway</h1><p>Imite Salesforce, Microsoft Graph, Dropbox MCP, Sage X3 Syracuse, MyReport MCP et Clevoa avec un jeu de données canin.</p>
 <h3>Collaborateurs simulés</h3><ul>${Object.entries(USERS).map(([u, p]) => `<li><b>${p.name}</b> (${p.role}) — ${u}<br>Sage X3 : login <code>${p.sageLogin}</code>, clé <code>${p.sageKey}</code> · MyReport : jeton <code>${p.myreportKey}</code> · dossier Confidentiel : ${p.confidentiel ? "oui" : "non"} · achats Sage : ${p.achats ? "oui" : "non"}</li>`).join("")}</ul>
 <h3>Points d'entrée</h3><pre>${["/services/oauth2/{authorize,token,userinfo}  /platform/mcp/v1/d/{org}/platform/sobject-reads   Salesforce (MCP hébergé)", "/ms/{tenant}/oauth2/v2.0/{authorize,token}  /v1.0/...                   Microsoft Graph", "/oauth2/{authorize,token}  /dropbox-mcp                                Dropbox", "/oauth/{authorize,token,userinfo}  /api1/x3/erp/{dossier}/...          Sage X3 Syracuse", "/myreport/sse  /myreport/messages                                     MyReport Server (MCP SSE)", "/api/v1/telemetry                                                    Clevoa"].join("\n")}</pre>
 <p>Télémétrie reçue : <a href="/api/v1/telemetry">/api/v1/telemetry</a></p></body>`));
@@ -236,4 +236,4 @@ const telemetry = [];
 app.post("/api/v1/telemetry", (req, res) => { if (!req.headers["x-clevoa-key"]) return deny(res, 401, { status: "unauthorized" }); telemetry.push({ receivedAt: new Date().toISOString(), ...req.body }); res.json({ status: "active", totalToday: telemetry.length }); });
 app.get("/api/v1/telemetry", (_req, res) => res.json(telemetry));
 
-app.listen(PORT, () => console.log(`Bouchon Charlois sur http://localhost:${PORT} · ${Object.keys(USERS).length} collaborateurs simulés · jetons valides ${process.env.TOKEN_TTL_MIN ?? 10} min`));
+app.listen(PORT, () => console.log(`Bouchon d'entreprise sur http://localhost:${PORT} · ${Object.keys(USERS).length} collaborateurs simulés · jetons valides ${process.env.TOKEN_TTL_MIN ?? 10} min`));

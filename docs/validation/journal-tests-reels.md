@@ -3,7 +3,7 @@
 Document de validation : il consigne ce qui a été **réellement exécuté** contre les systèmes du client. Il est complété
 à chaque campagne, jamais réécrit. Tests restants et limites : [état des fonctionnalités](etat-des-fonctionnalites.md).
 
-Chaque entrée dit ce qui a été exécuté contre les systèmes Charlois, avec quel résultat, et ce que le hub a dû corriger. Les tests automatisés (77 tests hub, 11 tests bouchon, scénario CI de sauvegarde et restauration)
+Chaque entrée dit ce qui a été exécuté contre les systèmes Charlois, avec quel résultat, et ce que le hub a dû corriger. Les tests automatisés (78 tests hub, 11 tests bouchon, scénario CI de sauvegarde et restauration)
 tournent à chaque commit ; ils ne sont pas listés ici.
 
 Compte utilisé pour tous les tests : le DSI du Groupe Charlois, profil **administrateur** sur les deux systèmes.

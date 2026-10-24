@@ -6,7 +6,7 @@
 # (le navigateur doit joindre les mires du bouchon ; le défaut localhost:4000 ne vaut que sur Docker Desktop).
 services:
   mcp-stub:
-    build: ./charlois-mcp-stub
+    build: ./clevoa-mcp-stub
     container_name: mcp-stub
     restart: unless-stopped
     ports:
@@ -30,7 +30,7 @@ services:
     environment:
       APP_ENV: preprod
       LOG_LEVEL: debug                       # trace chaque appel d'outil (nom, durée, succès) ; jamais les arguments ni les résultats
-      PUBLIC_URL: ${PUBLIC_URL:?ex. https://mcp-preprod.charlois.fr ou http://localhost:8080}
+      PUBLIC_URL: ${PUBLIC_URL:?ex. https://mcp-preprod.exemple.fr ou http://localhost:8080}
       # --- Bouchon par défaut (http://mcp-stub:4000 vu du hub, http://localhost:4000 vu du navigateur) ---
       BROWSER_URL_REWRITE: ${BROWSER_URL_REWRITE:-http://mcp-stub:4000=>http://localhost:4000}
       SSO_MODE: ${SSO_MODE:-}                # mock = SSO Entra simulé par le bouchon (Marie, Paul) ; vide par défaut pour ne pas invalider les clés existantes de la pré-prod

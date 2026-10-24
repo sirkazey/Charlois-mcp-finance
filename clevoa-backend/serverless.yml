@@ -19,7 +19,7 @@ provider:
 functions:
   telemetry:
     handler: handler.telemetry   # fichier handler.js, export `telemetry`
-    description: Réception de la télémétrie anonyme quotidienne des hubs MCP Charlois
+    description: Réception de la télémétrie quotidienne des hubs Clevoa AI Gateway
     events:
       - httpApi:                 # API Gateway v2 (HTTP API) : moins cher et plus simple que REST API
           method: POST

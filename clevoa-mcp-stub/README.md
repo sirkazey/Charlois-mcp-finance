@@ -1,4 +1,6 @@
-# charlois-mcp-stub — bouchon d'entreprise
+# clevoa-mcp-stub — bouchon d'entreprise
+
+Jeu de données fictif « Charlois » (deux collaborateurs, données canines) : aucune donnée réelle.
 
 Un seul processus Node (express + SDK MCP, ~430 lignes) qui imite, protocoles et routes compris, tout ce que le hub joint :
 

@@ -1,6 +1,6 @@
 name: Security - ZAP baseline (manual)
 # Analyse dynamique PASSIVE (zap-baseline : exploration et observation, aucune attaque) contre un hub de démonstration
-# démarré sur le runner GitHub, sans aucun système Charlois ni tiers. Déclenchement manuel uniquement.
+# démarré sur le runner GitHub, sans aucun système client ni tiers. Déclenchement manuel uniquement.
 on:
   workflow_dispatch:
 permissions:

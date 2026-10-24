@@ -30,11 +30,12 @@ pour tous vos outils connectés.
 Bloc **Votre connecteur** : URL `<portail>/mcp` et en-tête `Authorization: Bearer <clé>`.
 
 * Claude Code : coller le bloc dans un fichier `.mcp.json` à la racine du projet (ou dans `~/.claude.json` pour tous
-  les projets), relancer `claude` ; la commande `/mcp` liste `charlois-finance`.
+  les projets), relancer `claude` ; la commande `/mcp` liste le serveur sous le nom indiqué par le portail (`clevoa-gateway` par
+  défaut, un autre nom si votre DSI en a choisi un).
 * Ligne de commande (syntaxe à confirmer avec `claude mcp add --help`) :
 
 ```bash
-claude mcp add --transport http charlois-finance <portail>/mcp --header "Authorization: Bearer <clé>"
+claude mcp add --transport http clevoa-gateway <portail>/mcp --header "Authorization: Bearer <clé>"
 ```
 
 ### Claude Desktop
@@ -46,12 +47,12 @@ Claude Desktop n'accepte pas d'en-tête sur un serveur distant : le bloc **Claud
 1. Portail → bloc « Claude Desktop » → Copier.
 2. Claude Desktop → nom d'utilisateur en bas à gauche → Paramètres → Développeur → **Modifier la configuration** : ouvre
    le dossier de `claude_desktop_config.json` (`%APPDATA%\Claude`).
-3. Coller l'entrée `charlois-finance` **à l'intérieur** du `mcpServers` existant. Fichier vide : coller le bloc entier.
+3. Coller l'entrée (nommée comme sur le portail, `clevoa-gateway` par défaut) **à l'intérieur** du `mcpServers` existant. Fichier vide : coller le bloc entier.
 4. Quitter Claude Desktop par l'icône de la barre système (clic droit → Quitter), relancer. Premier lancement : 10 à
    20 s, le pont se télécharge.
-5. Nouvelle conversation → icône des outils : `charlois-finance` figure avec ses outils.
+5. Nouvelle conversation → icône des outils : le serveur figure avec ses outils.
 
-Journal en cas d'échec : Paramètres → Développeur → Ouvrir les journaux → `mcp-server-charlois-finance.log`.
+Journal en cas d'échec : Paramètres → Développeur → Ouvrir les journaux → `mcp-server-<nom du serveur>.log`.
 
 Claude.ai web et mobile ne sont pas pris en charge : le hub reste sur le réseau interne et ces clients ne peuvent pas
 poser l'en-tête d'autorisation.
