@@ -147,6 +147,7 @@ jobs:
         with:
           name: trivy-results
           path: trivy.json
+          if-no-files-found: ignore
   trivy-image:
     name: Trivy image du hub construite (système Alpine, Node, dépendances)
     runs-on: ubuntu-latest
@@ -171,5 +172,4 @@ jobs:
         with:
           name: trivy-image-results
           path: trivy-image.json
-          if-no-files-found: ignore
           if-no-files-found: ignore

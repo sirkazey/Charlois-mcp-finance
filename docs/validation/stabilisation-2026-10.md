@@ -184,3 +184,8 @@ yarn de l'image Node : ces outils sont retirés de l'image d'exécution, le scan
 Gitleaks (94 commits, aucune fuite) et Semgrep (règles `p/javascript`, `p/nodejs`, `p/security-audit`, aucun constat)
 ont aussi été exécutés en local sur la branche. Reste hors périmètre : actions GitHub référencées par version et non
 par empreinte (antérieur à la mission).
+
+Second passage de l'agent F : corrections acquises, mais clé `if-no-files-found` en double dans le workflow (fichier
+invalide pour GitHub, aucune CI ne se serait exécutée). Corrigé ; `actionlint` 1.7.7 confirme l'erreur avant correction
+et n'émet après que deux avertissements shellcheck antérieurs à la mission (variable de boucle inutilisée). Validation
+par une exécution réelle : PR en brouillon vers `dev`.
