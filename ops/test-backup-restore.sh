@@ -6,7 +6,7 @@
 # sauvegarde manuelle, mauvaise ENCRYPTION_KEY détectée.
 set -eu
 HUB_URL=${HUB_URL:-http://localhost:8080}; COMPOSE=${COMPOSE:-docker compose -f docker-compose.dev.yml}; BACKUP_DIR=${BACKUP_DIR:?dossier des sauvegardes automatiques}
-WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
+WORK=$(mktemp -d); trap 'sudo rm -rf "$WORK"' EXIT   # des fichiers y sont créés par sudo (copies de sauvegardes root)
 say() { printf '\n=== %s\n' "$*"; }
 count() { ls "$BACKUP_DIR"/users-*.json 2>/dev/null | wc -l; }
 vol() { docker volume ls -q --filter name=mcp-data; }

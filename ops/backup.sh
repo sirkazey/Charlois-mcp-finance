@@ -10,10 +10,10 @@ DEST=${1:-${BACKUP_DIR:-./backups}}
 VOL=${VOLUME:-$(docker volume ls -q --filter name=mcp-data)}
 [ -n "$VOL" ] || { echo "Aucun volume mcp-data : le hub n'a jamais démarré sur cette machine." >&2; exit 1; }
 [ "$(printf '%s\n' "$VOL" | wc -l)" -eq 1 ] || { echo "Plusieurs volumes trouvés : $(printf '%s ' $VOL). Relancer avec VOLUME=<nom>." >&2; exit 1; }
-mkdir -p "$DEST"
+OWNER="${SUDO_UID:-$(id -u)}:${SUDO_GID:-$(id -g)}"   # sous sudo, le fichier (et le dossier créé) appartiennent à l'administrateur, pas à root
+if [ ! -d "$DEST" ]; then mkdir -p "$DEST"; chown "$OWNER" "$DEST"; fi
 STAMP=$(date +%Y-%m-%d_%H%M%S); NAME="users-$STAMP.json"; n=0
 while [ -e "$DEST/$NAME" ]; do n=$((n + 1)); NAME="users-$STAMP-$n.json"; done   # jamais d'écrasement
-OWNER="${SUDO_UID:-$(id -u)}:${SUDO_GID:-$(id -g)}"   # sous sudo, le fichier appartient à l'administrateur, pas à root
 # Copie faite en root dans le conteneur (le volume appartient à l'utilisateur node, en 700), via un fichier temporaire vérifié puis publié.
 docker run --rm -v "$VOL:/data:ro" -v "$(cd "$DEST" && pwd):/backups" node:22-alpine \
   sh -c "[ -f /data/users.json ] || { echo 'users.json absent : aucun collaborateur connecté, rien à sauvegarder' >&2; exit 2; }
