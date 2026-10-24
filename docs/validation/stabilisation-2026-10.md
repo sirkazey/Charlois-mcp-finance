@@ -58,14 +58,15 @@ la production : elle est prête pour une recette sur la préproduction du client
 | 3 Diagnostic | `diagnostic.js`, contrôle de santé, procédure de support | hub arrêté non traité ; tests des variables piégées absents | GO (E, F) | `02b6bfc`, `830653e`, `92c8eb4` |
 | 4 Releases | tag Git, image figée, version candidate, retour arrière en CI | image figée jamais scannée ; npm vulnérable dans l'image ; clé en double invalidant le workflow ; copie illisible pour le runner CI ; alerte CodeQL | GO (E, F) | `073ed7e`, `140221a`, `705a130`, `ce291be` |
 | 5 MCP et sécurité | tests de compatibilité en JSON-RPC brut, matrice de sécurité | tables de connecteurs à prototype ; compatibilité affichée sans réserve ; statut HTTP non vérifié | GO (E, F) | `6ffcdf3`, `2a6e534` |
-| 6 Qualification | contrôles finaux, rapport, revue globale, livraison | voir § H | en revue (G) | ce rapport |
+| 6 Qualification | contrôles finaux, rapport, revue globale, livraison | remarques non bloquantes de la revue globale intégrées | GO (G) | rapport et corrections finales |
 
 Relecteurs : agent E (architecture, tests, documentation), agent F (sécurité), agent G (revue globale finale), tous
 distincts du coordinateur qui a écrit le code. Aucun lot n'a été validé par son auteur.
 
 ## E. Résultats des tests
 
-Exécutés le 24/10/2026 sur `2a6e534`, en local, puis par la CI GitHub de la PR #16.
+Exécutés le 24/10/2026 sur `2a6e534` en local (la tête suivante ne diffère que par ce rapport), puis par la CI GitHub
+de la PR #16 sur chaque commit, et rejoués par la revue globale sur la tête de branche.
 
 | Résultat | Contrôles |
 |---|---|
@@ -79,7 +80,9 @@ Exécutés le 24/10/2026 sur `2a6e534`, en local, puis par la CI GitHub de la PR
 **Techniques** : délais d'attente amont explicites pour Sage X3 seulement ; routes MCP non plafonnées par clé ; sessions
 SSE abandonnées sans délai propre ; aucun outil de retrait d'une entrée de `users.json` ; rôle IAM commun aux deux
 fonctions du backend et pas de limitation de débit par route ; image nginx optionnelle non figée ; actions GitHub
-référencées par version. Détail : [état des fonctionnalités § 2](etat-des-fonctionnalites.md#2-limites-connues).
+référencées par version ; image `node:22-alpine` non figée dans les scripts `ops/backup.sh`, `ops/restore.sh` et
+`ops/test-backup-restore.sh` (conteneurs utilitaires éphémères) ; reconstruction de l'image par Portainer au changement de
+référence Git non vérifiée (le contrôle de la ligne de démarrage le détecte). Détail : [état des fonctionnalités § 2](etat-des-fonctionnalites.md#2-limites-connues).
 
 **Dépendances externes** : backend AWS et nom de domaine `clevoa.fr` à mettre en place par Clevoa ; publication par
 4CAD des représentations Sage X3 demandées ; serveur MCP de MyReport non livré ; validation juridique de la télémétrie.
@@ -102,7 +105,9 @@ déployé.
 2. **Version** : Clevoa crée le tag `v1.3.2-rc.1` sur `main` ; stack de pré-production sur `refs/tags/v1.3.2-rc.1`,
    GitOps désactivé ([installation § 4](../admin/installation.md#4-déploiement-avec-portainer-gitops)).
 3. **Paramètres** : variables de `.env.example` ; `MCP_SERVER_NAME`, `INSTANCE_LABEL` ; applications OAuth Salesforce,
-   Entra (SharePoint, SSO), Dropbox ; Sage X3 en mode `basic` ; `BACKUP_DIR` absolu par environnement.
+   Entra (SharePoint, SSO), Dropbox ; Sage X3 en mode `basic` ; `BACKUP_DIR` absolu par environnement. En
+   pré-production, une variable vide pointe vers le bouchon : renseigner explicitement `MS_LOGIN_URL`, `GRAPH_URL`,
+   `DROPBOX_*` et `CLEVOA_URL` pour les systèmes réels ([installation § 4](../admin/installation.md#4-déploiement-avec-portainer-gitops)).
 4. **Sécurité** : une `ENCRYPTION_KEY` et une `CLEVOA_KEY` par environnement, au coffre ; hub derrière https
    (`HUB_PORT=127.0.0.1:8080`) ; SSO Entra si le portail est accessible à tout le locataire
    ([sécurité § 5](../admin/securite.md#5-ce-que-ladministrateur-doit-vérifier-au-déploiement)).
@@ -116,12 +121,14 @@ déployé.
 9. **Télémétrie** : backend Clevoa déployé, installation visible dans le rapport ; à défaut, journal `[telemetry] échec`
    sans effet sur le hub.
 10. **Retour arrière** : sur la pré-production, passer à `v1.3.1` puis revenir à `v1.3.2-rc.1` (exploitation § 10), sans
-    perte de connexion.
+    perte de connexion ; vérifier à chaque changement que la ligne de démarrage annonce bien la nouvelle version
+    (Portainer doit reconstruire l'image).
 11. Production seulement après ces dix points, sur le tag `v1.3.2` publié à l'issue de la recette.
 
 ## H. État GitHub
 
-* Branche de travail : `maintenance/stabilisation-2026-10`, 13 commits de lots depuis `affa329` (v1.3.1).
+* Branche de travail : `maintenance/stabilisation-2026-10`, commits listés par `git log affa329..` (un ou plusieurs par
+  lot, plus le rapport), depuis `affa329` (v1.3.1).
 * PR #16 vers `dev` : CI complète (9 jobs) verte sur les derniers commits ; fusion après la revue globale.
 * Livraison sur `main` par une PR `dev` → `main`, après CI verte ; aucune exécution de déploiement par la mission.
 * Branche `docs/roadmap-skills-adoption-2026-10` conservée, non fusionnée ; aucune branche supprimée, aucun push forcé.
@@ -137,7 +144,7 @@ déployé.
 | 3 | Diagnostic et support | GO | agents F (1 passage) et E (2 passages) |
 | 4 | Releases et mises à jour contrôlées | GO | agent E (1 passage), agent F (3 passages, réserve : CI verte avant fusion) |
 | 5 | Compatibilité MCP et sécurité | GO | agents E et F (2 passages chacun) |
-| 6 | Qualification finale et livraison | en revue | revue globale indépendante (agent G) |
+| 6 | Qualification finale et livraison | GO | revue globale indépendante (agent G) |
 
 Branche de travail : `maintenance/stabilisation-2026-10`, créée depuis `main` (`affa329`, v1.3.1).
 
@@ -331,11 +338,12 @@ Commits du lot 4 : `073ed7e`, `140221a`, `705a130`, `ce291be`.
 
 **Compatibilité.** SDK `@modelcontextprotocol/sdk` 1.32.1 ; la 1.32.2 (23/10/2026) ne change que l'enregistrement des
 outils après `connect()`, que le hub n'utilise pas : pas de mise à jour, conformément à la règle « pas de mise à jour
-inutile ». Transports Streamable HTTP (sans état) et SSE. Nouveau `hub/test/compat.test.js` (8 tests en JSON-RPC brut,
+inutile ». Transports Streamable HTTP (sans état) et SSE. Nouveau `hub/test/compat.test.js` (9 tests en JSON-RPC brut,
 indépendants du client du SDK) : négociation de chacune des cinq révisions du protocole (2024-10-07 à 2025-11-25) et
 d'une révision inconnue, identité et consignes du serveur, schéma objet, description et `readOnlyHint` des 14 outils,
 erreurs JSON-RPC sans 500 (outil inconnu, arguments hors schéma, méthode inconnue, JSON mal formé), reconnexion SSE
-répétée, journaux détaillés sans argument, résultat, clé ni jeton. Clients déclarés : Claude Desktop seul vérifié en
+répétée, journaux détaillés sans argument, résultat, clé ni jeton ; un neuvième test, ajouté après la revue de
+sécurité, refuse les noms de système hérités du prototype. Clients déclarés : Claude Desktop seul vérifié en
 réel ; Claude Code, ChatGPT et Copilot testés au niveau du protocole seulement.
 
 **Dépendances.** `npm audit --omit=dev` : 0 vulnérabilité (hub, bouchon), désormais exécuté en CI. Backend : aucune
@@ -387,3 +395,9 @@ Seconds passages : agents E et F **GO** (`2a6e534`). Commits du lot 5 : `6ffcdf3
 
 Contrôles finaux exécutés en local sur `2a6e534` le 24/10/2026 : voir § E. Rapport de synthèse (§ A à H), revue globale
 indépendante par un agent qui n'a relu aucun lot, PR #16 vers `dev`, puis `dev` vers `main`.
+
+Revue globale (agent G, aucun lot relu auparavant) : **GO**. Tests rejoués sur la tête (128, identiques au § E), CI
+verte sur les 9 jobs, PR sans conflit, verrous de production inchangés, statuts honnêtes, version cohérente, historique
+non réécrit. Remarques non bloquantes intégrées avant fusion : en-tête de `docker-compose.yml`, statut de `main`, piège
+des variables vides en pré-production dans la checklist, images non figées des scripts d'exploitation et reconstruction
+sous Portainer ajoutées aux limites, chiffres de l'annexe.

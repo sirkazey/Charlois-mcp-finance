@@ -100,7 +100,8 @@ Après toute modification de `.env`, relancer `up -d` : les connexions des colla
 ## 6. Cycle de livraison et versions
 
 Un seul code pour tous les clients ; chaque installation choisit sa version. `dev` est la branche d'intégration,
-`main` porte les versions validées ; aucune installation client ne suit une branche. Une version est un **tag Git**
+`main` porte les versions validées en CI et en revue (versions candidates comprises) ; aucune installation client ne suit
+une branche. Une version est un **tag Git**
 `vX.Y.Z` (ou `vX.Y.Z-rc.N` pour une version candidate) posé sur `main`, accompagné d'une Release GitHub. Le numéro est
 affiché par le portail, les journaux, le diagnostic et la télémétrie : c'est la preuve de ce qui tourne. Par
 convention, un tag publié n'est jamais déplacé ni supprimé ; une correction donne une nouvelle version. Tant que la

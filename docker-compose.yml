@@ -1,5 +1,5 @@
-# BASE COMMUNE : définitions partagées (lancée seule : démonstration avec les simulateurs internes, sans bouchon). Les stacks docker-compose.dev.yml (pré-prod, branche dev,
-# Docker Desktop) et docker-compose.prod.yml (prod, branche main) l'étendent et n'écrivent que leurs différences.
+# BASE COMMUNE : définitions partagées (lancée seule : démonstration avec les simulateurs internes, sans bouchon). Les stacks docker-compose.dev.yml (pré-prod,
+# Docker Desktop) et docker-compose.prod.yml (prod), déployées depuis un tag Git, l'étendent et n'écrivent que leurs différences.
 # Le hub est un seul service ; les connecteurs sont des modules. mcp-backup et nginx (profil proxy) sont décrits en bas.
 services:
   mcp-hub:
