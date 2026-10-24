@@ -4,6 +4,11 @@ Une section par version, trois lignes au plus par rubrique. La version est celle
 
 ## [Non publié]
 
+### Corrigé (fiabilisation des sauvegardes avant les tests de charge)
+- Sauvegarde automatique : fichiers horodatés jamais écrasés, aucun doublon quand `users.json` n'a pas changé, copie vérifiée (en-tête, taille, contenu) via un fichier temporaire publié atomiquement, source absente ou corrompue sans effet sur les sauvegardes existantes, rétention `BACKUP_KEEP_DAYS` appliquée seulement après une copie réussie, restes temporaires nettoyés. Sauvegarde manuelle : même nommage, sans écrasement, propriétaire réel sous `sudo`.
+- Restauration : le conteneur retenu doit monter le volume retenu, vérifié avant tout arrêt (`Incohérence … Rien n'a été modifié`) ; avec `VOLUME`, le conteneur qui le monte est retrouvé seul ; anciens et nouveaux noms de sauvegarde acceptés.
+- Tests : `hub/test/backup.test.js` (boucle de sauvegarde sans Docker) et `ops/test-backup-restore.sh` (scénarios Docker joués par la CI). `DAC_OVERRIDE` conservé, justification documentée.
+
 ### Modifié (check complet du 24/10 : simplicité, installation, exploitation)
 - Portail : mode démo navigateur retiré (quatrième couche de simulation, sans test, périmée) ; le bouchon joue ce rôle. Compose : `mcp-backup` et `nginx` déclarés une fois dans la base et étendus par les stacks ; journaux plafonnés aussi en pré-prod. Lambda Clevoa en Node 22. Workflow renommé `CI`.
 - Scripts : `restore.sh` exige `sudo`, vérifie l'unicité du conteneur, ne lit que les journaux postérieurs au redémarrage (plus de faux « mauvaise clé »), attend 30 s, relance le hub si la copie échoue ; `backup.sh` vérifie l'accès à Docker.

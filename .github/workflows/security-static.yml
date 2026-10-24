@@ -42,31 +42,11 @@ jobs:
           docker compose -f docker-compose.dev.yml up --build -d
           for i in $(seq 1 60); do curl -fsS http://localhost:8080/health && break; sleep 2; done
           curl -fsS http://localhost:8080/health
-      - name: Créer un état à sauvegarder (clé + jeton MyReport) et vérifier la sauvegarde automatique
-        run: |
-          curl -fsS -c jar.txt http://localhost:8080/api/me > /dev/null
-          curl -fsS -b jar.txt -X POST -H 'Content-Type: application/json' -d '{"apiKey":"MR-MARIE-2026"}' http://localhost:8080/api/myreport/apikey
-          docker compose -f docker-compose.dev.yml restart mcp-backup
-          for i in $(seq 1 10); do ls backups/users-*.json >/dev/null 2>&1 && break; sleep 1; done
-          echo "--- diagnostic"; docker compose -f docker-compose.dev.yml logs --no-log-prefix mcp-backup; ls -la backups; docker run --rm -v "$(docker volume ls -q --filter name=mcp-data):/data" node:22-alpine ls -la /data
-          f=$(ls backups/users-*.json | head -1); [ -n "$f" ] && [ "$(sudo head -c 5 "$f")" = "enc1:" ] && echo "sauvegarde automatique : $f (date en heure de Paris, fichier root en 600)"
-      - name: Sauvegarde manuelle (ops/backup.sh)
-        run: ops/backup.sh "$PWD/sauvegardes-manuelles" && ls -l sauvegardes-manuelles
-      - name: Simuler la perte des données puis restaurer (ops/restore.sh)
-        run: |
-          vol=$(docker volume ls -q --filter name=mcp-data)
-          docker run --rm -v "$vol:/data" node:22-alpine rm -f /data/users.json
-          docker compose -f docker-compose.dev.yml restart mcp-hub
-          for i in $(seq 1 30); do curl -fsS http://localhost:8080/health && break; sleep 1; done
-          curl -fsS -b jar.txt http://localhost:8080/api/me | grep -q '"connected":true' && { echo "les données auraient dû être perdues"; exit 1; } || echo "perte confirmée"
-          ops/restore.sh sauvegardes-manuelles/users-*.json
-          for i in $(seq 1 30); do curl -fsS http://localhost:8080/health && break; sleep 1; done
-          curl -fsS -b jar.txt http://localhost:8080/api/me | grep -q '"id":"myreport"[^}]*"connected":true' && echo "restauration vérifiée : le collaborateur retrouve sa clé et son jeton"
-      - name: Une ENCRYPTION_KEY différente est détectée à la restauration
-        run: |
-          sed -i "s/^ENCRYPTION_KEY=.*/ENCRYPTION_KEY=$(openssl rand -hex 32)/" .env
-          docker compose -f docker-compose.dev.yml up -d mcp-hub
-          if ops/restore.sh sauvegardes-manuelles/users-*.json; then echo "l'erreur de clé aurait dû être signalée"; exit 1; else echo "erreur de clé signalée"; fi
+      - name: "Scénarios (ops/test-backup-restore.sh) : sauvegardes successives, corruption, perte, restauration, incohérence, mauvaise clé"
+        run: BACKUP_DIR="$PWD/backups" ops/test-backup-restore.sh
+      - name: Journaux du conteneur de sauvegarde
+        if: always()
+        run: docker compose -f docker-compose.dev.yml logs --no-log-prefix mcp-backup; ls -la backups || true
       - name: Arrêt
         if: always()
         run: docker compose -f docker-compose.dev.yml down -v || true
