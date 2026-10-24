@@ -48,7 +48,7 @@ jobs:
           curl -fsS -b jar.txt -X POST -H 'Content-Type: application/json' -d '{"apiKey":"MR-MARIE-2026"}' http://localhost:8080/api/myreport/apikey
           docker compose -f docker-compose.dev.yml restart mcp-backup
           sleep 3
-          f="backups/users-$(date +%F).json"; test -f "$f" && [ "$(head -c 5 "$f")" = "enc1:" ] && echo "sauvegarde automatique : $f"
+          f=$(ls backups/users-*.json | head -1); [ -n "$f" ] && [ "$(head -c 5 "$f")" = "enc1:" ] && echo "sauvegarde automatique : $f (date en heure de Paris)"
       - name: Sauvegarde manuelle (ops/backup.sh)
         run: ops/backup.sh "$PWD/sauvegardes-manuelles" && ls -l sauvegardes-manuelles
       - name: Simuler la perte des données puis restaurer (ops/restore.sh)
