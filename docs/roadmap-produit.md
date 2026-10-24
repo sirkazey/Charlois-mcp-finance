@@ -55,8 +55,8 @@ main sur son déploiement. Aucun accès de Clevoa à l'infrastructure ni aux don
 |---|---|---|
 | Télémétrie éditeur : identifiant d'installation, version, dernier contact, connecteurs déclarés, persistance, détection des installations silencieuses et des versions obsolètes | fait (tests sans AWS) ; déploiement AWS à faire | [sécurité § 4](admin/securite.md#4-télémétrie-clevoa), [backend](../clevoa-backend/README.md) ; validation juridique de la télémétrie |
 | Diagnostic exportable, relu par l'administrateur avant envoi | fait | [exploitation § 9](admin/exploitation.md#9-diagnostic-et-support) ; test automatisé de l'absence de valeur sensible |
-| Publication de versions immuables (tag Git) et déploiement d'une version choisie | à faire | [installation § 6](admin/installation.md#6-cycle-de-livraison-et-versions) |
-| Retour arrière à la version précédente | à faire | procédure documentée et testée en local ([exploitation § 2](admin/exploitation.md#2-démarrer-arrêter-redémarrer-mettre-à-jour-revenir-en-arrière)) |
+| Publication de versions immuables (tag Git) et déploiement d'une version choisie | fait (procédure) ; tag `v1.3.2-rc.1` à créer | [installation § 6](admin/installation.md#6-cycle-de-livraison-et-versions), `hub/test/release.test.js` |
+| Retour arrière à la version précédente | fait (testé en local et en CI) | [exploitation § 10](admin/exploitation.md#10-mise-à-jour-et-retour-arrière), `ops/test-rollback.sh` |
 | Suivi des versions du SDK MCP et des dépendances | à faire, à chaque version | `npm audit` et Trivy sans vulnérabilité haute ou critique corrigeable |
 
 Pas de prise de contrôle à distance, pas de tunnel, pas de mise à jour automatique imposée aux installations.

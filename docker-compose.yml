@@ -71,7 +71,7 @@ services:
   # Sauvegarde automatique : copie quotidienne de users.json (chiffré) dans BACKUP_DIR sur la machine hôte (chemin ABSOLU sous Portainer,
   # un dossier par environnement), rétention BACKUP_KEEP_DAYS jours. Restauration : sudo ops/restore.sh <fichier>. Voir docs/admin/exploitation.md.
   mcp-backup:
-    image: node:22-alpine
+    image: node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914   # même image figée que le hub
     restart: unless-stopped
     environment:
       BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-30}

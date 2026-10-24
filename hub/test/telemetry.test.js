@@ -144,7 +144,7 @@ test("Hub → Clevoa : POST au démarrage avec la clé et un payload sans aucune
   assert.match(body.installation, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/, "UUID aléatoire");
   assert.ok(hub.rawStore().startsWith("enc1:") && !hub.rawStore().includes(body.installation), "identifiant conservé dans le fichier chiffré, jamais en clair");
   assert.equal(body.seats, 1, "un siège : le collaborateur connecté du test ; aucune identité transmise");
-  assert.match(body.version, /^\d+\.\d+\.\d+$/);
+  assert.match(body.version, /^\d+\.\d+\.\d+(-rc\.\d+)?$/, "X.Y.Z ou version candidate X.Y.Z-rc.N");
   assert.deepEqual(body.connectors, { salesforce: true, sagex3: true, sharepoint: true, dropbox: true, myreport: true });
   assert.equal(body.requests, 0);
   assert.ok(!t[0].body.includes("alice") && !t[0].body.includes("token"), "ni email ni jeton");

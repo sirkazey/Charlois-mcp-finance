@@ -29,7 +29,7 @@ confirmer au premier déploiement.
 npm i -g serverless            # Serverless Framework v4
 aws configure                  # identifiants IAM avec droits CloudFormation, Lambda, API Gateway, IAM, DynamoDB, SNS, CloudWatch
 cd clevoa-backend
-CLEVOA_KEYS="charlois=<clé-charlois-prod>" MIN_VERSION=1.3.2 serverless deploy --stage prod   # affiche l'URL de l'API
+CLEVOA_KEYS="charlois=<clé-charlois-prod>" MIN_VERSION=1.3.1 serverless deploy --stage prod   # affiche l'URL de l'API
 aws sns subscribe --topic-arn <arn du sujet clevoa-backend-prod-alertes> --protocol email --notification-endpoint <adresse Clevoa>
 ```
 

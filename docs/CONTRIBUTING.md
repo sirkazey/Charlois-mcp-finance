@@ -5,16 +5,17 @@ en une heure. Pas de framework, pas de base de données, pas de service en plus 
 
 ## 1. Code
 
-* Branches : `dev` (pré-production, déployée automatiquement) et `main` (production). Travailler sur une branche
-  dédiée, ouvrir une PR vers `dev`, fusionner `dev` dans `main` en avance rapide pour livrer ([installation § 6](admin/installation.md#6-cycle-de-livraison-et-versions)).
+* Branches : `dev` (intégration) et `main` (versions validées). Travailler sur une branche dédiée, ouvrir une PR vers
+  `dev`, puis `dev` vers `main` ; une version est un tag `vX.Y.Z` immuable sur `main`, que les installations déploient
+  ([installation § 6](admin/installation.md#6-cycle-de-livraison-et-versions)). Jamais de branche permanente par client.
 * Toute correction s'accompagne d'un test de régression (`hub/test/`, `node:test`, aucun réseau). Un connecteur reste
   un module d'environ 50 à 190 lignes ; au-delà, on revoit la copie ([écrire un connecteur](developer/connecteurs.md)).
 * La CI doit être verte avant fusion : tests, scénario de sauvegarde et restauration, Semgrep, CodeQL, Gitleaks,
   Trivy, contrôle des liens de la documentation ([tests et analyses](developer/tests.md)).
 * Jamais de secret, de jeton, d'identifiant personnel ni de donnée métier dans le code, les tests, les fixtures, les
   issues ou les commits. Les constantes de test sont inventées et listées dans `.gitleaks.toml` avec leur raison.
-* Version : `hub/version.js` et `hub/package.json` portent le même numéro, incrémenté à chaque livraison, avec une
-  section dans `CHANGELOG.md`.
+* Version : `hub/version.js`, `hub/package.json` et `hub/package-lock.json` portent le même numéro, incrémenté à chaque
+  livraison, avec une section dans `CHANGELOG.md` (vérifié par `hub/test/release.test.js`).
 
 ## 2. Documentation
 

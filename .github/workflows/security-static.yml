@@ -1,5 +1,6 @@
 name: CI
 # À chaque PR et push sur main/dev : tests du hub, du bouchon et du backend Clevoa, scénario de sauvegarde et restauration sur la stack pré-prod,
+# retour arrière vers la version publiée précédente,
 # puis analyses statiques Semgrep, CodeQL, Gitleaks, Trivy. Rien ne touche un système réel. Versions figées et vérifiées le 23/10/2026.
 on:
   pull_request:
@@ -62,6 +63,16 @@ jobs:
       - name: Arrêt
         if: always()
         run: docker compose -f docker-compose.dev.yml down -v || true
+  rollback:
+    name: Retour arrière (version courante → version publiée précédente → courante, même volume)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0        # tags nécessaires : la version précédente est reconstruite depuis son tag
+      - name: Scénario ops/test-rollback.sh
+        run: ops/test-rollback.sh
   semgrep:
     name: Semgrep community rules
     runs-on: ubuntu-latest

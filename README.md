@@ -69,7 +69,7 @@ Sur le portail : « Se connecter » à chaque outil (mires du bouchon sur `http:
 vérifier les voyants du diagnostic, copier le bloc de configuration dans l'assistant. Sans Docker :
 
 ```bash
-cd hub && npm install && npm test                      # 90 tests, aucun réseau
+cd hub && npm install && npm test                      # 93 tests, aucun réseau
 ```
 
 Suite détaillée : [installation](docs/admin/installation.md).
@@ -106,5 +106,5 @@ Composants annexes : [bouchon d'entreprise](clevoa-mcp-stub/README.md), [backend
 
 Logiciel propriétaire de Clevoa SASU : [LICENSE.md](LICENSE.md). Les dépendances open source conservent leurs licences
 (MIT, ISC, BSD). Versions : [CHANGELOG.md](CHANGELOG.md) et
-[releases GitHub](https://github.com/sirkazey/Clevoa-IA-gateway/releases) ; version courante **1.3.2**
+[releases GitHub](https://github.com/sirkazey/Clevoa-IA-gateway/releases) ; version courante **1.3.2-rc.1** (candidate, non qualifiée pour la production)
 (`hub/version.js`), affichée sur le portail et dans les journaux de démarrage.

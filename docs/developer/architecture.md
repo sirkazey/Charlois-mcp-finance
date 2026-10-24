@@ -25,7 +25,7 @@ Assistant IA (Claude Code, Claude Desktop, ChatGPT, Copilot)
 │                secret ni donnée métier (docker exec, lecture seule)  │
 │ connectors/    salesforce · sagex3 · sharepoint · dropbox · myreport │
 │ public/        index.html, le portail                                │
-│ test/          node:test, amont mocké, 90 tests                      │
+│ test/          node:test, amont mocké, 93 tests                      │
 └───┬─────────────┬───────────────┬───────────────┬───────────────┬────┘
     ▼ MCP HTTP    ▼ REST Syracuse ▼ Graph (GET)   ▼ MCP HTTP      ▼ MCP SSE
  Salesforce    Sage X3 24R1    SharePoint      Dropbox (MCP    MyReport Server

@@ -107,7 +107,7 @@ le DPO de Clevoa et du client avant la première mise en production.
 
 **Version minimale** : si Clevoa renseigne une version minimale, le hub qui est en dessous l'écrit dans ses journaux
 (`[telemetry] version … inférieure au minimum …`) ; il continue de fonctionner, la mise à jour reste une décision de
-l'administrateur ([mise à jour](exploitation.md#2-démarrer-arrêter-redémarrer-mettre-à-jour-revenir-en-arrière)).
+l'administrateur ([mise à jour](exploitation.md#10-mise-à-jour-et-retour-arrière)).
 
 ## 5. Ce que l'administrateur doit vérifier au déploiement
 

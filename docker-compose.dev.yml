@@ -1,4 +1,4 @@
-# PRÉ-PRODUCTION — Stack Portainer alimentée par la branche `dev` (Git auto-update).
+# PRÉ-PRODUCTION — Stack Portainer déployée depuis le tag de la version à recetter (la branche `dev` seulement sur la plateforme d'intégration Clevoa).
 # Étend docker-compose.yml (base commune) : logs détaillés, et par défaut TOUTES les API sortantes du hub pointent vers le
 # conteneur bouchon `mcp-stub` (Salesforce, Graph, Dropbox MCP, Sage X3, MyReport MCP, Clevoa) avec un jeu de données canin.
 # Renseigner une variable (ex. SF_LOGIN_URL, SAGE_URL) dans Portainer rebranche ce seul système sur le vrai.

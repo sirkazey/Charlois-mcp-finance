@@ -10,8 +10,8 @@ Ce document sert aussi de journal de progression tant que la mission est en cour
 |---|---|---|---|
 | 1 | Audit et nettoyage documentaire | GO | agent E (2 passages) |
 | 2 | Télémétrie éditeur | GO | agents E et F (2 passages chacun) |
-| 3 | Diagnostic et support | en revue | agent F : GO |
-| 4 | Releases et mises à jour contrôlées | à faire | — |
+| 3 | Diagnostic et support | GO | agents F (1 passage) et E (2 passages) |
+| 4 | Releases et mises à jour contrôlées | en revue | — |
 | 5 | Compatibilité MCP et sécurité | à faire | — |
 | 6 | Qualification finale et livraison | à faire | — |
 
@@ -133,3 +133,36 @@ piégées, `TRUST_PROXY` numérique seulement, identifiant validé, formulation)
 requises » : conduite à tenir quand le hub est arrêté ou redémarre en boucle, nombres de tests. Corrigé : § 9 complété
 (journaux d'abord, diagnostic dans un conteneur jetable `docker compose run --rm --no-deps`, vérifié en local), problèmes
 signalés pour un connecteur configuré sans URL et une `PUBLIC_URL` invalide, nombres alignés.
+
+Second passage de l'agent E : **GO** (`92c8eb4`). Commits du lot 3 : `02b6bfc`, `830653e`, `92c8eb4`.
+
+## Lot 4 — Releases et mises à jour contrôlées
+
+État constaté : stacks Portainer en GitOps sur des branches mouvantes (`dev` → pré-production, `main` → production,
+mise à jour à chaque commit) ; image de base `node:22-alpine` flottante (un même tag reconstruit plus tard donne une
+autre image) ; retour arrière documenté sur une liste de tags inexacte (`v1.0.0` absent de GitHub, `v1.3.0` et
+`v1.3.1` omis) et jamais testé.
+
+Travaux :
+
+* Installations déployées depuis un tag Git (`refs/tags/vX.Y.Z`), GitOps désactivé chez le client ; `dev` réservé à la
+  plateforme d'intégration de Clevoa ; `main` = versions validées. Aucune branche par client.
+* Image de base figée par empreinte (`node:22-alpine@sha256:fe4f6d74…`, Node 22.23.4, empreinte vérifiée sur Docker Hub)
+  dans les deux `Dockerfile` et le conteneur de sauvegarde.
+* Version candidate `1.3.2-rc.1` (non qualifiée pour la production) ; `hub/test/release.test.js` vérifie la
+  cohérence version / `package.json` / lockfile / CHANGELOG et l'image figée.
+* `ops/test-rollback.sh` et job CI `rollback` : version courante → version publiée précédente → courante, sur le même
+  volume, conteneur en lecture seule sans privilèges ; vérifie démarrage, version, connexion d'un collaborateur et
+  identifiant d'installation.
+* Procédures : publication en 7 étapes et installation chez le client en 3 étapes ([installation § 6](../admin/installation.md#6-cycle-de-livraison-et-versions)),
+  mise à jour et retour arrière ([exploitation § 10](../admin/exploitation.md#10-mise-à-jour-et-retour-arrière)), tableaux
+  d'environnements, en-têtes des fichiers Compose, conventions.
+
+Tests : hub 93 tests (92 réussis, 1 ignoré en pré-prod ; 91 réussis, 2 ignorés en production) ; bouchon 11/11 ; backend
+15/15 ; documentation réussie. En local sous Docker : `ops/test-rollback.sh` réussi (1.3.2-rc.1 → v1.3.1 →
+1.3.2-rc.1) ; scénario de sauvegarde et restauration A à L réussi avec l'image figée et le contrôle de santé. Images
+construites localement à travers le proxy de la session (Dockerfile du dépôt précédé de l'autorité du proxy) ; la CI
+construit les Dockerfile tels quels.
+
+Actions manuelles (droits de la session insuffisants) : créer le tag `v1.3.2-rc.1` et sa Release sur `main` ; poser
+une règle de protection des tags `v*` ; reconfigurer les stacks Portainer existantes sur un tag.

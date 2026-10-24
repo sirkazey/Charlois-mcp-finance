@@ -86,10 +86,10 @@ async function main() {
   for (const c of CONNECTORS) {
     const configured = c.vars.every(set);
     const row = { id: c.id, etat: configured ? "configuré" : !c.simulator ? "non configuré" : IS_PROD ? "non exposé (production)" : "simulateur" };
+    const url = env[c.url] || c.defaultUrl;
+    if (configured && !url) problems.push(`${c.id} : configuré sans URL de service`);
     if (configured && !offline) {
-      const url = env[c.url] || c.defaultUrl;
       row.reseau = url ? await reach(url) : { joignable: null, erreur: "URL absente" };
-      if (!url) problems.push(`${c.id} : configuré sans URL de service`);
       if (row.reseau.joignable === false) problems.push(`${c.id} : hôte injoignable (${row.reseau.erreur})`);
     }
     connectors.push(row);
