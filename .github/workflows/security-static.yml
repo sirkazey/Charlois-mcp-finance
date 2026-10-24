@@ -1,10 +1,13 @@
 name: CI
-# À chaque PR et push sur main/dev : tests du hub et du bouchon, scénario de sauvegarde et restauration sur la stack pré-prod,
-# puis analyses statiques Semgrep, CodeQL, Gitleaks, Trivy. Rien ne touche un système réel. Versions figées et vérifiées le 23/10/2026.
+# À chaque PR et push sur main/dev : tests du hub, du bouchon et du backend Clevoa, scénario de sauvegarde et restauration sur la stack pré-prod,
+# retour arrière vers la version publiée précédente,
+# puis analyses statiques Semgrep, CodeQL, Gitleaks, Trivy (dépôt et image construite) ; chaque lundi sur main en plus. Rien ne touche un système réel. Versions figées et vérifiées le 23/10/2026.
 on:
   pull_request:
   push:
     branches: [main, dev]
+  schedule:
+    - cron: "17 5 * * 1"   # chaque lundi sur main : nouvelles vulnérabilités de l'image de base et des dépendances, même sans commit
   workflow_dispatch:
 permissions:
   contents: read
@@ -23,12 +26,16 @@ jobs:
           node-version: 22
       - run: npm ci --prefix hub
       - run: npm ci --prefix clevoa-mcp-stub
+      - name: npm audit (dépendances de production, niveau haut et critique)
+        run: npm audit --omit=dev --audit-level=high --prefix hub && npm audit --omit=dev --audit-level=high --prefix clevoa-mcp-stub
       - name: Hub, pré-prod
         run: npm test --prefix hub
       - name: Hub, verrous de production
         run: APP_ENV=production npm test --prefix hub
       - name: Bouchon de bout en bout
         run: npm test --prefix clevoa-mcp-stub
+      - name: Backend Clevoa (sans AWS)
+        run: npm test --prefix clevoa-backend
   docs:
     name: Documentation (liens Markdown, ancres, fichiers cités)
     runs-on: ubuntu-latest
@@ -60,6 +67,16 @@ jobs:
       - name: Arrêt
         if: always()
         run: docker compose -f docker-compose.dev.yml down -v || true
+  rollback:
+    name: Retour arrière (version courante → version publiée précédente → courante, même volume)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0        # tags nécessaires : la version précédente est reconstruite depuis son tag
+      - name: Scénario ops/test-rollback.sh
+        run: ops/test-rollback.sh
   semgrep:
     name: Semgrep community rules
     runs-on: ubuntu-latest
@@ -130,4 +147,29 @@ jobs:
         with:
           name: trivy-results
           path: trivy.json
+          if-no-files-found: ignore
+  trivy-image:
+    name: Trivy image du hub construite (système Alpine, Node, dépendances)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Construire l'image comme en production
+        run: docker build -t clevoa-gateway-hub:ci hub
+      - name: Scan de l'image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: clevoa-gateway-hub:ci
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          format: json
+          output: trivy-image.json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: trivy-image-results
+          path: trivy-image.json
           if-no-files-found: ignore

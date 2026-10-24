@@ -1,8 +1,8 @@
 # État des fonctionnalités et limites connues
 
-Version 1.3.1. Statuts selon [les conventions](../CONTRIBUTING.md#statut-des-fonctionnalités) : **disponible** (vérifié
-sur le système réel), **testé sur bouchon** (tests automatisés et simulateur seulement), **expérimental**, **prévu**.
-Preuves : [journal des tests réels](journal-tests-reels.md), [campagne de charge](charge-v1.2.1.md), CI.
+Version 1.3.2-rc.1, candidate (périmètre fonctionnel de la 1.3.1). Statuts selon [les conventions](../CONTRIBUTING.md#statut-des-fonctionnalités) : **disponible** (vérifié
+sur le système réel), **testé sur bouchon** (tests automatisés et simulateur seulement), **expérimental**, **prévu**, **non planifié**.
+Évolutions : [roadmap produit](../roadmap-produit.md). Preuves : [journal des tests réels](journal-tests-reels.md), [campagne de charge](charge-v1.2.1.md), CI.
 
 ## 1. Fonctionnalités
 
@@ -17,16 +17,18 @@ Preuves : [journal des tests réels](journal-tests-reels.md), [campagne de charg
 | SSO Microsoft Entra ID (`entra`) | testé sur bouchon | `hub/test/sso.test.js`, bouchon | activation sur un vrai locataire |
 | Portail, diagnostic, blocs de configuration, exemples de questions | disponible | usage quotidien en préproduction ; refonte v1.3.1 validée sur bouchon ([compte rendu](portail-v1.3.1.md)) | revue sur le portail de préproduction réel |
 | Claude Desktop via `mcp-remote` | disponible | vérifié le 23/10/2026 sur Windows | |
-| Claude Code, ChatGPT, Copilot (MCP HTTP + en-tête) | disponible (Claude Code) | Claude Code vérifié ; ChatGPT et Copilot non exercés | un test par client |
+| Claude Code, ChatGPT, Copilot (MCP HTTP + en-tête) | testé sur bouchon | tests de transport du hub ; Claude Code déclaré vérifié sans entrée au journal ; ChatGPT et Copilot non exercés | une session réelle par assistant, consignée au journal |
 | Claude.ai web et mobile | écarté | décision ([historique](../history/decisions.md)) | |
+| Protocole MCP : révisions 2024-10-07 à 2025-11-25 négociées (SDK `@modelcontextprotocol/sdk` 1.32.1), outils annotés `readOnlyHint`, erreurs JSON-RPC propres, reconnexion SSE | testé sur bouchon | `hub/test/compat.test.js` (échanges JSON-RPC bruts) ; Claude Desktop vérifié en réel | une session réelle par assistant autre que Claude Desktop |
 | Transports Streamable HTTP et SSE | disponible | tests hub, campagne de charge | retrait du SSE quand les assistants cibles seront tous en Streamable HTTP |
 | Chiffrement `users.json`, clé MCP en en-tête, limitation de débit, en-têtes de sécurité | disponible | tests hub, ZAP passif | |
+| Diagnostic exportable (`node diagnostic.js`), contrôle de santé du conteneur | testé sur bouchon | `hub/test/diagnostic.test.js` ; exécuté dans le conteneur de la stack pré-prod locale (24/10/2026) | un diagnostic sur l'installation du client |
+| Versions figées (tag Git, image de base par empreinte), mise à jour choisie par l'administrateur, retour arrière | testé sur bouchon | CI `rollback` (`ops/test-rollback.sh`), `hub/test/release.test.js` ; exécuté en local sous Docker le 24/10/2026 | une mise à jour et un retour arrière sur la pré-production du client |
 | Sauvegarde automatique, restauration scriptée | testé sur bouchon | CI (`ops/test-backup-restore.sh`), `hub/test/backup.test.js` | une restauration sur un serveur du client, puis une par trimestre |
 | Reverse proxy nginx (profil `proxy`) | testé sur bouchon | `docker compose config` en local ; non exercé en CI (Trivy n'analyse que la configuration des fichiers Compose) | déploiement réel ; `COMPOSE_PROFILES` sous Portainer |
-| Télémétrie Clevoa et backend Lambda | testé sur bouchon | tests hub (handler exécuté localement) | déploiement AWS, nom de domaine `clevoa.fr` |
+| Télémétrie Clevoa : identifiant d'installation, fiche persistée, rapport des installations silencieuses et des versions sous le minimum | testé sur bouchon | tests hub et backend, sans AWS (DynamoDB simulée) | déploiement AWS, nom de domaine `clevoa.fr`, validation juridique ([sécurité § 4](../admin/securite.md#4-télémétrie-clevoa)) |
 | Capacité 50 collaborateurs | démontrée sur bouchons | [campagne de charge](charge-v1.2.1.md) | recette de charge sur la préproduction réelle |
-| Mini-portail d'administration (retrait d'une entrée, suspension) | prévu | [feuille de route](../history/roadmap-2026-10.md) | |
-| Santé des connecteurs, tableau de bord Clevoa, connecteurs MCP déclaratifs | prévu | [feuille de route](../history/roadmap-2026-10.md) | |
+| Mini-portail d'administration, santé des connecteurs, tableau de bord graphique, connecteurs MCP déclaratifs | non planifié | gel fonctionnel de la 1.3.1 ([roadmap](../roadmap-produit.md#5-hors-roadmap)) | |
 
 ## 2. Limites connues
 
@@ -43,6 +45,9 @@ Preuves : [journal des tests réels](journal-tests-reels.md), [campagne de charg
 * **SSO** : un compte désactivé dans Entra garde sa clé MCP jusqu'à régénération ; aucun outil ne retire une entrée
   de `users.json` ; activer le SSO sur une instance existante invalide toutes les clés antérieures.
 * **Sessions SSE** abandonnées sans fermeture TCP : pas de délai d'inactivité propre au hub ; non mesuré.
+* **Délais d'attente amont** : explicite pour Sage X3 seulement (30 s par requête) ; SharePoint (Graph) et les proxys
+  MCP (Salesforce, Dropbox, MyReport) s'en remettent aux délais par défaut de Node et du client du SDK MCP ; non mesurés
+  sur les systèmes réels.
 * **Routes MCP non plafonnées** par clé : un client emballé peut saturer un backend réel.
 * **Mémoire** : stable sur 27 minutes de charge (RSS ≤ 132 Mo), non démontrée sur une journée.
 * **Capacité réelle** : latences et quotas des systèmes réels non mesurés ; throttling Graph 429 non testé.
@@ -65,3 +70,7 @@ Preuves : [journal des tests réels](journal-tests-reels.md), [campagne de charg
 | Exactitude financière sur un jeu de référence (factures, avoirs, signes, devises, dates) | réponses attendues approuvées par la Finance | jeu de référence |
 | Injection de prompts et contenus non fiables dans les données relayées | aucun accès supplémentaire ni exfiltration | cas de test documentés |
 | Comparaison croisée Sage + Salesforce dans une même réponse | vérifie la consigne par défaut du serveur MCP | |
+| Claude Code, ChatGPT, Copilot : une session réelle chacun, consignée au journal | seul Claude Desktop est prouvé ; les autres ne sont testés qu'au niveau du protocole | poste avec l'assistant, clé MCP |
+| Backend de télémétrie déployé sur AWS (DynamoDB, SNS, rapport) et `clevoa.fr` | testé localement sans AWS | compte AWS Clevoa, nom de domaine, validation juridique |
+| Mise à jour puis retour arrière sur la pré-production du client, depuis Portainer (référence de tag) | testé en CI et en local, jamais sous Portainer | tag `v1.3.2-rc.1` créé, stack reconfigurée sur un tag |
+| Diagnostic exporté depuis l'installation du client et relu | exécuté sur la stack pré-prod locale seulement | accès administrateur au serveur |

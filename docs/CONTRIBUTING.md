@@ -5,16 +5,18 @@ en une heure. Pas de framework, pas de base de données, pas de service en plus 
 
 ## 1. Code
 
-* Branches : `dev` (pré-production, déployée automatiquement) et `main` (production). Travailler sur une branche
-  dédiée, ouvrir une PR vers `dev`, fusionner `dev` dans `main` en avance rapide pour livrer ([installation § 6](admin/installation.md#6-cycle-de-livraison-et-versions)).
+* Branches : `dev` (intégration) et `main` (versions validées). Travailler sur une branche dédiée, ouvrir une PR vers
+  `dev`, puis `dev` vers `main` ; une version est un tag `vX.Y.Z` sur `main`, jamais déplacé (convention, protection
+  `v*` à poser sur GitHub), que les installations déploient
+  ([installation § 6](admin/installation.md#6-cycle-de-livraison-et-versions)). Jamais de branche permanente par client.
 * Toute correction s'accompagne d'un test de régression (`hub/test/`, `node:test`, aucun réseau). Un connecteur reste
   un module d'environ 50 à 190 lignes ; au-delà, on revoit la copie ([écrire un connecteur](developer/connecteurs.md)).
 * La CI doit être verte avant fusion : tests, scénario de sauvegarde et restauration, Semgrep, CodeQL, Gitleaks,
   Trivy, contrôle des liens de la documentation ([tests et analyses](developer/tests.md)).
 * Jamais de secret, de jeton, d'identifiant personnel ni de donnée métier dans le code, les tests, les fixtures, les
   issues ou les commits. Les constantes de test sont inventées et listées dans `.gitleaks.toml` avec leur raison.
-* Version : `hub/version.js` et `hub/package.json` portent le même numéro, incrémenté à chaque livraison, avec une
-  section dans `CHANGELOG.md`.
+* Version : `hub/version.js`, `hub/package.json` et `hub/package-lock.json` portent le même numéro, incrémenté à chaque
+  livraison, avec une section dans `CHANGELOG.md` (vérifié par `hub/test/release.test.js`).
 
 ## 2. Documentation
 
@@ -27,6 +29,7 @@ en une heure. Pas de framework, pas de base de données, pas de service en plus 
 | `docs/developer/` | développeur | architecture, conventions, connecteurs, tests |
 | `docs/validation/` | DSI, recette | ce qui est vérifié, mesuré, et les limites connues |
 | `docs/history/` | archives | audits, décisions, feuilles de route datées : figés, jamais réécrits |
+| `docs/roadmap-produit.md` | tous | la seule roadmap active : axes, statuts, critères de sortie |
 
 Fichiers en minuscules avec tirets (`guide-utilisateur.md`), un sujet par fichier, pas de fichier de moins de vingt
 lignes (on fusionne). Un composant annexe (`clevoa-mcp-stub/`, `clevoa-backend/`, `loadtest/`) garde son `README.md`
@@ -47,7 +50,7 @@ lignes (on fusionne). Un composant annexe (`clevoa-mcp-stub/`, `clevoa-backend/`
 
 ### Statut des fonctionnalités
 
-Quatre mots, toujours les mêmes, dans [l'état des fonctionnalités](validation/etat-des-fonctionnalites.md) et partout
+Cinq mots, toujours les mêmes, dans [l'état des fonctionnalités](validation/etat-des-fonctionnalites.md) et partout
 où un connecteur est décrit :
 
 | Statut | Signification |
@@ -55,7 +58,8 @@ où un connecteur est décrit :
 | **disponible** | livré dans la version courante et vérifié sur le système réel |
 | **testé sur bouchon** | livré, couvert par les tests automatisés, jamais confronté au vrai système |
 | **expérimental** | livré sans garantie, à activer explicitement, peut changer |
-| **prévu** | décrit dans une feuille de route, non livré ; ne jamais le présenter comme existant |
+| **prévu** | inscrit dans la [roadmap produit](roadmap-produit.md) (« à faire » ou « sur besoin »), non livré ; ne jamais le présenter comme existant |
+| **non planifié** | évoqué dans une archive, écarté de la roadmap active ; ne revient qu'avec une nouvelle décision |
 
 ### Secrets et données sensibles
 

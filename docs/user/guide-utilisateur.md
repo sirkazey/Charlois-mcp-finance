@@ -30,7 +30,9 @@ bouton **Copier** la copie en entier. Ne la partagez jamais : elle vaut pour tou
 
 ### Claude Code, ChatGPT, Copilot et clients MCP HTTP
 
-Onglet **Claude Code, ChatGPT, Copilot** : URL `<portail>/mcp` et en-tête `Authorization: Bearer <clé>`.
+Onglet **Claude Code, ChatGPT, Copilot** : URL `<portail>/mcp` et en-tête `Authorization: Bearer <clé>`. Ces assistants
+sont testés au niveau du protocole MCP ; seul Claude Desktop a été vérifié en conditions réelles. Signaler à la DSI
+tout écart constaté.
 
 * Claude Code : coller le bloc dans un fichier `.mcp.json` à la racine du projet (ou dans `~/.claude.json` pour tous
   les projets), relancer `claude` ; la commande `/mcp` liste le serveur sous le nom indiqué par le portail (`clevoa-gateway` par

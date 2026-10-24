@@ -6,6 +6,9 @@ l'état courant est dans [l'état des fonctionnalités](../validation/etat-des-f
 cités sont ceux de l'époque (`GUIDE_CONFIGURATION.md` → `docs/admin/configuration.md`, `EXPLOITATION.md` →
 `docs/admin/exploitation.md`, `JOURNAL_TESTS.md` → `docs/validation/journal-tests-reels.md`).
 
+> Note du 24 octobre 2026 : les orientations futures de ce document (§ 2) sont remplacées par la
+> [roadmap produit](../roadmap-produit.md), après le gel fonctionnel de la 1.3.1 ([décisions](decisions.md)).
+
 ## 1. Backlog du reste à faire avant la mise en production chez Charlois
 
 Aucun développement : uniquement de la configuration et des décisions humaines. Dans l'ordre où elles se débloquent.
