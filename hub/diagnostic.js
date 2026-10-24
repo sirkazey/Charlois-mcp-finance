@@ -89,6 +89,7 @@ async function main() {
     if (configured && !offline) {
       const url = env[c.url] || c.defaultUrl;
       row.reseau = url ? await reach(url) : { joignable: null, erreur: "URL absente" };
+      if (!url) problems.push(`${c.id} : configuré sans URL de service`);
       if (row.reseau.joignable === false) problems.push(`${c.id} : hôte injoignable (${row.reseau.erreur})`);
     }
     connectors.push(row);
@@ -98,7 +99,7 @@ async function main() {
   if (telemetry.active && !offline) telemetry.reseau = await reach(env.CLEVOA_URL || "https://clevoa.fr/api/v1/telemetry");
 
   let publicUrl = "vide";
-  try { if (set("PUBLIC_URL")) publicUrl = new URL(env.PUBLIC_URL).protocol.replace(":", ""); } catch { publicUrl = "invalide"; }
+  try { if (set("PUBLIC_URL")) publicUrl = new URL(env.PUBLIC_URL).protocol.replace(":", ""); } catch { publicUrl = "invalide"; problems.push("PUBLIC_URL invalide : le hub ne peut pas démarrer"); }
   // Même règle que le hub : https en production, sauf adresse locale de test.
   if (IS_PROD && !/^https:|^http:\/\/(localhost|127\.0\.0\.1)(:|$)/.test(env.PUBLIC_URL || "")) problems.push("PUBLIC_URL n'est pas en https en production");
 

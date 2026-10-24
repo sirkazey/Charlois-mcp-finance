@@ -10,7 +10,7 @@ Ce document sert aussi de journal de progression tant que la mission est en cour
 |---|---|---|---|
 | 1 | Audit et nettoyage documentaire | GO | agent E (2 passages) |
 | 2 | Télémétrie éditeur | GO | agents E et F (2 passages chacun) |
-| 3 | Diagnostic et support | en revue | — |
+| 3 | Diagnostic et support | en revue | agent F : GO |
 | 4 | Releases et mises à jour contrôlées | à faire | — |
 | 5 | Compatibilité MCP et sécurité | à faire | — |
 | 6 | Qualification finale et livraison | à faire | — |
@@ -121,8 +121,15 @@ Travaux :
 * [Exploitation § 9](../admin/exploitation.md#9-diagnostic-et-support) : contenu du rapport, relecture avant envoi, ce
   que Clevoa ne fait jamais (ni tunnel, ni accès distant, ni commande à distance).
 
-Tests : `hub/test/diagnostic.test.js` (7 tests : rapport complet, absence de 23 valeurs sensibles, joignabilité, hôte
-injoignable, mauvaise clé, hub arrêté, lecture seule) ; hub 89 tests (88 réussis, 1 ignoré en pré-prod ; 87 réussis, 2
-ignorés en production). Vérifié dans le conteneur de la stack pré-prod construite en local : `docker exec
+Tests : `hub/test/diagnostic.test.js` (8 tests : rapport complet, absence de 23 valeurs sensibles, joignabilité, hôte
+injoignable, variables piégées, mauvaise clé, hub arrêté, lecture seule) ; hub 90 tests (89 réussis, 1 ignoré en
+pré-prod ; 88 réussis, 2 ignorés en production). Vérifié dans le conteneur de la stack pré-prod construite en local : `docker exec
 mcp-hub-preprod node diagnostic.js` (système de fichiers en lecture seule, utilisateur `node`) produit un rapport sans
 problème signalé, cinq connecteurs joignables ; hub « healthy » après 45 s.
+
+Revues du lot 3 : agent F (sécurité) **GO**, sonde avec variables piégées (URL à identifiants, paramètres secrets,
+retour à la ligne, redirection) sans aucune fuite ; quatre mineures traitées dans `830653e` (test des variables
+piégées, `TRUST_PROXY` numérique seulement, identifiant validé, formulation). Agent E (architecture) : « corrections
+requises » : conduite à tenir quand le hub est arrêté ou redémarre en boucle, nombres de tests. Corrigé : § 9 complété
+(journaux d'abord, diagnostic dans un conteneur jetable `docker compose run --rm --no-deps`, vérifié en local), problèmes
+signalés pour un connecteur configuré sans URL et une `PUBLIC_URL` invalide, nombres alignés.
