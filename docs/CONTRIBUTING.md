@@ -8,7 +8,7 @@ en une heure. Pas de framework, pas de base de données, pas de service en plus 
 * Branches : `dev` (pré-production, déployée automatiquement) et `main` (production). Travailler sur une branche
   dédiée, ouvrir une PR vers `dev`, fusionner `dev` dans `main` en avance rapide pour livrer ([installation § 6](admin/installation.md#6-cycle-de-livraison-et-versions)).
 * Toute correction s'accompagne d'un test de régression (`hub/test/`, `node:test`, aucun réseau). Un connecteur reste
-  un module de 50 à 190 lignes ; au-delà, on revoit la copie ([écrire un connecteur](developer/connecteurs.md)).
+  un module d'environ 50 à 190 lignes ; au-delà, on revoit la copie ([écrire un connecteur](developer/connecteurs.md)).
 * La CI doit être verte avant fusion : tests, scénario de sauvegarde et restauration, Semgrep, CodeQL, Gitleaks,
   Trivy, contrôle des liens de la documentation ([tests et analyses](developer/tests.md)).
 * Jamais de secret, de jeton, d'identifiant personnel ni de donnée métier dans le code, les tests, les fixtures, les
@@ -30,7 +30,7 @@ en une heure. Pas de framework, pas de base de données, pas de service en plus 
 
 Fichiers en minuscules avec tirets (`guide-utilisateur.md`), un sujet par fichier, pas de fichier de moins de vingt
 lignes (on fusionne). Un composant annexe (`charlois-mcp-stub/`, `clevoa-backend/`, `loadtest/`) garde son `README.md`
-à côté de son code. La racine ne contient que `README.md`, `CHANGELOG.md`, `LICENSE.md` et `.env.example`.
+à côté de son code. Les seuls fichiers de documentation à la racine sont `README.md`, `CHANGELOG.md`, `LICENSE.md` et `.env.example`.
 
 ### Rédaction
 

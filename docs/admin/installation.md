@@ -36,7 +36,8 @@ Renseigner une variable réelle dans `.env` (ex. `SF_LOGIN_URL`, `SF_CLIENT_ID`)
 Règles du fichier `.env` : jamais de commentaire sur la même ligne qu'une valeur vide (Docker Compose le lirait comme
 la valeur) ; une variable vide garde la valeur par défaut du fichier Compose.
 
-Si une version antérieure à la 1.1.0 a tourné sur ce poste, supprimer son volume avant
+Si une ancienne version dont le volume appartenait à root (avant l'utilisateur `node`) a tourné sur ce poste, supprimer
+son volume avant
 (`docker compose -f docker-compose.dev.yml down -v`, **sur un poste de développement uniquement** : sur un serveur,
 `down -v` détruit `users.json`).
 
@@ -49,7 +50,8 @@ Sans bouchon (vrais comptes Salesforce, simulateurs internes Sage X3 et MyReport
 | Pré-production | `dev` | `docker-compose.dev.yml` | `mcp-hub-preprod`, `mcp-stub`, `mcp-backup-preprod`, `mcp-proxy-preprod` (profil `proxy`) | `LOG_LEVEL=debug` ; toutes les API sortantes pointent par défaut vers le bouchon ; chaque variable renseignée rebranche un système réel |
 | Production | `main` | `docker-compose.prod.yml` | `mcp-hub-prod`, `mcp-backup-prod`, `mcp-proxy-prod` (profil `proxy`) | `APP_ENV=production` : `PUBLIC_URL` https obligatoire, `CLEVOA_KEY` obligatoire, télémétrie figée sur `https://clevoa.fr`, conteneur sans privilèges en lecture seule, journaux plafonnés, connecteur non configuré non exposé |
 
-Les deux fichiers **étendent** `docker-compose.yml` (définitions communes, jamais lancé tel quel). Chaque stack a son
+Les deux fichiers **étendent** `docker-compose.yml` (définitions communes ; lancé seul, il donne une démonstration avec
+les simulateurs internes, sans bouchon). Chaque stack a son
 propre volume `mcp-data`, donc ses propres `users.json` : les jetons de pré-production ne sont jamais visibles en
 production, et inversement.
 
@@ -100,8 +102,9 @@ stack de production se met à jour. Ne jamais committer directement sur `main`.
 
 Livrer une version : incrémenter `hub/version.js` et `hub/package.json`, ajouter la section dans `CHANGELOG.md`,
 fusionner dans `main`, créer la **Release** GitHub `vX.Y.Z` avec le texte du changelog. Le badge du portail, les journaux
-et la télémétrie affichent ce numéro : c'est la preuve de ce qui tourne. Suivi du backlog : issues GitHub (étiquettes
-`bug`, `évolution`, `infra`, modèles d'issue fournis) et milestones par version.
+et la télémétrie affichent ce numéro : c'est la preuve de ce qui tourne. Suivi du backlog : issues GitHub (modèles « Bug » et
+« Évolution » fournis, étiquettes du même nom) et milestones par version. Tags existants : `v1.0.0`, `v1.2.0`, `v1.2.1`
+(la 1.1.0 n'a pas de tag).
 
 ## 7. Première mise en service auprès des collaborateurs
 

@@ -1,6 +1,6 @@
 # Écrire un connecteur
 
-Un connecteur est un module ES de `hub/connectors/` de 50 à 190 lignes, importé et listé dans `server.js`
+Un connecteur est un module ES de `hub/connectors/` d'environ 50 à 190 lignes, importé et listé dans `server.js`
 (`CONNECTORS`). Il ne reçoit que le jeton qui le concerne, en argument ; il n'a accès ni au store ni aux structures
 internes du hub. Règle : lecture seule, jeton personnel, aucune abstraction partagée.
 
@@ -10,7 +10,7 @@ internes du hub. Règle : lecture seule, jeton personnel, aucune abstraction par
 |---|---|---|
 | `id` | oui | identifiant court (`dropbox`), clé dans `users.json`, préfixe des routes `/auth/<id>` et `/api/test/<id>` |
 | `label` | oui | libellé du portail et de la ligne `Source : <label>` |
-| `tools` | oui | tableau d'outils MCP `{ name, description, input (schéma zod), run(tok, args, schema) }` |
+| `tools` | oui | tableau d'outils MCP `{ name, description, input, run(tok, args, schema) }` ; `input` est un objet de champs zod (le *shape*, passé tel quel en `inputSchema`), pas un `z.object` |
 | `schema(tok)` | oui | structure (objets, champs, outils distants) mise en cache par utilisateur jusqu'à 03:00 ; `run` la reçoit comme fonction `schema()` |
 | `ping(tok, schema)` | oui | diagnostic du portail : `{ message, tables? }`, structure relue en direct |
 | `oauth` | si OAuth | `{ authUrl, tokenUrl, clientId, clientSecret, scope, extraAuthParams? }` ; `configured` = `clientId` présent |
@@ -20,6 +20,9 @@ internes du hub. Règle : lecture seule, jeton personnel, aucune abstraction par
 | `mock` | non | `true` = simulateur intégré sans jeton ; non exposé en production |
 | `maxPerMinute` | non | plafond d'appels sortants par minute, tous utilisateurs confondus (0 = illimité) |
 | `silent` | non | `true` = connexion tentée sans interaction (`prompt=none`) juste après le SSO (même application Entra) |
+
+Le pseudo-connecteur `hub/sso.js` (id `sso`) exporte en plus `bindIdentity`, `assertSame` et `next`, que le routeur OAuth
+n'appelle que pour lui : un connecteur métier ne les implémente pas.
 
 Le hub garantit autour de chaque `run` : vérification de la clé, résolution du jeton (`withToken`), refresh sur 401,
 plafond, télémétrie, ligne Source, capture des erreurs. Un outil n'a donc qu'à appeler le système et renvoyer une
@@ -34,8 +37,8 @@ uniquement, chemins validés, délai borné (`AbortSignal.timeout`), erreurs ré
 **Proxy d'un serveur MCP distant** (`salesforce.js`, `dropbox.js`, `myreport.js`) : `withMcp({ url, headers, sse?,
 label }, fn)` ouvre un client MCP du SDK avec le jeton de l'utilisateur, exécute `fn(client)` puis ferme la session.
 `schema` liste les outils distants filtrés par une **liste blanche** de lecture ; `<id>_tools` les expose avec leurs
-schémas, `<id>_call` exécute l'un d'eux (`callRemote`). Les noms évoquant une écriture sont refusés avant transfert.
-Budget : 50 lignes. C'est le modèle à suivre pour tout outil qui publie un serveur MCP officiel.
+schémas, `<id>_call` exécute l'un d'eux (`callRemote`), limité à la liste blanche (Dropbox : liste codée ; MyReport : `MYREPORT_TOOLS`)
+ou, pour Salesforce, refusé si le nom évoque une écriture. Budget : 50 à 80 lignes. C'est le modèle à suivre pour tout outil qui publie un serveur MCP officiel.
 
 **Simulateur intégré** (`sagex3.js`, `myreport.js` sans URL) : `mock = true`, données inventées et étiquetées comme
 telles, aucun réseau ; sert aux tests sur un poste sans compte.

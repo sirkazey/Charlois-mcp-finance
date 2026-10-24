@@ -11,8 +11,8 @@ l'assistant interroge les outils **avec vos droits, en lecture seule**.
    personnelle au premier passage.
 2. Sur chaque carte, cliquer **Se connecter** :
    * **Salesforce, SharePoint / OneDrive, Dropbox** : page de connexion de l'éditeur, puis autorisation « lecture ».
-   * **Sage X3** : saisir votre identifiant et votre mot de passe Syracuse (chiffrés dans le hub, jamais renvoyés au
-     navigateur) ; OAuth si votre DSI l'a configuré.
+   * **Sage X3** : selon la configuration de votre DSI, saisir votre identifiant et votre mot de passe Syracuse, ou votre
+     clé d'API Syracuse (chiffrés dans le hub, jamais renvoyés au navigateur) ; OAuth si elle l'a configuré.
    * **MyReport** : coller votre jeton personnel MyReport Server.
 3. Cliquer **Tester** sur chaque carte : voyant vert avec le détail (outils ou tables disponibles), rouge avec le message
    d'erreur. Un voyant rouge n'empêche pas les autres outils de fonctionner.
@@ -59,7 +59,7 @@ poser l'en-tête d'autorisation.
 ## 3. Poser des questions et lire les réponses
 
 Le **bar à prompts** du portail (onglets Onboarding, Analyse de données, Contrôle de gestion) donne des questions de
-départ, par exemple « CA facturé des 12 derniers mois par client ».
+départ, par exemple « Quel est le chiffre d'affaires facturé des 12 derniers mois, par mois ? ».
 
 Chaque résultat se termine par une ligne **« Source : … »** : `Source : Sage X3 · dossier X3TST_CHREC`,
 `Source : Salesforce · sandbox preprod` ou `· production`. L'assistant est instruit de la citer ; elle permet de

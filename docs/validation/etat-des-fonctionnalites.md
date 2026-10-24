@@ -10,7 +10,7 @@ Preuves : [journal des tests réels](journal-tests-reels.md), [campagne de charg
 |---|---|---|---|
 | Sage X3 24R1, identifiant et mot de passe Syracuse (`basic`) | disponible | préproduction 4CAD Cloud, 23/10/2026 (S1–S19) | test avec un compte X3 restreint ; production |
 | Sage X3, OAuth2 ou clé d'API `bearer` | testé sur bouchon | tests hub | un vrai IdP Syracuse |
-| Salesforce, serveur MCP hébergé SObject Reads | disponible (sandbox) | sandbox `preprod`, 23/10/2026 (F1–F6) | org de production ; expiration réelle du JWT et rotation du refresh token ; compte restreint |
+| Salesforce, serveur MCP hébergé SObject Reads | disponible (sandbox) | sandbox `preprod`, 23/10/2026 (F1–F6) | org de production ; expiration réelle du JWT (durée annoncée par Salesforce, non mesurée) et rotation du refresh token ; compte restreint |
 | SharePoint / OneDrive (Graph délégué) | testé sur bouchon | tests hub, bouchon | application Entra réelle, revue des permissions `Files.Read.All` et `Sites.Read.All` |
 | Dropbox (serveur MCP officiel) | testé sur bouchon | tests hub, bouchon aligné sur les schémas du serveur officiel (22/10/2026) | acceptation par `mcp.dropbox.com` d'un jeton d'app tierce |
 | MyReport (proxy MCP SSE) | testé sur bouchon | plomberie SSE et liste blanche seulement | serveur MCP de l'éditeur, non livré ; outils réels inconnus |
@@ -22,7 +22,7 @@ Preuves : [journal des tests réels](journal-tests-reels.md), [campagne de charg
 | Transports Streamable HTTP et SSE | disponible | tests hub, campagne de charge | retrait du SSE quand les assistants cibles seront tous en Streamable HTTP |
 | Chiffrement `users.json`, clé MCP en en-tête, limitation de débit, en-têtes de sécurité | disponible | tests hub, ZAP passif | |
 | Sauvegarde automatique, restauration scriptée | testé sur bouchon | CI (`ops/test-backup-restore.sh`), `hub/test/backup.test.js` | une restauration sur un serveur du client, puis une par trimestre |
-| Reverse proxy nginx (profil `proxy`) | testé sur bouchon | `docker compose config`, `nginx -t` en CI | déploiement réel ; `COMPOSE_PROFILES` sous Portainer |
+| Reverse proxy nginx (profil `proxy`) | testé sur bouchon | `docker compose config` en local ; non exercé en CI (Trivy n'analyse que la configuration des fichiers Compose) | déploiement réel ; `COMPOSE_PROFILES` sous Portainer |
 | Télémétrie Clevoa et backend Lambda | testé sur bouchon | tests hub (handler exécuté localement) | déploiement AWS, nom de domaine `clevoa.fr` |
 | Capacité 50 collaborateurs | démontrée sur bouchons | [campagne de charge](charge-v1.2.1.md) | recette de charge sur la préproduction réelle |
 | Mini-portail d'administration (retrait d'une entrée, suspension) | prévu | [feuille de route](../history/roadmap-2026-10.md) | |

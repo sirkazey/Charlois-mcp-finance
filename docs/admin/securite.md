@@ -63,7 +63,7 @@ Si `CLEVOA_KEY` est renseignée, le hub envoie au démarrage puis chaque jour à
 ```
 
 `connectors` = vrai système configuré (un simulateur compte `false`) ; `requests` = nombre d'appels d'outils depuis le
-dernier envoi, tous utilisateurs confondus ; `seats` = collaborateurs ayant connecté au moins un outil (base de la
+dernier envoi **réussi**, tous utilisateurs confondus ; `seats` = collaborateurs ayant connecté au moins un outil (base de la
 licence par siège). Aucun e-mail, jeton, requête, résultat ni adresse IP de collaborateur ne quitte le hub ; le backend
 refuse tout champ supplémentaire. Clé vide = télémétrie désactivée ; backend injoignable = journal `[telemetry] échec`,
 nouvel essai à 1, 5 puis 30 minutes, hub inchangé. La clé identifie une **installation**, jamais une personne : parler

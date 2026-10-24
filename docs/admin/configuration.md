@@ -112,7 +112,8 @@ Le hub est **client MCP** du serveur hébergé par Salesforce `SObject Reads` (l
 jeton OAuth de chaque collaborateur : Salesforce applique son profil, ses règles de partage et la sécurité au niveau
 des champs. Outils : `salesforce_tools` (les six outils du serveur et leurs schémas : `find`, `getObjectSchema`,
 `getRelatedRecords`, `getUserInfo`, `listRecentSobjectRecords`, `soqlQuery`) et `salesforce_call` (exécution). Un
-`soqlQuery` sans `LIMIT` reçoit `LIMIT 200` (`SF_DEFAULT_LIMIT`). L'e-mail du collaborateur vient de `getUserInfo`.
+`soqlQuery` sans `LIMIT` reçoit `LIMIT 200` (`SF_DEFAULT_LIMIT`). L'e-mail du collaborateur vient de `userinfo` si
+l'étendue `openid` est accordée, sinon de l'outil `getUserInfo`.
 Sur 401, le hub échange le `refresh_token` (rotation gérée), persiste le nouveau jeton et rejoue l'appel ; un refresh
 token révoqué efface l'entrée et demande une reconnexion.
 

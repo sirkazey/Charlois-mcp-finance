@@ -11,7 +11,7 @@ et des identifiants techniques (`charlois-finance`, `charlois-mcp-stub`) conserv
 ## Ce que fait la passerelle
 
 * **Un seul conteneur Node 22**, sans framework ni base de données : `@modelcontextprotocol/sdk`, `express`, `zod`,
-  environ 1 060 lignes. Chaque connecteur est un module de 50 à 190 lignes.
+  environ 1 060 lignes. Chaque connecteur est un module d'environ 50 à 190 lignes.
 * **Droits de chaque collaborateur** : jetons OAuth ou identifiants individuels, chiffrés (AES-256-GCM) dans un seul
   fichier, transmis tels quels aux outils. Le cache de structure (objets, champs) est lui aussi par utilisateur.
 * **Lecture seule par construction** : serveurs MCP et facettes d'API de lecture uniquement, listes blanches d'outils,

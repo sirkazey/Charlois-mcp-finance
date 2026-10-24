@@ -66,8 +66,9 @@ sont relayés tels quels. Une erreur d'outil devient `isError` avec le message ;
 * Un seul tableau `INSTRUCTIONS` pour le modèle : citer la ligne Source, interroger Sage X3 et Salesforce quand le
   système n'est pas nommé, enchaînements d'outils conseillés.
 
-En production (`APP_ENV=production`), un connecteur sans configuration (`mock`) n'est pas exposé ; en pré-production,
-Sage X3 et MyReport tournent en simulateur étiqueté.
+En production (`APP_ENV=production`), un connecteur sans configuration (`mock`) n'est pas exposé. Sans URL (stack de
+base `docker-compose.yml`, ou variable vidée), Sage X3 et MyReport tournent en simulateur étiqueté ; la stack de
+pré-production les pointe par défaut vers le bouchon `mcp-stub`.
 
 ## 4. Portail
 
