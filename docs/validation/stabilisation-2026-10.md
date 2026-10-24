@@ -8,8 +8,8 @@ Ce document sert aussi de journal de progression tant que la mission est en cour
 
 | Lot | Objet | État | Revue |
 |---|---|---|---|
-| 1 | Audit et nettoyage documentaire | en revue | — |
-| 2 | Télémétrie éditeur | à faire | — |
+| 1 | Audit et nettoyage documentaire | GO | agent E (2 passages) |
+| 2 | Télémétrie éditeur | en revue | — |
 | 3 | Diagnostic et support | à faire | — |
 | 4 | Releases et mises à jour contrôlées | à faire | — |
 | 5 | Compatibilité MCP et sécurité | à faire | — |
@@ -45,3 +45,33 @@ Travaux :
 
 Contrôles : `node ops/check-docs.js` réussi ; `npm test` du hub : 78 tests, 77 réussis, 1 ignoré (verrou de production,
 exécuté par le job CI `APP_ENV=production`).
+
+Revue (agent E, relecteur indépendant) : premier passage « corrections requises » (README annonçant une instance
+déployée ; compatibilité Claude Code déclarée « faite » sans entrée au journal), corrigé dans `eab8a3f` ; second
+passage **GO**. Points reportés : liste de tags et `main` présenté comme la production (lot 4), exemple de télémétrie
+daté (lot 2). Commits : `26af868`, `eab8a3f`.
+
+## Lot 2 — Télémétrie éditeur
+
+État constaté : le hub envoyait version, environnement, connecteurs, compteurs ; le backend journalisait sans
+persistance ni identification d'installation ; après trois échecs, le hub retentait toutes les 30 minutes sans fin ;
+aucun délai d'envoi ; la réponse du backend révélait le nombre d'envois du jour tous clients confondus.
+
+Travaux :
+
+* Hub : identifiant aléatoire d'installation (UUID) créé au premier envoi et conservé dans `users.json` chiffré ;
+  délai de 10 s par envoi ; essais bornés (1, 5, 30 min puis horaire quotidien) ; avertissement de journal si la
+  version est sous le minimum annoncé. Aucune autre donnée ajoutée au payload.
+* Backend (`clevoa-backend/`) : clés `client=clé` comparées à temps constant sur leurs empreintes, clé jamais stockée ;
+  validation stricte (champs connus, types, bornes, 4 Ko) ; fiche par installation rangée sous son client
+  (`client#installation`) dans DynamoDB, ou en mémoire sans AWS ; expiration 400 jours après le dernier contact ;
+  fonction `report` quotidienne (silence au-delà de 48 h, version sous `MIN_VERSION`) vers CloudWatch et SNS ;
+  droits IAM limités à `UpdateItem`, `Scan` et `Publish` sur les seules ressources de la pile ; concurrence plafonnée à 5.
+* Documentation : finalité, données, fréquence, destinataire, conservation, désactivation et point juridique ouvert
+  ([sécurité § 4](../admin/securite.md#4-télémétrie-clevoa)) ; README du backend ; tests et CI.
+
+Tests : backend 13/13 ; hub 81 tests (80 réussis et 1 ignoré en pré-prod ; 79 réussis et 2 ignorés en production) ;
+bouchon 11/11 ; documentation réussie. Une exécution en mode production a montré 8 échecs des tests SSO, non
+reproduits sur 9 relances (4 suites complètes, 5 fichiers SSO seuls) : aléa consigné, à surveiller en CI.
+Non exécuté : déploiement AWS, `serverless package` (Serverless Framework v4 non installé, compte requis), DynamoDB et
+SNS réels.

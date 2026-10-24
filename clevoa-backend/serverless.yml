@@ -1,29 +1,78 @@
 # serverless.yml — description du déploiement pour le Serverless Framework (npm i -g serverless, puis `serverless deploy`).
-# Ce fichier décrit à AWS : le service, le compte/la région, la fonction Lambda et l'URL publique qui la déclenche.
+# Une API HTTP, deux fonctions Lambda (réception de la télémétrie, rapport quotidien), une table DynamoDB (une ligne par
+# installation, expirée 400 jours après le dernier contact) et un sujet SNS pour les alertes par e-mail. Rien d'autre.
 service: clevoa-backend          # nom de la pile CloudFormation créée par AWS (clevoa-backend-dev par défaut)
 frameworkVersion: "4"            # version majeure du Serverless Framework attendue
 
 provider:
   name: aws                      # cloud cible
-  runtime: nodejs22.x            # version de Node exécutée par Lambda
+  runtime: nodejs22.x            # version de Node exécutée par Lambda ; le SDK AWS v3 (DynamoDB, SNS) est fourni par le runtime
   region: eu-west-3              # Paris ; données hébergées en France
   stage: ${opt:stage, "dev"}     # `serverless deploy --stage prod` pour la production
-  memorySize: 128                # suffisant : aucune dépendance, quelques millisecondes par appel
+  memorySize: 128                # suffisant : quelques millisecondes par appel
   timeout: 5                     # secondes avant qu'AWS n'interrompe la fonction
   architecture: arm64            # Graviton : moins cher que x86 à performance égale
+  logRetentionInDays: 90         # journaux CloudWatch conservés 90 jours
   environment:
-    CLEVOA_KEYS: ${env:CLEVOA_KEYS, ""}   # clés clients autorisées, séparées par des virgules (vide = la fonction refuse tout, 503)
+    CLEVOA_KEYS: ${env:CLEVOA_KEYS, ""}         # « client=clé » séparés par des virgules (vide = la fonction refuse tout, 503)
+    TELEMETRY_TABLE: ${self:custom.table}
+    RETENTION_DAYS: ${env:RETENTION_DAYS, "400"}  # fiche d'une installation supprimée (TTL) N jours après son dernier contact
+    SILENCE_HOURS: ${env:SILENCE_HOURS, "48"}     # installation silencieuse au-delà de N heures sans contact (envoi quotidien)
+    MIN_VERSION: ${env:MIN_VERSION, ""}           # version minimale supportée : le hub en dessous l'écrit dans ses journaux, le rapport la signale
+    LATEST_VERSION: ${env:LATEST_VERSION, ""}     # dernière version publiée, renvoyée au hub pour information
+    ALERT_TOPIC_ARN: !Ref AlertTopic
   httpApi:
     cors: false                  # appelé par des serveurs (hubs), pas par des navigateurs
+  iam:
+    role:
+      statements:                # droits minimaux : écrire et lire la seule table, publier sur le seul sujet d'alerte
+        - Effect: Allow
+          Action: [dynamodb:UpdateItem, dynamodb:Scan]
+          Resource: !GetAtt InstallationsTable.Arn
+        - Effect: Allow
+          Action: [sns:Publish]
+          Resource: !Ref AlertTopic
+
+custom:
+  table: ${self:service}-${sls:stage}-installations
 
 functions:
   telemetry:
     handler: handler.telemetry   # fichier handler.js, export `telemetry`
     description: Réception de la télémétrie quotidienne des hubs Clevoa AI Gateway
+    reservedConcurrency: 5       # plafond de coût et de charge : au-delà, API Gateway répond 429 et le hub retente plus tard
     events:
       - httpApi:                 # API Gateway v2 (HTTP API) : moins cher et plus simple que REST API
           method: POST
           path: /api/v1/telemetry
+  report:
+    handler: handler.report
+    description: Rapport quotidien des installations silencieuses ou sous la version minimale (journal + alerte SNS)
+    events:
+      - schedule: cron(0 7 * * ? *)   # 07:00 UTC chaque jour ; consultation à la demande : serverless invoke -f report
+
+resources:
+  Resources:
+    InstallationsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.table}
+        BillingMode: PAY_PER_REQUEST        # aucun coût fixe : quelques écritures par jour et par installation
+        AttributeDefinitions:
+          - { AttributeName: id, AttributeType: S }
+        KeySchema:
+          - { AttributeName: id, KeyType: HASH }
+        TimeToLiveSpecification:
+          AttributeName: expiresAt
+          Enabled: true
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        SSESpecification:
+          SSEEnabled: true
+    AlertTopic:
+      Type: AWS::SNS::Topic             # abonnement e-mail à créer une fois (README) : aucune adresse dans ce fichier
+      Properties:
+        TopicName: ${self:service}-${sls:stage}-alertes
 
 package:
   patterns:                      # n'embarquer que le code utile dans le zip envoyé à Lambda

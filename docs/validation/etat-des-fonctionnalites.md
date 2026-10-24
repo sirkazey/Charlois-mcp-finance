@@ -23,7 +23,7 @@ sur le système réel), **testé sur bouchon** (tests automatisés et simulateur
 | Chiffrement `users.json`, clé MCP en en-tête, limitation de débit, en-têtes de sécurité | disponible | tests hub, ZAP passif | |
 | Sauvegarde automatique, restauration scriptée | testé sur bouchon | CI (`ops/test-backup-restore.sh`), `hub/test/backup.test.js` | une restauration sur un serveur du client, puis une par trimestre |
 | Reverse proxy nginx (profil `proxy`) | testé sur bouchon | `docker compose config` en local ; non exercé en CI (Trivy n'analyse que la configuration des fichiers Compose) | déploiement réel ; `COMPOSE_PROFILES` sous Portainer |
-| Télémétrie Clevoa et backend Lambda | testé sur bouchon | tests hub (handler exécuté localement) | déploiement AWS, nom de domaine `clevoa.fr` |
+| Télémétrie Clevoa : identifiant d'installation, fiche persistée, rapport des installations silencieuses et des versions sous le minimum | testé sur bouchon | tests hub et backend, sans AWS (DynamoDB simulée) | déploiement AWS, nom de domaine `clevoa.fr`, validation juridique ([sécurité § 4](../admin/securite.md#4-télémétrie-clevoa)) |
 | Capacité 50 collaborateurs | démontrée sur bouchons | [campagne de charge](charge-v1.2.1.md) | recette de charge sur la préproduction réelle |
 | Mini-portail d'administration, santé des connecteurs, tableau de bord graphique, connecteurs MCP déclaratifs | non planifié | gel fonctionnel de la 1.3.1 ([roadmap](../roadmap-produit.md#5-hors-roadmap)) | |
 

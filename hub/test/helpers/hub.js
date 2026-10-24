@@ -46,11 +46,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  * @param {string} o.upstreamUrl  URL du mock amont
  * @param {object} [o.users]      contenu de users.json ({ [key]: user }) ; vide par défaut
  * @param {object} [o.env]        variables d'environnement supplémentaires / surchargées
+ * @param {string} [o.store]      contenu brut de users.json (ex. fichier chiffré d'un hub précédent), à la place de users
  */
-export async function startHub({ upstreamUrl, users = {}, env = {} }) {
+export async function startHub({ upstreamUrl, users = {}, env = {}, store }) {
   const port = await freePort();
   const dataDir = mkdtempSync(join(tmpdir(), "mcp-hub-test-"));
-  writeFileSync(join(dataDir, "users.json"), JSON.stringify({ users }, null, 2));
+  writeFileSync(join(dataDir, "users.json"), store ?? JSON.stringify({ users }, null, 2));
   const url = `http://127.0.0.1:${port}`;
 
   const child = spawn(process.execPath, [join(HUB_DIR, "server.js")], { // chemin absolu : utilisable depuis un autre dossier de tests

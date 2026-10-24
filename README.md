@@ -69,7 +69,7 @@ Sur le portail : « Se connecter » à chaque outil (mires du bouchon sur `http:
 vérifier les voyants du diagnostic, copier le bloc de configuration dans l'assistant. Sans Docker :
 
 ```bash
-cd hub && npm install && npm test                      # 78 tests, aucun réseau
+cd hub && npm install && npm test                      # 81 tests, aucun réseau
 ```
 
 Suite détaillée : [installation](docs/admin/installation.md).

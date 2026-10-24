@@ -1,5 +1,5 @@
 name: CI
-# À chaque PR et push sur main/dev : tests du hub et du bouchon, scénario de sauvegarde et restauration sur la stack pré-prod,
+# À chaque PR et push sur main/dev : tests du hub, du bouchon et du backend Clevoa, scénario de sauvegarde et restauration sur la stack pré-prod,
 # puis analyses statiques Semgrep, CodeQL, Gitleaks, Trivy. Rien ne touche un système réel. Versions figées et vérifiées le 23/10/2026.
 on:
   pull_request:
@@ -29,6 +29,8 @@ jobs:
         run: APP_ENV=production npm test --prefix hub
       - name: Bouchon de bout en bout
         run: npm test --prefix clevoa-mcp-stub
+      - name: Backend Clevoa (sans AWS)
+        run: npm test --prefix clevoa-backend
   docs:
     name: Documentation (liens Markdown, ancres, fichiers cités)
     runs-on: ubuntu-latest

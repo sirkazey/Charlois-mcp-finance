@@ -7,6 +7,18 @@ noms techniques inchangés). Les documents cités par leur ancien nom sont déso
 
 Une section par version, trois lignes au plus par rubrique. La version est celle de `hub/version.js`, le tag Git `vX.Y.Z` et la Release GitHub portent le même numéro.
 
+## [Non publié] – stabilisation d'octobre 2026
+
+Socle de maintenance, sans nouvelle fonction métier (périmètre gelé à la 1.3.1). Compte rendu : `docs/validation/stabilisation-2026-10.md`.
+
+### Ajouté
+- Télémétrie : identifiant aléatoire d'installation (conservé dans `users.json` chiffré), délai de 10 s par envoi, avertissement dans les journaux quand Clevoa annonce une version minimale supérieure.
+- Backend Clevoa : fiche par installation dans DynamoDB (expirée 400 jours après le dernier contact), rapport quotidien des installations silencieuses et des versions sous le minimum (CloudWatch, alerte SNS), validation stricte et limite de 4 Ko, clé client jamais stockée, 13 tests sans AWS en CI.
+
+### Modifié
+- Télémétrie : après trois nouveaux essais en échec, retour à l'horaire quotidien (auparavant un essai toutes les 30 minutes tant que Clevoa restait injoignable) ; la réponse du backend ne donne plus le nombre d'envois du jour tous clients confondus.
+- Documentation : roadmap produit unique (`docs/roadmap-produit.md`), décisions de gel fonctionnel et de versions figées, finalité et conservation de la télémétrie.
+
 ## [1.3.1] – 2026-10-24
 
 Refonte graphique et ergonomique du portail aux couleurs Clevoa. Aucun changement de route, d'API, de SSO, de logique MCP

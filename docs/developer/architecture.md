@@ -19,10 +19,11 @@ Assistant IA (Claude Code, Claude Desktop, ChatGPT, Copilot)
 │                expirée chaque nuit à 03:00                           │
 │ mcpclient.js   client MCP partagé par les connecteurs proxy          │
 │ telemetry.js   compteurs envoyés à Clevoa au démarrage puis à 03:00  │
+│                (identifiant d'installation, délai et essais bornés)  │
 │ version.js     VERSION stricte + APP_ENV (PRODUCTION / PRE-PROD)     │
 │ connectors/    salesforce · sagex3 · sharepoint · dropbox · myreport │
 │ public/        index.html, le portail                                │
-│ test/          node:test, amont mocké, 78 tests                      │
+│ test/          node:test, amont mocké, 81 tests                      │
 └───┬─────────────┬───────────────┬───────────────┬───────────────┬────┘
     ▼ MCP HTTP    ▼ REST Syracuse ▼ Graph (GET)   ▼ MCP HTTP      ▼ MCP SSE
  Salesforce    Sage X3 24R1    SharePoint      Dropbox (MCP    MyReport Server
@@ -50,7 +51,7 @@ systèmes, Entra ID et le backend Clevoa ; 11 tests de bout en bout branchent le
   du même compte), enchaînement silencieux vers SharePoint (`prompt=none`), déconnexion Microsoft.
 * **`cache.js`** : `Map` « clé:système » → structure, invalidée à la coupure de 03:00 (`TZ`).
 * Autres états en mémoire : flux OAuth en cours, compteurs de débit par IP, sessions SSE (`sessionId` → transport +
-  clé), compteur de télémétrie. Rien d'autre sur disque.
+  clé), compteur de télémétrie. Sur disque, `users.json` porte aussi l'identifiant aléatoire d'installation (télémétrie).
 
 ## 3. Serveur MCP et transports
 
@@ -105,7 +106,8 @@ Scripts d'exploitation dans `ops/` (`backup-loop.sh` dans le conteneur de sauveg
 
 * [`clevoa-mcp-stub/`](../../clevoa-mcp-stub/README.md) : bouchon d'entreprise (~430 lignes), mires OAuth et Entra,
   serveurs MCP simulés, données fictives, deux collaborateurs aux droits différents.
-* [`clevoa-backend/`](../../clevoa-backend/README.md) : fonction AWS Lambda qui reçoit la télémétrie (`serverless.yml`).
+* [`clevoa-backend/`](../../clevoa-backend/README.md) : AWS Lambda qui reçoit la télémétrie, une table DynamoDB (une fiche par
+  installation) et un rapport quotidien des installations silencieuses ou obsolètes (`serverless.yml`).
 * [`loadtest/`](../../loadtest/README.md) : bouchons rapides et générateur d'utilisateurs MCP pour la campagne de charge.
 
 ## 8. Règles de simplicité

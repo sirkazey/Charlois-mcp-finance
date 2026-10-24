@@ -53,24 +53,54 @@ d'outils ; noms d'objets validés (`^\w+$`) ; outils annotés `readOnlyHint`.
 
 ## 4. Télémétrie Clevoa
 
-Si `CLEVOA_KEY` est renseignée, le hub envoie au démarrage puis chaque jour à 03:00 un `POST` vers `CLEVOA_URL`
-(défaut `https://clevoa.fr/api/v1/telemetry`, figé en production) avec l'en-tête `X-Clevoa-Key`. Payload, et rien d'autre :
+**Finalité** : permettre à Clevoa SASU, éditeur, de savoir quelles installations tournent, dans quelle version, avec
+quels connecteurs configurés, et de détecter une installation qui ne donne plus de nouvelles ou qui doit être mise à
+jour. Base du suivi de licence (nombre de sièges) et du contrat de maintenance. Clevoa n'a, par ce canal, aucun accès à
+l'installation : il ne reçoit aucune commande à exécuter et ne peut rien déclencher sur le hub.
+
+**Fréquence** : un `POST` vers `CLEVOA_URL` (défaut `https://clevoa.fr/api/v1/telemetry`, figé en production) au
+démarrage puis chaque jour à 03:00, avec l'en-tête `X-Clevoa-Key`. Délai de 10 secondes par envoi ; après un échec, trois
+nouveaux essais (1, 5 puis 30 minutes), puis l'horaire quotidien suivant. Une panne de Clevoa n'interrompt jamais le
+hub : journal `[telemetry] échec`, rien d'autre.
+
+**Données**, et rien d'autre (le backend refuse tout champ supplémentaire et tout payload de plus de 4 Ko) :
 
 ```json
-{ "version": "1.2.1", "env": "PRODUCTION", "date": "2026-10-24",
+{ "installation": "3f1c2a4e-8b7d-4c1e-9a2b-5d6e7f8a9b0c", "version": "1.3.2", "env": "PRODUCTION", "date": "2026-10-24",
   "connectors": { "salesforce": true, "sagex3": false, "sharepoint": true, "dropbox": true, "myreport": false },
   "requests": 137, "seats": 9 }
 ```
 
-`connectors` = vrai système configuré (un simulateur compte `false`) ; `requests` = nombre d'appels d'outils depuis le
-dernier envoi **réussi**, tous utilisateurs confondus ; `seats` = collaborateurs ayant connecté au moins un outil (base de la
-licence par siège). Aucun e-mail, jeton, requête, résultat ni adresse IP de collaborateur ne quitte le hub ; le backend
-refuse tout champ supplémentaire. Clé vide = télémétrie désactivée ; backend injoignable = journal `[telemetry] échec`,
-nouvel essai à 1, 5 puis 30 minutes, hub inchangé. La clé identifie une **installation**, jamais une personne : parler
-de télémétrie « agrégée », pas « totalement anonyme ».
+| Champ | Contenu |
+|---|---|
+| `installation` | UUID aléatoire tiré au premier envoi, conservé dans `users.json` chiffré (il suit les sauvegardes) ; ne désigne ni le client ni une personne |
+| `version`, `env`, `date` | version du hub, `PRODUCTION` ou `PRE-PROD`, date du jour |
+| `connectors` | vrai = système réel configuré (un simulateur compte `false`) |
+| `requests` | nombre d'appels d'outils depuis le dernier envoi **réussi**, tous collaborateurs confondus |
+| `seats` | collaborateurs ayant connecté au moins un outil (base de la licence par siège), un entier |
 
-Le backend est dans [`clevoa-backend/`](../../clevoa-backend/README.md) (AWS Lambda, fermé par défaut : `CLEVOA_KEYS`
-vide → 503).
+Ne quittent jamais le hub : jetons OAuth, clés MCP, mots de passe, données métier, contenu des requêtes, réponses des
+outils, noms et e-mails des collaborateurs, journaux applicatifs, adresses IP des postes. La clé `CLEVOA_KEY` identifie
+le **client** ; l'identifiant distingue ses installations. Parler de télémétrie « réduite à des compteurs », pas
+« totalement anonyme » : Clevoa sait quel client a combien d'installations.
+
+**Destinataire et conservation** : Clevoa SASU, sur AWS région Paris (`eu-west-3`, sous-traitant). Une fiche par
+installation (dernier état, premier et dernier contact) dans une table DynamoDB chiffrée, supprimée automatiquement
+400 jours après le dernier contact ; journaux techniques CloudWatch conservés 90 jours. Détail : [backend](../../clevoa-backend/README.md).
+
+**Désactivation** : `CLEVOA_KEY` vide désactive la télémétrie hors production. En production, la clé est exigée par
+`docker-compose.prod.yml` (suivi de licence et de maintenance) ; son encadrement contractuel est un point ouvert de la
+licence ([§ 11, point 8](../../LICENSE.md#11-points-à-valider-par-un-conseil-juridique)). Un client qui bloque le flux sortant vers Clevoa garde un hub pleinement fonctionnel ; son installation apparaît alors
+comme silencieuse dans le rapport de Clevoa.
+
+**Implications contractuelles et données personnelles** : aucune donnée de collaborateur n'est transmise ; l'adresse IP
+du serveur du client est vue par AWS lors de chaque envoi. La qualification juridique (donnée personnelle ou non,
+mention au registre des traitements du client, clause du contrat de licence) est **à faire valider** par le juriste ou
+le DPO de Clevoa et du client avant la première mise en production.
+
+**Version minimale** : si Clevoa renseigne une version minimale, le hub qui est en dessous l'écrit dans ses journaux
+(`[telemetry] version … inférieure au minimum …`) ; il continue de fonctionner, la mise à jour reste une décision de
+l'administrateur ([mise à jour](exploitation.md#2-démarrer-arrêter-redémarrer-mettre-à-jour-revenir-en-arrière)).
 
 ## 5. Ce que l'administrateur doit vérifier au déploiement
 

@@ -6,7 +6,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { startUpstream } from "./helpers/upstream.js";
-import { startHub, connectedUser, KEY } from "./helpers/hub.js";
+import { startHub, connectedUser, KEY, readStore } from "./helpers/hub.js";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -254,8 +254,9 @@ test("Cloisonnement : chaque appel amont porte le jeton personnel de l'appelant,
     const users = hub.readUsers();
     assert.equal(users[KEY].salesforce.access_token, "sf-token-alice");
     assert.equal(users[KEY_CAROL].salesforce.access_token, "sf-token-carol");
-    const raw = JSON.parse(readFileSync(join(hub.dataDir, "users.json"), "utf8"));
-    assert.deepEqual(Object.keys(raw), ["users"], "aucun jeton global hors de users.{clé}");
+    const raw = readStore(join(hub.dataDir, "users.json"));
+    assert.deepEqual(Object.keys(raw).filter((k) => k !== "installation"), ["users"], "aucun jeton global hors de users.{clé}");
+    assert.ok(raw.installation === undefined || /^[0-9a-f-]{36}$/.test(raw.installation), "seul ajout possible : l'identifiant aléatoire d'installation (télémétrie)");
   } finally { await alice.close(); await carol.close(); }
 });
 
