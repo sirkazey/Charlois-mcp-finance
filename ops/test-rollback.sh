@@ -49,7 +49,8 @@ curl -fsS -b "$WORK/jar" -X POST -H 'Content-Type: application/json' -d '{"apiKe
 connected; ID=$(installation); [ -n "$ID" ]; echo "ok : connecté, installation $ID"
 
 say "2. Sauvegarde avant retour arrière (copie du fichier chiffré)"
-docker run --rm -u 0 -v "$P-data:/data:ro" -v "$WORK:/b" --entrypoint cp "$IMAGE_CURRENT" /data/users.json /b/avant.json
+# Copie lue en root dans le conteneur (volume en 700), rendue lisible par l'utilisateur qui lance le script (runner CI non root).
+docker run --rm -u 0 -v "$P-data:/data:ro" -v "$WORK:/b" --entrypoint sh "$IMAGE_CURRENT" -c 'cp /data/users.json /b/avant.json && chmod 644 /b/avant.json'
 [ "$(head -c 5 "$WORK/avant.json")" = "enc1:" ]; echo "ok"
 
 say "3. Retour arrière vers $PREV sur le même volume"

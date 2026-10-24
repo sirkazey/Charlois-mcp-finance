@@ -18,8 +18,9 @@ test("Version : X.Y.Z ou X.Y.Z-rc.N, identique dans version.js, package.json et 
 });
 
 test("CHANGELOG : une section pour la version courante (tag vX.Y.Z et Release GitHub portent ce numéro)", () => {
-  const escaped = VERSION.replace(/\./g, "\\.");
-  assert.match(read("CHANGELOG.md"), new RegExp(`^## \\[${escaped}\\] – \\d{4}-\\d{2}-\\d{2}`, "m"));
+  const heading = read("CHANGELOG.md").split("\n").find((l) => l.startsWith(`## [${VERSION}] – `)); // comparaison littérale, sans expression construite
+  assert.ok(heading, `section « ## [${VERSION}] – AAAA-MM-JJ » absente`);
+  assert.match(heading.slice(`## [${VERSION}] – `.length), /^\d{4}-\d{2}-\d{2}/);
 });
 
 test("Image de base figée par empreinte : Dockerfile du hub et du bouchon, conteneur de sauvegarde", () => {
