@@ -5,163 +5,393 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title>Clevoa AI Gateway</title>
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png">
+<link rel="preload" href="/fonts/outfit-variable-latin.woff2" as="font" type="font/woff2" crossorigin>
 <style>
-  /* ---- Charte : noirs profonds, blancs aérés, accents bronze et vert forêt. Une colonne, sections à œil-de-perdrix. ---- */
+  /* Charte Clevoa (kit officiel) : encre #2B2540, violet #6B30D9 ; sur fond sombre : blanc et violet clair #B79CF0.
+     Neutres dérivés de l'encre ; couleurs d'état fonctionnelles (succès, erreur, alerte), contrastes WCAG AA vérifiés.
+     Police Outfit (SIL OFL 1.1), servie par le hub : aucune ressource externe (CSP default-src 'self'). */
+  @font-face { font-family:"Outfit"; src:url("/fonts/outfit-variable-latin.woff2") format("woff2"); font-weight:100 900; font-style:normal; font-display:swap }
   :root {
-    --bg:#f7f5f0; --card:#ffffff; --ink:#141414; --muted:#6f6c66; --line:#e4dfd4; --soft:#efebe3;
-    --gold:#b08d57; --gold-ink:#8a6a3a; --forest:#1f4d3a; --ok:#2e7d4f; --ko:#b3261e;
+    --ink:#2B2540; --text:#49445B; --muted:#6F6B7D;
+    --bg:#FFFFFF; --page:#F9F8F9; --surface:#FFFFFF; --surface-2:#F4F4F5; --line:#E6E5E8; --line-strong:#D0CFD5;
+    --accent:#6B30D9; --accent-soft:#F0EAFB; --on-accent:#FFFFFF; --accent-hover:#2B2540;
+    --ok:#0B7A73; --ok-soft:#E7F2F1; --ko:#B42318; --ko-soft:#F8E9E8; --warn:#9A5B00; --warn-soft:#F5EFE6;
+    --code-bg:#2B2540; --code-ink:#EDECED;
+    --font:"Outfit", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono:ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    --r-sm:8px; --r:12px; --r-lg:16px; --pill:999px;
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:72px;
+    --shadow:0 1px 2px rgb(43 37 64 / 6%);
     color-scheme:light;
-    --serif:"Cormorant Garamond","Garamond","Didot","Baskerville","Palatino Linotype",Georgia,serif;
-    --sans:"Helvetica Neue",Helvetica,Inter,"Segoe UI",system-ui,sans-serif;
-    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-    --salesforce:#00a1e0; --sagex3:#00b86b; --sharepoint:#0f6cbd; --dropbox:#0061ff; --myreport:#e4572e;
   }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-    --bg:#0d0d0e; --card:#161618; --ink:#ece9e2; --muted:#9b978f; --line:#2a2a2e; --soft:#1d1d20; --gold:#c9a76a; --gold-ink:#d9b97e; --forest:#3f8a68; --ok:#4caf79; --ko:#e0574d; color-scheme:dark } }
+    --ink:#FFFFFF; --text:#EDECED; --muted:#B5B4B9;
+    --bg:#181423; --page:#181423; --surface:#262230; --surface-2:#2F2C39; --line:#3D3A46; --line-strong:#57535F;
+    --accent:#B79CF0; --accent-soft:#2F2742; --on-accent:#2B2540; --accent-hover:#FFFFFF;
+    --ok:#4FD1C5; --ok-soft:#1F3433; --ko:#FF8A80; --ko-soft:#3A2427; --warn:#F5B85A; --warn-soft:#3A3022;
+    --code-bg:#100D18; --code-ink:#EDECED; --shadow:none; color-scheme:dark } }
   :root[data-theme="dark"] {
-    --bg:#0d0d0e; --card:#161618; --ink:#ece9e2; --muted:#9b978f; --line:#2a2a2e; --soft:#1d1d20; --gold:#c9a76a; --gold-ink:#d9b97e; --forest:#3f8a68; --ok:#4caf79; --ko:#e0574d; color-scheme:dark }
+    --ink:#FFFFFF; --text:#EDECED; --muted:#B5B4B9;
+    --bg:#181423; --page:#181423; --surface:#262230; --surface-2:#2F2C39; --line:#3D3A46; --line-strong:#57535F;
+    --accent:#B79CF0; --accent-soft:#2F2742; --on-accent:#2B2540; --accent-hover:#FFFFFF;
+    --ok:#4FD1C5; --ok-soft:#1F3433; --ko:#FF8A80; --ko-soft:#3A2427; --warn:#F5B85A; --warn-soft:#3A3022;
+    --code-bg:#100D18; --code-ink:#EDECED; --shadow:none; color-scheme:dark }
 
-  * { box-sizing:border-box }
-  html, body { margin:0; background:var(--bg); color:var(--ink) }
-  body { font:300 16px/1.6 var(--sans); -webkit-font-smoothing:antialiased }
-  main { max-width:880px; margin:0 auto; padding-block:0 72px; padding-left:max(20px, env(safe-area-inset-left, 0px)); padding-right:max(20px, env(safe-area-inset-right, 0px)) }
+  *, *::before, *::after { box-sizing:border-box }
+  html { -webkit-text-size-adjust:100%; scroll-behavior:smooth; scroll-padding-top:88px }
+  body { margin:0; min-height:100vh; display:flex; flex-direction:column; background:var(--page); color:var(--text); font:400 16px/1.55 var(--font); -webkit-font-smoothing:antialiased }
+  h1, h2, h3 { color:var(--ink); font-weight:600; margin:0; letter-spacing:-.015em; text-wrap:balance }
+  p { margin:0 }
+  a { color:var(--accent) }
+  code, pre, .mono { font-family:var(--mono) }
+  main { flex:1 0 auto }
+  [hidden] { display:none !important }
+  .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0 }
+  .skip { position:absolute; left:var(--s4); top:-60px; z-index:30; background:var(--accent); color:var(--on-accent); padding:var(--s2) var(--s4); border-radius:var(--pill); text-decoration:none; font-weight:500 }
+  .skip:focus { top:var(--s3) }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:var(--r-sm) }
+  .wrap { max-width:1120px; margin:0 auto; padding-left:max(20px, env(safe-area-inset-left, 0px)); padding-right:max(20px, env(safe-area-inset-right, 0px)) }
+  .icon { width:20px; height:20px; flex:none; fill:none; stroke:currentColor; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round }
+  .icon.sm { width:16px; height:16px }
 
-  /* En-tête */
-  header { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:22px 0 18px; border-bottom:1px solid var(--line) }
-  .brand { display:flex; flex-direction:column; line-height:1.1 }
-  .brand b { font:600 13px var(--sans); letter-spacing:.32em; text-transform:uppercase }
-  .brand span { font:italic 400 15px var(--serif); color:var(--gold-ink); letter-spacing:.04em }
-  .env { font:500 10px var(--sans); letter-spacing:.2em; text-transform:uppercase; color:var(--muted); margin-top:6px; white-space:nowrap }
-  .env b { font-weight:600; color:var(--forest) } .env b.prod { color:var(--gold-ink) }
-  .who { display:flex; align-items:center; gap:10px; min-width:0 }
-  .profile { font-size:.84rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:52vw }
-  .profile strong { color:var(--ink); font-weight:500 }
-  .theme { width:36px; height:36px; border-radius:50%; border:1px solid var(--line); background:var(--card); color:var(--ink); cursor:pointer; font-size:15px; flex:none }
-  .theme:hover { border-color:var(--gold) }
+  /* ---- En-tête ---- */
+  .topbar { position:sticky; top:0; z-index:20; background:var(--bg); border-bottom:1px solid var(--line) }
+  .topbar .wrap { display:flex; align-items:center; justify-content:space-between; gap:var(--s4); min-height:68px }
+  .brand { display:flex; align-items:center; gap:var(--s3); min-width:0; text-decoration:none; color:var(--ink) }
+  .brand img { height:28px; width:auto; display:block }
+  .brand .logo-dark { display:none }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .brand .logo-light { display:none } :root:not([data-theme="light"]) .brand .logo-dark { display:block } }
+  :root[data-theme="dark"] .brand .logo-light { display:none } :root[data-theme="dark"] .brand .logo-dark { display:block }
+  .brand .product { font-weight:500; font-size:1.02rem; padding-left:var(--s3); border-left:1px solid var(--line-strong); white-space:nowrap }
+  .env { font:500 .72rem/1 var(--font); letter-spacing:.04em; color:var(--muted); border:1px solid var(--line); border-radius:var(--pill); padding:6px 10px; white-space:nowrap }
+  .env b { font-weight:600; color:var(--accent) } .env b.prod { color:var(--ok) }
+  .who { display:flex; align-items:center; gap:var(--s3); min-width:0 }
+  .profile { display:flex; align-items:center; gap:var(--s2); min-width:0; font-size:.9rem }
+  .avatar { width:32px; height:32px; border-radius:50%; background:var(--accent-soft); color:var(--accent); display:grid; place-items:center; font-weight:600; font-size:.85rem; flex:none }
+  .profile .id { display:flex; flex-direction:column; min-width:0; line-height:1.25 }
+  .profile .id strong { color:var(--ink); font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:30ch }
+  .profile .id small { color:var(--muted); font-size:.76rem; white-space:nowrap }
+  .iconbtn { width:40px; height:40px; display:grid; place-items:center; border:1px solid var(--line); border-radius:50%; background:var(--surface); color:var(--ink); cursor:pointer; flex:none }
+  .iconbtn:hover { border-color:var(--line-strong); background:var(--surface-2) }
 
+  /* ---- Boutons ---- */
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:var(--s2); min-height:44px; padding:10px 22px; border-radius:var(--pill); border:1px solid var(--line-strong); background:var(--surface); color:var(--ink); font:500 .95rem/1.2 var(--font); text-decoration:none; cursor:pointer; white-space:nowrap; transition:background-color .15s, border-color .15s, color .15s }
+  .btn:hover { background:var(--surface-2); border-color:var(--muted) }
+  .btn.primary { background:var(--accent); border-color:var(--accent); color:var(--on-accent); font-weight:600 }
+  .btn.primary:hover { background:var(--accent-hover); border-color:var(--accent-hover); color:var(--bg) }
+  .btn.quiet { border-color:transparent; background:transparent; color:var(--muted); padding-inline:12px }
+  .btn.quiet:hover { color:var(--ink); background:var(--surface-2) }
+  .btn.danger { color:var(--ko); border-color:var(--line-strong) } .btn.danger:hover { background:var(--ko-soft); border-color:var(--ko) }
+  .btn.sm { min-height:36px; padding:6px 14px; font-size:.86rem }
+  .btn.block { width:100% }
+  .btn[aria-disabled="true"], .btn:disabled { opacity:.5; cursor:not-allowed; pointer-events:none }
+  .btn[aria-busy="true"] { cursor:progress }
+  .link { background:none; border:0; padding:0; color:var(--muted); font:inherit; font-size:.86rem; text-decoration:underline; text-underline-offset:3px; cursor:pointer }
+  .link:hover { color:var(--ink) }
 
-  /* Hero */
-  .hero { padding:44px 0 28px }
-  h1 { font:300 clamp(2.2rem, 6vw, 3.4rem)/1.05 var(--serif); letter-spacing:.01em; margin:0 0 10px; text-wrap:balance }
-  h1 em { font-style:italic; color:var(--gold-ink) }
-  .lead { max-width:62ch; color:var(--muted); margin:0; font-size:1.02rem }
+  /* ---- Accueil ---- */
+  .hero { padding:var(--s8) 0 var(--s6); text-align:center }
+  .badge { display:inline-flex; align-items:center; gap:var(--s2); padding:6px 14px; border-radius:var(--pill); border:1px solid color-mix(in srgb, var(--accent) 35%, transparent); background:var(--accent-soft); color:var(--accent); font-size:.78rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase }
+  .hero h1 { margin:var(--s5) auto var(--s4); max-width:20ch; font-size:clamp(2.1rem, 5vw, 3.4rem); line-height:1.08; font-weight:600 }
+  .hero h1 span { color:var(--accent); display:block }
+  .hero .lead { max-width:62ch; margin:0 auto; color:var(--muted); font-size:clamp(1rem, 1.6vw, 1.12rem) }
 
-  /* Sections */
-  section { padding:28px 0 6px }
-  .eyebrow { display:flex; align-items:center; gap:14px; margin:0 0 18px; font:500 11px var(--sans); letter-spacing:.3em; text-transform:uppercase; color:var(--gold-ink) }
-  .eyebrow::after { content:""; flex:1; height:1px; background:var(--line) }
-  .eyebrow .copy { letter-spacing:0; text-transform:none }
-  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:14px }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; min-width:0; display:flex; flex-direction:column; gap:10px }
-  .sys { display:flex; align-items:center; gap:10px; font:500 15px var(--sans) }
-  .sys i { width:8px; height:8px; border-radius:50%; background:var(--c, var(--gold)); flex:none }
-  .btn { display:flex; align-items:center; justify-content:center; width:100%; padding:12px 14px; border:1px solid var(--ink); border-radius:10px; background:var(--ink); color:var(--bg); font:500 14px var(--sans); letter-spacing:.02em; cursor:pointer; text-decoration:none; transition:.18s }
-  .btn:hover { background:var(--gold); border-color:var(--gold); color:#141414 }
-  .btn[aria-disabled=true] { opacity:.35; pointer-events:none }
-  .btn.ghost { background:transparent; color:var(--ink) } .btn.ghost:hover { background:var(--ink); color:var(--bg) }
-  .status { font-size:.84rem; color:var(--muted); display:flex; justify-content:space-between; align-items:center; gap:8px }
-  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; background:var(--line); margin-right:7px; vertical-align:middle } .dot.on { background:var(--ok) } .dot.off { background:var(--ko) }
-  .led { width:14px; height:14px } .led.on { box-shadow:0 0 12px var(--ok) } .led.off { box-shadow:0 0 12px var(--ko) }
-  .link { background:none; border:0; color:var(--muted); text-decoration:underline; cursor:pointer; font:inherit; font-size:.82rem; padding:0 }
-  .apikey { display:grid; gap:8px; padding-top:6px; border-top:1px dashed var(--line) }
-  .apikey small { color:var(--muted) }
-  .apikey input { font:inherit; padding:10px 12px; border:1px solid var(--line); border-radius:10px; width:100%; background:var(--bg); color:var(--ink) }
-  .result { font-size:.88rem; min-height:1.4em; word-break:break-word }
-  .result code { font:.8rem var(--mono); color:var(--ko) }
-  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px }
-  .chips span { font:.78rem var(--mono); padding:3px 10px; border-radius:999px; background:var(--soft); border:1px solid var(--line); color:var(--forest) }
+  .steps { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:var(--s4); margin:var(--s6) 0 0; padding:0; list-style:none; text-align:left; counter-reset:step }
+  .step { display:flex; gap:var(--s3); align-items:flex-start; padding:var(--s4) var(--s5); background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg); box-shadow:var(--shadow) }
+  .step .num { width:32px; height:32px; border-radius:50%; display:grid; place-items:center; flex:none; font-weight:600; font-size:.9rem; border:1px solid var(--line-strong); color:var(--muted) }
+  .step[data-state="current"] { border-color:var(--accent) } .step[data-state="current"] .num { background:var(--accent); border-color:var(--accent); color:var(--on-accent) }
+  .step[data-state="done"] .num { background:var(--ok-soft); border-color:transparent; color:var(--ok) }
+  .step b { display:block; color:var(--ink); font-weight:600 }
+  .step small { color:var(--muted); font-size:.86rem }
+  .next { display:flex; align-items:center; justify-content:center; gap:var(--s4); flex-wrap:wrap; margin-top:var(--s5) }
+  .next p { color:var(--muted) }
 
-  /* Bar à prompts */
-  .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px }
-  .tab { font:inherit; font-size:.88rem; padding:8px 14px; border-radius:999px; border:1px solid var(--line); background:var(--card); color:var(--muted); cursor:pointer }
-  .tab[aria-pressed=true] { background:var(--ink); color:var(--bg); border-color:var(--ink) }
-  .prompts { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:12px }
-  .prompt { text-align:left; font:inherit; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 18px; cursor:pointer; color:var(--ink); display:grid; gap:8px; transition:.18s; min-width:0 }
-  .prompt:hover { border-color:var(--gold); transform:translateY(-1px) }
-  .prompt q { quotes:"« " " »"; font:italic 400 1.06rem/1.4 var(--serif) }
-  .prompt small { color:var(--muted); font-size:.76rem; letter-spacing:.06em; text-transform:uppercase }
-  .prompt .hint { font-size:.74rem; color:var(--gold-ink); justify-self:end }
+  /* ---- Sections ---- */
+  .section { padding:var(--s7) 0 var(--s2) }
+  .section-head { display:flex; align-items:flex-end; justify-content:space-between; gap:var(--s4); flex-wrap:wrap; margin-bottom:var(--s5) }
+  .eyebrow { color:var(--accent); font-size:.78rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase; margin-bottom:var(--s2) }
+  .section-head h2 { font-size:clamp(1.5rem, 3vw, 2rem); line-height:1.15 }
+  .section-head p.sub { color:var(--muted); margin-top:var(--s2); max-width:64ch }
 
-  pre { background:#111113; color:#e8e4da; padding:16px; border-radius:12px; overflow:auto; font:.8rem/1.5 var(--mono); margin:0; border:1px solid var(--line) }
-  .copy { font:inherit; font-size:.78rem; padding:5px 12px; border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:999px; cursor:pointer }
-  .copy:hover { border-color:var(--gold) }
-  .note { font-size:.84rem; color:var(--muted); margin:10px 0 0 }
-  table { width:100%; border-collapse:collapse; font-size:.84rem; background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden }
-  td { padding:8px 12px; border-top:1px solid var(--line) } tr:first-child td { border-top:0 }
-  td:first-child { font:.8rem var(--mono); white-space:nowrap } td:last-child { color:var(--muted); word-break:break-all }
-  .toast { position:fixed; left:50%; bottom:calc(24px + env(safe-area-inset-bottom, 0px)); transform:translate(-50%, 12px); background:var(--ink); color:var(--bg); padding:10px 18px; border-radius:999px; font-size:.9rem; opacity:0; transition:.25s; pointer-events:none }
+  /* ---- Outils ---- */
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap:var(--s4) }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg); padding:var(--s5); display:flex; flex-direction:column; gap:var(--s4); min-width:0; box-shadow:var(--shadow) }
+  .tool-head { display:flex; align-items:flex-start; gap:var(--s3) }
+  .tool-icon { width:44px; height:44px; border-radius:var(--r); display:grid; place-items:center; background:var(--accent-soft); color:var(--accent); flex:none }
+  .tool-icon .icon { width:22px; height:22px }
+  .tool-name { flex:1; min-width:0 }
+  .tool-name h3 { font-size:1.12rem; line-height:1.3 }
+  .tool-name p { color:var(--muted); font-size:.86rem }
+  .tag { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:var(--pill); font-size:.76rem; font-weight:600; white-space:nowrap; background:var(--surface-2); color:var(--muted) }
+  .tag::before { content:""; width:7px; height:7px; border-radius:50%; background:currentColor }
+  .tag.ok { background:var(--ok-soft); color:var(--ok) } .tag.todo { background:var(--accent-soft); color:var(--accent) } .tag.sim { background:var(--warn-soft); color:var(--warn) } .tag.off { background:var(--surface-2); color:var(--muted) }
+  .tool-state { font-size:.88rem; color:var(--muted) }
+  .tool-actions { display:flex; flex-wrap:wrap; gap:var(--s2); align-items:center }
+  .tool-foot { display:flex; align-items:center; justify-content:space-between; gap:var(--s3); flex-wrap:wrap; padding-top:var(--s4); border-top:1px solid var(--line); margin-top:auto }
+  .apikey { display:grid; gap:var(--s3) }
+  .apikey .or { display:flex; align-items:center; gap:var(--s3); color:var(--muted); font-size:.8rem } .apikey .or::before, .apikey .or::after { content:""; flex:1; height:1px; background:var(--line) }
+  .field { display:grid; gap:6px }
+  .field label { font-size:.84rem; font-weight:500; color:var(--ink) }
+  .field input { font:inherit; font-size:.95rem; min-height:44px; padding:10px 14px; border:1px solid var(--line-strong); border-radius:var(--r); background:var(--bg); color:var(--ink); width:100% }
+  .field input:hover { border-color:var(--muted) }
+  .field input:focus-visible { outline:2px solid var(--accent); outline-offset:0; border-color:var(--accent) }
+  .hint { font-size:.8rem; color:var(--muted) }
+  .result:empty { display:none }
+  .callout { display:flex; gap:var(--s3); align-items:flex-start; padding:var(--s3) var(--s4); border-radius:var(--r); font-size:.88rem; line-height:1.45; word-break:break-word }
+  .callout .icon { margin-top:1px }
+  .callout.ok { background:var(--ok-soft); color:var(--text) } .callout.ok .icon { color:var(--ok) }
+  .callout.ko { background:var(--ko-soft); color:var(--text) } .callout.ko .icon { color:var(--ko) }
+  .callout.wait { background:var(--surface-2); color:var(--muted) }
+  .callout strong { color:var(--ink); font-weight:600 }
+  .callout code { font-size:.8rem }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:var(--s2) }
+  .chips span { font:.74rem var(--mono); padding:3px 9px; border-radius:var(--pill); background:var(--surface); border:1px solid var(--line); color:var(--text) }
+  .skeleton { height:220px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--r-lg) }
+  .empty { text-align:center; padding:var(--s7) var(--s5); border:1px dashed var(--line-strong); border-radius:var(--r-lg); color:var(--muted) }
+  .empty h3 { margin-bottom:var(--s2) }
+
+  /* ---- Assistant ---- */
+  .assistant { display:grid; grid-template-columns:minmax(0, 1.6fr) minmax(0, 1fr); gap:var(--s4); align-items:start }
+  .tabs { display:inline-flex; gap:4px; padding:4px; border-radius:var(--pill); background:var(--surface-2); border:1px solid var(--line); flex-wrap:wrap; margin-bottom:var(--s4) }
+  .tab { font:inherit; font-size:.88rem; font-weight:500; min-height:36px; padding:6px 16px; border-radius:var(--pill); border:0; background:transparent; color:var(--muted); cursor:pointer }
+  .tab:hover { color:var(--ink) }
+  .tab[aria-selected="true"] { background:var(--surface); color:var(--ink); box-shadow:0 0 0 1px var(--line) }
+  .howto { margin:0 0 var(--s4); padding-left:1.3em; display:grid; gap:6px }
+  .howto li::marker { color:var(--accent); font-weight:600 }
+  .code { position:relative; border-radius:var(--r); background:var(--code-bg); color:var(--code-ink) }
+  .code pre { margin:0; padding:var(--s4) var(--s5); overflow:auto; font-size:.8rem; line-height:1.6 }
+  .code-bar { display:flex; justify-content:space-between; align-items:center; gap:var(--s2); padding:var(--s2) var(--s2) var(--s2) var(--s5); border-bottom:1px solid rgb(255 255 255 / 12%); font-size:.78rem; color:#B5B4B9 }
+  .code-bar .btn { color:#FFFFFF; border-color:rgb(255 255 255 / 25%); background:transparent }
+  .code-bar .btn:hover { background:rgb(255 255 255 / 10%); border-color:rgb(255 255 255 / 45%) }
+  .note { font-size:.86rem; color:var(--muted); margin-top:var(--s3) }
+  .note code, .tool-state code, .howto code { font-size:.82em; padding:1px 6px; border-radius:6px; background:var(--surface-2); color:var(--ink) }
+  .keycard h3 { font-size:1.1rem; display:flex; align-items:center; gap:var(--s2) }
+  .keycard ul { margin:0; padding-left:1.1em; display:grid; gap:6px; color:var(--muted); font-size:.88rem }
+
+  /* ---- Prompts ---- */
+  .prompts { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap:var(--s4) }
+  .prompt { text-align:left; font:inherit; color:var(--text); background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg); padding:var(--s5); cursor:pointer; display:grid; gap:var(--s3); align-content:space-between; min-width:0; box-shadow:var(--shadow); transition:border-color .15s }
+  .prompt:hover { border-color:var(--accent) }
+  .prompt q { quotes:"« " " »"; color:var(--ink); font-size:1.02rem; line-height:1.45 }
+  .prompt .meta { display:flex; justify-content:space-between; align-items:center; gap:var(--s3); font-size:.78rem; color:var(--muted) }
+  .prompt .meta span:last-child { display:inline-flex; align-items:center; gap:6px; color:var(--accent); font-weight:500 }
+
+  /* ---- Administration, connexion, pied de page ---- */
+  details.admin { margin-top:var(--s7); border:1px solid var(--line); border-radius:var(--r-lg); background:var(--surface) }
+  details.admin summary { cursor:pointer; padding:var(--s4) var(--s5); font-weight:500; color:var(--ink); display:flex; align-items:center; gap:var(--s2) }
+  details.admin summary small { color:var(--muted); font-weight:400 }
+  details.admin .tbl { overflow:auto; border-top:1px solid var(--line) }
+  table { width:100%; border-collapse:collapse; font-size:.84rem }
+  td { padding:10px var(--s5); border-top:1px solid var(--line); vertical-align:top } tr:first-child td { border-top:0 }
+  td:first-child { font:.8rem var(--mono); color:var(--ink); white-space:nowrap } td:last-child { color:var(--muted); word-break:break-all }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--line-strong); margin-right:8px } .dot.on { background:var(--ok) }
+  .panel { max-width:520px; margin:var(--s8) auto; text-align:center; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg); padding:var(--s7) var(--s6); display:grid; gap:var(--s4); justify-items:center; box-shadow:var(--shadow) }
+  .panel img { height:44px; width:auto }
+  .panel h1 { font-size:1.6rem }
+  .panel p { color:var(--muted) }
+  footer.foot { margin-top:var(--s8); border-top:1px solid var(--line); background:var(--bg) }
+  footer.foot .wrap { display:flex; align-items:center; justify-content:space-between; gap:var(--s4); flex-wrap:wrap; padding-top:var(--s5); padding-bottom:calc(var(--s5) + env(safe-area-inset-bottom, 0px)); font-size:.82rem; color:var(--muted) }
+  footer.foot .sig { display:flex; align-items:center; gap:var(--s2) }
+  footer.foot img { height:16px; width:auto }
+  footer.foot b { color:var(--ink); font-weight:600 }
+  .toast { position:fixed; left:50%; bottom:calc(24px + env(safe-area-inset-bottom, 0px)); transform:translate(-50%, 8px); z-index:40; background:var(--ink); color:var(--bg); padding:10px 18px; border-radius:var(--pill); font-size:.9rem; font-weight:500; opacity:0; transition:opacity .2s, transform .2s; pointer-events:none }
   .toast.show { opacity:1; transform:translate(-50%, 0) }
-  footer { margin-top:48px; padding-top:18px; border-top:1px solid var(--line); font-size:.76rem; color:var(--muted); letter-spacing:.04em; text-align:center }
-  footer b { font-weight:500; color:var(--gold-ink) }
-  :focus-visible { outline:2px solid var(--gold); outline-offset:2px }
-  @media (prefers-reduced-motion: reduce) { .btn, .prompt, .toast { transition:none } }
-  @media (max-width:560px) { .profile { max-width:44vw } header { padding-top:16px } }
+
+  @media (max-width: 900px) { .assistant { grid-template-columns:minmax(0, 1fr) } .steps { grid-template-columns:minmax(0, 1fr) } }
+  @media (max-width: 640px) {
+    .brand .product, .profile .id, .env { display:none }
+    .hero { padding-top:var(--s7) }
+    .section { padding-top:var(--s6) }
+    .card { padding:var(--s4) }
+    .tool-actions .btn, .next .btn { width:100% }
+  }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior:auto } *, *::before, *::after { transition:none !important } }
 </style>
 </head>
 <body>
-<main>
-  <header>
-    <div class="brand"><b>Clevoa</b><span>AI Gateway</span><span class="env" id="env">v… · ENV: …</span></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-crm" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3 2.8-4.8 5.5-4.8s4.9 1.8 5.5 4.8"/><path d="M15.5 5.2a3 3 0 0 1 0 5.6M17.5 14.6c1.6.6 2.7 2.1 3 4.4"/></symbol>
+  <symbol id="i-erp" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7.5" ry="2.8"/><path d="M4.5 6v6c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8V6"/><path d="M4.5 12v6c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8v-6"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.5 9.3 4.6 4.6 0 0 0 7 18.5z"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M7 16v-5M12 16V7M17 16v-8"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3v4M15 3v4M7 7h10v4a5 5 0 0 1-10 0z"/><path d="M12 16v5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12.3 2.7 2.7L16 9.6"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.4v.1"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 8-8M16 7l2.5 2.5M14 9l2 2"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.3-4.6L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.3 4.6L20 16"/><path d="M20 20v-4h-4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M14 4.5h3.5a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H14"/><path d="M10 16l-4-4 4-4M6 12h9"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+</svg>
+<a class="skip" href="#contenu">Aller au contenu</a>
+
+<header class="topbar">
+  <div class="wrap">
+    <span class="brand">
+      <img class="logo-light" src="/brand/clevoa-logo-couleur.svg" alt="Clevoa" width="108" height="28">
+      <img class="logo-dark" src="/brand/clevoa-logo-couleur-fond-sombre.svg" alt="Clevoa" width="108" height="28">
+      <span class="product">AI Gateway</span>
+    </span>
     <div class="who">
-      <div class="profile" id="profile">👤 …</div>
-      <button class="theme" id="theme" title="Basculer le thème" aria-label="Basculer le thème">◐</button>
+      <span class="env" id="env">v… · ENV : …</span>
+      <div class="profile" id="profile" aria-live="polite"></div>
+      <button class="iconbtn" id="theme" type="button" aria-label="Passer en thème sombre"><svg class="icon"><use href="#i-moon"/></svg></button>
     </div>
-  </header>
-
-
-  <div class="hero">
-    <h1 id="instance"><em>Clevoa</em> AI Gateway</h1>
-    <p class="lead">Connectez vos comptes une fois. Claude interroge ensuite Salesforce, Sage X3, SharePoint, Dropbox et MyReport avec <strong>vos</strong> droits, en lecture seule.</p>
   </div>
+</header>
 
-  <section>
-    <p class="eyebrow">Connexions</p>
-    <div class="grid" id="systems"></div>
+<main id="contenu" tabindex="-1">
+  <!-- Visiteur déconnecté (SSO) -->
+  <section class="wrap" id="signin" hidden>
+    <div class="panel">
+      <img src="/brand/clevoa-socle-couleur.svg" alt="" width="60" height="44">
+      <h1>Connectez-vous pour accéder à vos outils</h1>
+      <p>Votre identité Microsoft 365 vous donne accès à votre espace personnel : vos connexions, votre clé et la configuration de votre assistant IA.</p>
+      <a class="btn primary" href="/auth/sso">Se connecter avec Microsoft <svg class="icon sm"><use href="#i-arrow"/></svg></a>
+    </div>
   </section>
 
-  <section>
-    <p class="eyebrow">Diagnostic &amp; connectivité</p>
-    <div class="grid" id="diag"></div>
+  <!-- Passerelle injoignable -->
+  <section class="wrap" id="offline" hidden>
+    <div class="panel" role="alert">
+      <h1>Passerelle injoignable</h1>
+      <p>Le portail ne parvient pas à joindre la passerelle. Vérifiez votre connexion réseau ou VPN, puis réessayez.</p>
+      <button class="btn primary" type="button" onclick="load()"><svg class="icon sm"><use href="#i-refresh"/></svg>Réessayer</button>
+    </div>
   </section>
 
-  <section>
-    <p class="eyebrow">Bar à prompts</p>
-    <div class="tabs" id="tabs"></div>
-    <div class="prompts" id="prompts"></div>
-  </section>
+  <div id="app">
+    <section class="wrap hero" aria-labelledby="titre">
+      <span class="badge" id="instance">Passerelle IA · lecture seule</span>
+      <h1 id="titre">Vos outils métier, dans votre assistant IA. <span>Avec vos droits, rien de plus.</span></h1>
+      <p class="lead">Connectez vos comptes une fois. Votre assistant interroge ensuite Salesforce, Sage X3, SharePoint, Dropbox et MyReport avec <strong>vos</strong> droits d'accès, en lecture seule. Aucune donnée métier n'est stockée par la passerelle.</p>
+      <ol class="steps" id="steps" aria-label="Votre progression">
+        <li class="step" data-step="1"><span class="num">1</span><div><b>Connectez vos outils</b><small id="step1">Une fois pour toutes</small></div></li>
+        <li class="step" data-step="2"><span class="num">2</span><div><b>Vérifiez les connexions</b><small id="step2">Un test par outil</small></div></li>
+        <li class="step" data-step="3"><span class="num">3</span><div><b>Branchez votre assistant</b><small id="step3">Copier, coller, redémarrer</small></div></li>
+      </ol>
+      <div class="next" id="next"></div>
+    </section>
 
-  <section>
-    <p class="eyebrow">Votre connecteur Claude <button class="copy" onclick="copy(document.getElementById('cfg').textContent)">Copier</button></p>
-    <pre id="cfg">…</pre>
-    <p class="note">Claude Code (<code>.mcp.json</code>), ChatGPT, Copilot et tout client MCP HTTP : bloc ci-dessus (URL <code id="mcp-url"></code> + en-tête <code>Authorization: Bearer</code>). La clé ne circule jamais dans l'URL. La clé est personnelle : ne la partagez pas. Clé divulguée ou poste perdu : <button class="link" onclick="rotateKey()">régénérer la clé</button> (l'ancienne cesse de fonctionner aussitôt).</p>
-    <p class="eyebrow">Claude Desktop <button class="copy" onclick="copy(document.getElementById('cfg-desktop').textContent)">Copier</button></p>
-    <pre id="cfg-desktop">…</pre>
-    <p class="note">Claude Desktop n'accepte pas d'en-tête sur un serveur distant : le pont <code>mcp-remote</code> (Node.js requis sur le poste) le transmet. Paramètres → Développeur → Modifier la configuration, coller dans <code>claude_desktop_config.json</code>, puis redémarrer Claude Desktop.</p>
-  </section>
+    <section class="wrap section" id="outils" aria-labelledby="titre-outils">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Étape 1 et 2 · Vos outils</p>
+          <h2 id="titre-outils">Connectez et vérifiez vos outils</h2>
+          <p class="sub">Chaque connexion utilise votre propre compte. Le bouton « Tester » vérifie l'accès sans rien modifier.</p>
+        </div>
+        <button class="btn sm" type="button" id="test-all" onclick="testAll(this)"><svg class="icon sm"><use href="#i-refresh"/></svg>Tout tester</button>
+      </div>
+      <div class="grid" id="systems" aria-busy="true">
+        <div class="skeleton" aria-hidden="true"></div><div class="skeleton" aria-hidden="true"></div><div class="skeleton" aria-hidden="true"></div>
+        <span class="sr-only">Chargement de vos outils…</span>
+      </div>
+    </section>
 
-  <section id="config-section" hidden>
-    <p class="eyebrow">Configuration du conteneur</p>
-    <table id="config"></table>
-  </section>
+    <section class="wrap section" id="assistant" aria-labelledby="titre-assistant">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Étape 3 · Votre assistant</p>
+          <h2 id="titre-assistant">Branchez votre assistant IA</h2>
+          <p class="sub">Copiez le bloc correspondant à votre assistant. Il contient votre clé personnelle : ne le partagez pas.</p>
+        </div>
+      </div>
+      <div class="assistant">
+        <div>
+          <div class="tabs" role="tablist" aria-label="Assistant" id="client-tabs">
+            <button class="tab" role="tab" id="tab-http" aria-controls="panel-http" aria-selected="true" onclick="showClient('http')">Claude Code, ChatGPT, Copilot</button>
+            <button class="tab" role="tab" id="tab-desktop" aria-controls="panel-desktop" aria-selected="false" tabindex="-1" onclick="showClient('desktop')">Claude Desktop</button>
+          </div>
+          <div role="tabpanel" id="panel-http" aria-labelledby="tab-http">
+            <ol class="howto">
+              <li>Copiez le bloc ci-dessous.</li>
+              <li>Claude Code : collez-le dans <code>.mcp.json</code> à la racine du projet, puis relancez <code>claude</code>. Autres clients MCP HTTP : URL <code id="mcp-url"></code> et en-tête <code>Authorization: Bearer</code>.</li>
+              <li>Posez une première question, par exemple un exemple ci-dessous.</li>
+            </ol>
+            <div class="code">
+              <div class="code-bar"><span>Configuration MCP (HTTP)</span><span>
+                <button class="btn sm reveal" type="button" aria-pressed="false" onclick="toggleKey()"><svg class="icon sm"><use href="#i-eye"/></svg><span>Afficher la clé</span></button>
+                <button class="btn sm" type="button" onclick="copyCfg('http')"><svg class="icon sm"><use href="#i-copy"/></svg>Copier</button></span></div>
+              <pre id="cfg" tabindex="0" aria-label="Configuration MCP HTTP">…</pre>
+            </div>
+          </div>
+          <div role="tabpanel" id="panel-desktop" aria-labelledby="tab-desktop" hidden>
+            <ol class="howto">
+              <li>Prérequis : Node.js installé sur le poste (le pont <code>mcp-remote</code> transmet l'en-tête que Claude Desktop ne sait pas poser).</li>
+              <li>Claude Desktop → Paramètres → Développeur → Modifier la configuration : collez l'entrée dans <code>claude_desktop_config.json</code>, à l'intérieur de <code>mcpServers</code>.</li>
+              <li>Quittez Claude Desktop depuis la barre système, puis relancez-le.</li>
+            </ol>
+            <div class="code">
+              <div class="code-bar"><span>claude_desktop_config.json</span><span>
+                <button class="btn sm reveal" type="button" aria-pressed="false" onclick="toggleKey()"><svg class="icon sm"><use href="#i-eye"/></svg><span>Afficher la clé</span></button>
+                <button class="btn sm" type="button" onclick="copyCfg('desktop')"><svg class="icon sm"><use href="#i-copy"/></svg>Copier</button></span></div>
+              <pre id="cfg-desktop" tabindex="0" aria-label="Configuration Claude Desktop">…</pre>
+            </div>
+          </div>
+        </div>
+        <aside class="card keycard" aria-labelledby="titre-cle">
+          <h3 id="titre-cle"><svg class="icon"><use href="#i-key"/></svg>Votre clé personnelle</h3>
+          <ul>
+            <li>Elle identifie votre assistant auprès de la passerelle et ne circule jamais dans une URL.</li>
+            <li>Elle est masquée à l'écran ; les boutons « Copier » la copient en entier.</li>
+            <li>Clé divulguée ou poste perdu : régénérez-la. L'ancienne cesse de fonctionner aussitôt et chaque assistant doit être reconfiguré.</li>
+          </ul>
+          <button class="btn danger" type="button" onclick="rotateKey()"><svg class="icon sm"><use href="#i-refresh"/></svg>Régénérer la clé</button>
+        </aside>
+      </div>
+    </section>
 
-  <footer>Propulsé par <b>Clevoa</b> — Licence Active · <span id="env-foot"></span></footer>
+    <section class="wrap section" id="exemples" aria-labelledby="titre-exemples">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Bibliothèque de prompts</p>
+          <h2 id="titre-exemples">Exemples de questions</h2>
+          <p class="sub">Cliquez sur une question pour la copier, puis collez-la dans votre assistant. Chaque réponse cite sa source (« Source : … »).</p>
+        </div>
+      </div>
+      <div class="tabs" role="tablist" aria-label="Thème des exemples" id="tabs"></div>
+      <div class="prompts" id="prompts" role="tabpanel" aria-labelledby="tabs"></div>
+    </section>
+
+    <div class="wrap" id="config-section" hidden>
+      <details class="admin">
+        <summary>Configuration de l'instance <small>· réservée à l'administrateur, secrets masqués</small></summary>
+        <div class="tbl"><table id="config"></table></div>
+      </details>
+    </div>
+  </div>
 </main>
-<div class="toast" id="toast" role="status">Copié !</div>
+
+<footer class="foot">
+  <div class="wrap">
+    <span class="sig"><img src="/brand/clevoa-socle-couleur.svg" alt="" width="22" height="16">Propulsé par <b>Clevoa</b> — Licence Active</span>
+    <span id="env-foot"></span>
+  </div>
+</footer>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
 const PROMPTS = {
-  "📁 Onboarding / Formation": [
+  "Prise en main": [
     ["Quels systèmes et quels outils puis-je interroger via ce connecteur ? Explique-moi comment formuler une bonne question.", "Tous · outils"],
-    ["Liste les objets Salesforce que je peux interroger et explique-moi les cinq principaux.", "Salesforce · objects"],
+    ["Liste les objets Salesforce que je peux interroger et explique-moi les cinq principaux.", "Salesforce · objets"],
     ["Quels champs sont disponibles sur les écritures comptables (GACCENTRY) ?", "Sage X3 · describe"],
   ],
-  "📈 Analyse de données": [
+  "Analyse de données": [
     ["Quel est le chiffre d'affaires facturé des 12 derniers mois, par mois ?", "Sage X3 · SINVOICE"],
     ["Top 10 des clients par CA sur les 12 derniers mois, avec leur encours.", "Sage X3 · SINVOICE + BPCUSTOMER"],
     ["Pipeline Salesforce : opportunités ouvertes > 50 k€ avec date de clôture ce trimestre.", "Salesforce · Opportunity"],
     ["Taux de conversion des opportunités créées sur les 12 derniers mois, par commercial.", "Salesforce · Opportunity + User"],
   ],
-  "📑 Contrôle de gestion": [
+  "Contrôle de gestion": [
     ["Liste des factures fournisseurs échues non réglées, triées par montant.", "Sage X3 · PINVOICE"],
     ["Pour le client X : commandes Salesforce de l'année vs factures Sage X3 — y a-t-il un écart ?", "Croisé Salesforce + Sage X3"],
     ["Via MyReport : CA HT et marge brute des 12 derniers mois, puis compare avec les factures Sage X3.", "MyReport · proxy MCP + Sage X3"],
@@ -169,83 +399,170 @@ const PROMPTS = {
     ["Liste les fichiers du dossier /Finance/Clôtures de Dropbox modifiés ce mois-ci.", "Dropbox · list_folder"],
   ],
 };
+// Présentation des outils (libellé de catégorie et icône) ; un outil inconnu garde une présentation générique.
+const TOOLS = {
+  salesforce: { icon: "crm", desc: "CRM · comptes, contacts, opportunités" },
+  sagex3: { icon: "erp", desc: "ERP · factures, commandes, écritures" },
+  sharepoint: { icon: "doc", desc: "Documents · SharePoint et OneDrive" },
+  dropbox: { icon: "cloud", desc: "Documents · dossiers et fichiers Dropbox" },
+  myreport: { icon: "chart", desc: "Reporting · indicateurs et tableaux" },
+};
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const toast = (m = "Copié !") => { $("#toast").textContent = m; $("#toast").classList.add("show"); setTimeout(() => $("#toast").classList.remove("show"), 1500); };
-function copy(t) {
-  const fallback = () => { const ta = document.createElement("textarea"); ta.value = t; document.body.append(ta); ta.select(); const ok = document.execCommand("copy"); ta.remove(); toast(ok ? "Copié !" : "Copie impossible"); };
-  (navigator.clipboard?.writeText(t) ?? Promise.reject()).then(() => toast()).catch(fallback);
+const ico = (id, cls = "icon") => `<svg class="${cls}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+let toastTimer;
+const toast = (m = "Copié") => { const t = $("#toast"); t.textContent = m; t.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 1800); };
+function copy(t, msg = "Copié dans le presse-papiers") {
+  const fallback = () => { const ta = document.createElement("textarea"); ta.value = t; document.body.append(ta); ta.select(); const ok = document.execCommand("copy"); ta.remove(); toast(ok ? msg : "Copie impossible"); };
+  (navigator.clipboard?.writeText(t) ?? Promise.reject()).then(() => toast(msg)).catch(fallback);
 }
+const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
 
 // ---- Thème : automatique (système) ou commuté, mémorisé localement ----
 const root = document.documentElement;
-try { const t = localStorage.getItem("theme"); if (t) root.dataset.theme = t; } catch {}
-$("#theme").onclick = () => {
-  const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
-  root.dataset.theme = dark ? "light" : "dark";
-  try { localStorage.setItem("theme", root.dataset.theme); } catch {}
-};
+const isDark = () => (root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches);
+function paintTheme() { const d = isDark(); $("#theme").setAttribute("aria-label", d ? "Passer en thème clair" : "Passer en thème sombre"); $("#theme").innerHTML = ico(d ? "sun" : "moon"); }
+{ const t = store.get("theme"); if (t) root.dataset.theme = t; }
+$("#theme").onclick = () => { root.dataset.theme = isDark() ? "light" : "dark"; store.set("theme", root.dataset.theme); paintTheme(); };
+paintTheme();
 
+// ---- Onglets accessibles (flèches gauche / droite) ----
+function arrowTabs(list) {
+  list.addEventListener("keydown", (e) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    const tabs = [...list.querySelectorAll('[role="tab"]')], i = tabs.indexOf(document.activeElement);
+    const j = e.key === "Home" ? 0 : e.key === "End" ? tabs.length - 1 : (i + (e.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+    e.preventDefault(); tabs[j].focus(); tabs[j].click();
+  });
+}
+
+// ---- Configuration des assistants : clé masquée à l'écran, copiée en entier ----
+let ME = null, showKey = false, tested = new Set();
+const cfg = (me, key) => ({
+  http: `{\n  "mcpServers": {\n    "${me.serverName}": {\n      "type": "http",\n      "url": "${me.mcpUrl}",\n      "headers": { "Authorization": "Bearer ${key}" }\n    }\n  }\n}`,
+  desktop: `{\n  "mcpServers": {\n    "${me.serverName}": {\n      "command": "npx",\n      "args": ["-y", "mcp-remote@0.15", "${me.mcpUrl}", "--header", "Authorization:\${MCP_AUTH}"],\n      "env": { "MCP_AUTH": "Bearer ${key}" }\n    }\n  }\n}`,
+});
+function paintCfg() {
+  if (!ME?.key) return;
+  const shown = cfg(ME, showKey ? ME.key : "•".repeat(16));
+  $("#cfg").textContent = shown.http; $("#cfg-desktop").textContent = shown.desktop;
+  document.querySelectorAll(".reveal").forEach((b) => { b.setAttribute("aria-pressed", String(showKey)); b.querySelector("span").textContent = showKey ? "Masquer la clé" : "Afficher la clé"; });
+}
+function toggleKey() { showKey = !showKey; paintCfg(); }
+function copyCfg(kind) { if (!ME?.key) return; copy(cfg(ME, ME.key)[kind], "Configuration copiée"); store.set("cfgCopied", "1"); paintProgress(); }
+function showClient(kind) {
+  for (const k of ["http", "desktop"]) { const on = k === kind; $(`#tab-${k}`).setAttribute("aria-selected", String(on)); $(`#tab-${k}`).tabIndex = on ? 0 : -1; $(`#panel-${k}`).hidden = !on; }
+}
+
+// ---- Progression : étape en cours et prochaine action ----
+function paintProgress() {
+  if (!ME) return;
+  const ready = ME.systems.filter((s) => s.connected || s.mock).length, total = ME.systems.length;
+  const done = [ready > 0, tested.size > 0 || store.get("tested") === "1", store.get("cfgCopied") === "1"];
+  const current = done.indexOf(false);
+  document.querySelectorAll(".step").forEach((el, i) => { el.dataset.state = done[i] ? "done" : i === current ? "current" : "todo"; el.querySelector(".num").innerHTML = done[i] ? ico("check", "icon sm") : String(i + 1); });
+  $("#step1").textContent = total ? `${ready} sur ${total} outil${total > 1 ? "s" : ""} prêt${ready > 1 ? "s" : ""}` : "Aucun outil configuré";
+  $("#step2").textContent = tested.size ? `${tested.size} test${tested.size > 1 ? "s" : ""} réussi${tested.size > 1 ? "s" : ""}` : done[1] ? "Déjà vérifié sur ce poste" : "Un test par outil";
+  $("#step3").textContent = done[2] ? "Configuration copiée" : "Copier, coller, redémarrer";
+  const next = [
+    ["Prochaine étape : connectez au moins un outil.", "#outils", "Connecter mes outils"],
+    ["Prochaine étape : vérifiez qu'un outil répond.", "#outils", "Tester mes connexions"],
+    ["Prochaine étape : copiez la configuration dans votre assistant.", "#assistant", "Brancher mon assistant"],
+  ][current];
+  $("#next").innerHTML = next ? `<p>${next[0]}</p><a class="btn primary" href="${next[1]}">${next[2]} ${ico("arrow", "icon sm")}</a>`
+    : `<p>Tout est prêt. Posez une question à votre assistant.</p><a class="btn" href="#exemples">Voir des exemples ${ico("arrow", "icon sm")}</a>`;
+}
 
 // ---- Rendu ----
+function stateOf(s) { // [classe, libellé, explication]
+  if (s.mock) return ["sim", "Simulé", "Mode simulé, sans compte : les données sont fictives."];
+  if (s.connected) return ["ok", "Connecté", s.method === "apikey" ? "Connecté avec votre jeton personnel." : "Connecté avec votre compte."];
+  if (s.oauth && !s.configured && !s.apiKey) return ["off", "Non configuré", "Votre administrateur doit d'abord activer cet outil."];
+  return ["todo", "À connecter", s.oauth && s.configured ? "Connectez votre compte pour que votre assistant puisse l'interroger." : `Saisissez votre ${esc(s.apiKey?.label || "jeton personnel")}.`];
+}
+function toolCard(s) {
+  const t = TOOLS[s.id] || { icon: "plug", desc: "Outil connecté" }, [cls, tag, why] = stateOf(s);
+  const oauthBtn = !s.oauth || s.mock ? "" : s.configured
+    ? `<a class="btn ${s.connected ? "" : "primary"}" href="/auth/${esc(s.id)}">${s.connected ? "Reconnecter" : "Se connecter"}</a>`
+    : s.apiKey ? "" : `<span class="btn" aria-disabled="true">Se connecter</span>`;
+  const form = s.apiKey && !s.connected ? `
+      <form class="apikey" autocomplete="off" onsubmit="saveApiKey(event, '${esc(s.id)}')">
+        ${s.oauth && s.configured ? `<span class="or">ou</span>` : ""}
+        ${s.apiKey.mode === "basic" ? `<div class="field"><label for="${esc(s.id)}-login">Identifiant</label><input id="${esc(s.id)}-login" name="${esc(s.id)}-login" autocomplete="off" required></div>` : ""}
+        <div class="field"><label for="${esc(s.id)}-apikey">${s.apiKey.mode === "basic" ? "Mot de passe" : "Jeton personnel"}</label><input id="${esc(s.id)}-apikey" name="${esc(s.id)}-apikey" type="password" autocomplete="new-password" required aria-describedby="${esc(s.id)}-hint"></div>
+        <p class="hint" id="${esc(s.id)}-hint">${esc(s.apiKey.label)}, chiffré par la passerelle et jamais réaffiché.</p>
+        <button class="btn" type="submit">Enregistrer</button>
+      </form>` : "";
+  return `
+    <article class="card" aria-labelledby="t-${esc(s.id)}">
+      <div class="tool-head">
+        <span class="tool-icon">${ico(t.icon)}</span>
+        <div class="tool-name"><h3 id="t-${esc(s.id)}">${esc(s.label)}</h3><p>${esc(t.desc)}</p></div>
+        <span class="tag ${cls}">${tag}</span>
+      </div>
+      <p class="tool-state">${why}</p>
+      ${oauthBtn ? `<div class="tool-actions">${oauthBtn}</div>` : ""}
+      ${form}
+      <div class="result" id="res-${esc(s.id)}" role="status" aria-live="polite"></div>
+      <div class="tool-foot">
+        <button class="btn sm" type="button" data-test="${esc(s.id)}" onclick="test('${esc(s.id)}', this)">${ico("refresh", "icon sm")}Tester${s.mock ? " le simulateur" : ""}</button>
+        ${s.connected ? `<button class="link" type="button" onclick="disconnect('${esc(s.id)}')">Déconnecter</button>` : ""}
+      </div>
+    </article>`;
+}
+function view(name) { $("#app").hidden = name !== "app"; $("#signin").hidden = name !== "signin"; $("#offline").hidden = name !== "offline"; }
 let seq = 0;
 async function load() {
   const n = ++seq; let me;
-  try { me = await fetch("/api/me").then((r) => r.json()); } catch { $("#profile").textContent = "👤 Passerelle injoignable"; return; }
+  try { me = await fetch("/api/me").then((r) => r.json()); } catch { view("offline"); $("#profile").innerHTML = ""; return; }
   if (n !== seq) return; // une réponse plus récente a pris le relais
+  $("#env").innerHTML = `v${esc(me.version)} · ENV: <b class="${me.env === "PRODUCTION" ? "prod" : ""}">${esc(me.env)}</b>`;
+  $("#env-foot").textContent = `${me.instance || "Clevoa AI Gateway"} · v${me.version} · ${me.env}`;
+  if (me.instance) { $("#instance").textContent = me.instance; document.title = `Clevoa AI Gateway · ${me.instance}`; } // libellé de l'instance (INSTANCE_LABEL)
   // SSO : un visiteur non identifié part vers Microsoft Entra ID (transparent si le navigateur a déjà une session Microsoft 365),
   // sauf juste après « Se déconnecter » (?sso=off) : la session Microsoft, elle, est toujours ouverte, on attend un clic.
   if (me.sso && !me.key) {
     if (!location.search.includes("sso=off")) { location.replace("/auth/sso"); return; }
-    $("#profile").innerHTML = `👤 Déconnecté — <a href="/auth/sso">Se connecter avec Microsoft</a>`; $("#systems").innerHTML = ""; $("#diag").innerHTML = ""; return;
+    $("#profile").innerHTML = ""; view("signin"); return;
   }
-  $("#env").innerHTML = `v${esc(me.version)} · ENV: <b class="${me.env === "PRODUCTION" ? "prod" : ""}">${esc(me.env)}</b>`;
-  if (me.instance) { $("#instance").textContent = me.instance; document.title = `Clevoa AI Gateway · ${me.instance}`; } // libellé de l'instance (INSTANCE_LABEL)
-  $("#env-foot").textContent = `${me.instance || "Clevoa AI Gateway"} v${me.version} · ${me.env}`;
-  $("#profile").innerHTML = (me.email ? `👤 <strong>${esc(me.email)}</strong>` : `👤 Non identifié`) + (me.instance ? ` — ${esc(me.instance)}` : "")
-    + (me.sso ? ` · via Microsoft Entra ID${me.sso === "mock" ? " (simulé)" : ""} · <button class="link" onclick="logout()">Se déconnecter</button>` : "");
-  $("#systems").innerHTML = me.systems.map((s) => `
-    <div class="card">
-      <div class="sys"><i style="--c:var(--${esc(s.id)})"></i>${esc(s.label)}</div>
-      ${!s.oauth ? "" : s.configured && !s.mock ? `<a class="btn" href="/auth/${esc(s.id)}">${s.connected ? "Reconnecter" : "Se connecter"}</a>` : `<span class="btn" aria-disabled="true">Se connecter</span>`}
-      <div class="status">
-        <span><i class="dot ${s.connected || s.mock ? "on" : ""}"></i>${s.mock ? "Mode simulé (sans compte)" : s.connected ? `Connecté${s.method === "apikey" ? " (jeton personnel)" : ""}` : s.oauth ? (s.configured ? "Non connecté" : "Non configuré (admin)") : "Jeton personnel requis"}</span>
-        ${s.connected ? `<button class="link" onclick="disconnect('${esc(s.id)}')">Déconnecter</button>` : ""}
-      </div>
-      ${s.apiKey && !s.connected ? `
-      <form class="apikey" autocomplete="off" onsubmit="saveApiKey(event, '${esc(s.id)}')">
-        <small>${s.oauth ? "ou " : ""}${esc(s.apiKey.label)}</small>
-        ${s.apiKey.mode === "basic" ? `<input id="${esc(s.id)}-login" name="${esc(s.id)}-login" placeholder="Identifiant" autocomplete="off" required>` : ""}
-        <input id="${esc(s.id)}-apikey" name="${esc(s.id)}-apikey" type="password" placeholder="Jeton / clé" autocomplete="new-password" required>
-        <button class="btn ghost" type="submit">Enregistrer</button>
-      </form>` : ""}
-    </div>`).join("");
-  $("#diag").innerHTML = me.systems.map((s) => `
-    <div class="card">
-      <button class="btn ghost" onclick="test('${esc(s.id)}', this)">Tester ${s.mock ? "le simulateur " : ""}${esc(s.label)}</button>
-      <div class="result" id="res-${esc(s.id)}"></div>
-    </div>`).join("");
-  $("#cfg").textContent = `{\n  "mcpServers": {\n    "${me.serverName}": {\n      "type": "http",\n      "url": "${me.mcpUrl}",\n      "headers": { "Authorization": "Bearer ${me.key}" }\n    }\n  }\n}`;
-  $("#cfg-desktop").textContent = `{\n  "mcpServers": {\n    "${me.serverName}": {\n      "command": "npx",\n      "args": ["-y", "mcp-remote@0.15", "${me.mcpUrl}", "--header", "Authorization:\${MCP_AUTH}"],\n      "env": { "MCP_AUTH": "Bearer ${me.key}" }\n    }\n  }\n}`;
+  view("app"); ME = me;
+  const who = me.email || "Collaborateur non identifié";
+  $("#profile").innerHTML = `<span class="avatar" aria-hidden="true">${me.email ? esc(me.email[0].toUpperCase()) : ico("key", "icon sm")}</span>`
+    + `<span class="id"><strong title="${esc(who)}">${esc(who)}</strong><small>${me.sso ? `via Microsoft Entra ID${me.sso === "mock" ? " (simulé)" : ""}` : "Clé personnelle de ce navigateur"}</small></span>`
+    + (me.sso ? `<button class="iconbtn" type="button" onclick="logout()" aria-label="Se déconnecter" title="Se déconnecter">${ico("logout")}</button>` : "");
+  $("#systems").removeAttribute("aria-busy");
+  $("#systems").innerHTML = me.systems.length ? me.systems.map(toolCard).join("")
+    : `<div class="empty"><h3>Aucun outil n'est encore disponible</h3><p>Votre administrateur n'a configuré aucun outil sur cette passerelle.</p></div>`;
+  $("#test-all").hidden = !me.systems.length;
   $("#mcp-url").textContent = me.mcpUrl;
+  paintCfg(); paintProgress();
   $("#config-section").hidden = !me.config;
   if (me.config) $("#config").innerHTML = me.config.map((v) => `<tr><td><i class="dot ${v.value ? "on" : ""}"></i>${esc(v.name)}</td><td>${v.value ? esc(v.value) : "— vide (défaut ou mode simulé)"}</td></tr>`).join("");
 }
 function renderTabs(active = Object.keys(PROMPTS)[0]) {
-  $("#tabs").innerHTML = Object.keys(PROMPTS).map((t) => `<button class="tab" aria-pressed="${t === active}" onclick="renderTabs(this.dataset.t)" data-t="${esc(t)}">${esc(t)}</button>`).join("");
-  $("#prompts").innerHTML = PROMPTS[active].map(([q, src], i) => `<button class="prompt" onclick="copy(PROMPTS[this.dataset.t][${i}][0])" data-t="${esc(active)}"><q>${esc(q)}</q><small>${esc(src)}</small><span class="hint">copier ↗</span></button>`).join("");
+  const hadFocus = $("#tabs").contains(document.activeElement); // navigation au clavier : le focus suit l'onglet actif après le rendu
+  $("#tabs").innerHTML = Object.keys(PROMPTS).map((t) => `<button class="tab" role="tab" aria-selected="${t === active}" tabindex="${t === active ? 0 : -1}" onclick="renderTabs(this.dataset.t)" data-t="${esc(t)}">${esc(t)}</button>`).join("");
+  $("#prompts").innerHTML = PROMPTS[active].map(([q, src], i) => `<button class="prompt" type="button" onclick="copy(PROMPTS[this.dataset.t][${i}][0], 'Question copiée')" data-t="${esc(active)}"><q>${esc(q)}</q><span class="meta"><span>${esc(src)}</span><span>${ico("copy", "icon sm")}Copier</span></span></button>`).join("");
+  if (hadFocus) $('#tabs [aria-selected="true"]').focus();
 }
 async function test(id, btn) {
   const out = $("#res-" + id);
-  btn.disabled = true; out.innerHTML = `<i class="dot"></i>Test en cours…`;
+  btn.disabled = true; btn.setAttribute("aria-busy", "true");
+  out.innerHTML = `<div class="callout wait">${ico("clock")}<span>Test en cours…</span></div>`;
   try {
     const r = await fetch("/api/test/" + id).then((r) => r.json());
+    if (r.ok) { tested.add(id); store.set("tested", "1"); } else tested.delete(id);
     out.innerHTML = r.ok
-      ? `<i class="dot led on"></i><strong>Connecté</strong> — ${esc(r.message)}${r.tables ? `<div class="chips">${r.tables.map((t) => `<span>${esc(t)}</span>`).join("")}</div>` : ""}`
-      : `<i class="dot led off"></i><strong>Erreur d'accès</strong><br><code>${esc(r.error)}</code>`;
+      ? `<div class="callout ok">${ico("check")}<div><strong>Accès vérifié.</strong> ${esc(r.message)}${r.tables ? `<div class="chips">${r.tables.map((t) => `<span>${esc(t)}</span>`).join("")}</div>` : ""}</div></div>`
+      : `<div class="callout ko">${ico("alert")}<div><strong>Accès refusé ou indisponible.</strong><br><code>${esc(r.error)}</code></div></div>`;
   } catch (e) {
-    out.innerHTML = `<i class="dot led off"></i><strong>Passerelle injoignable</strong><br><code>${esc(e.message)}</code>`;
+    out.innerHTML = `<div class="callout ko">${ico("alert")}<div><strong>Passerelle injoignable.</strong><br><code>${esc(e.message)}</code></div></div>`;
   }
+  btn.disabled = false; btn.removeAttribute("aria-busy"); paintProgress();
+}
+async function testAll(btn) { // un test après l'autre : le diagnostic est plafonné par minute
+  btn.disabled = true;
+  for (const b of document.querySelectorAll("[data-test]")) await test(b.dataset.test, b);
   btn.disabled = false;
 }
 async function saveApiKey(e, id) {
@@ -254,9 +571,10 @@ async function saveApiKey(e, id) {
   const r = await fetch("/api/" + id + "/apikey", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!r.ok) return toast("Jeton refusé"); toast("Jeton enregistré"); load();
 }
-async function disconnect(id) { await fetch("/api/disconnect/" + id, { method: "POST" }); load(); }
-async function rotateKey() { if (!confirm("Nouvelle clé : les clients MCP configurés avec l'ancienne cesseront de fonctionner. Continuer ?")) return; await fetch("/api/key/rotate", { method: "POST" }); toast("Nouvelle clé générée"); load(); }
+async function disconnect(id) { await fetch("/api/disconnect/" + id, { method: "POST" }); tested.delete(id); load(); }
+async function rotateKey() { if (!confirm("Régénérer votre clé ? Les assistants configurés avec l'ancienne cesseront de fonctionner et devront être reconfigurés.")) return; await fetch("/api/key/rotate", { method: "POST" }); store.set("cfgCopied", ""); toast("Nouvelle clé générée"); load(); }
 async function logout() { const r = await fetch("/api/logout", { method: "POST" }).then((x) => x.json()).catch(() => ({})); location.href = r.next || "/?sso=off"; } // puis déconnexion Microsoft
+arrowTabs($("#tabs")); arrowTabs($("#client-tabs"));
 renderTabs(); load();
 </script>
 </body>

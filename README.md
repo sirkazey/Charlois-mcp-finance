@@ -16,8 +16,9 @@ propre nom de serveur MCP et son libellé (`MCP_SERVER_NAME`, `INSTANCE_LABEL`).
   fichier, transmis tels quels aux outils. Le cache de structure (objets, champs) est lui aussi par utilisateur.
 * **Lecture seule par construction** : serveurs MCP et facettes d'API de lecture uniquement, listes blanches d'outils,
   outils annotés `readOnlyHint`. Aucune donnée métier n'est stockée ni mise en cache.
-* **Portail web** : connexion aux outils, diagnostic par système, bloc de configuration à coller dans l'assistant,
-  bar à prompts. SSO Microsoft Entra ID optionnel.
+* **Portail web** aux couleurs Clevoa : progression en trois étapes, une carte par outil (connexion, test, état),
+  configuration de l'assistant à copier avec clé masquée, exemples de questions, thème clair et sombre, accessible
+  (WCAG 2.1 AA vérifié). SSO Microsoft Entra ID optionnel.
 * **Traçabilité** : chaque résultat se termine par `Source : <système>` que l'assistant est instruit de citer.
 * **Exploitation simple** : deux stacks Docker Compose (pré-production, production), sauvegarde quotidienne chiffrée,
   restauration scriptée, reverse proxy nginx fourni, télémétrie de licence réduite à des compteurs.
@@ -103,5 +104,5 @@ Composants annexes : [bouchon d'entreprise](clevoa-mcp-stub/README.md), [backend
 
 Logiciel propriétaire de Clevoa SASU : [LICENSE.md](LICENSE.md). Les dépendances open source conservent leurs licences
 (MIT, ISC, BSD). Versions : [CHANGELOG.md](CHANGELOG.md) et
-[releases GitHub](https://github.com/sirkazey/Clevoa-IA-gateway/releases) ; version courante **1.3.0**
+[releases GitHub](https://github.com/sirkazey/Clevoa-IA-gateway/releases) ; version courante **1.3.1**
 (`hub/version.js`), affichée sur le portail et dans les journaux de démarrage.

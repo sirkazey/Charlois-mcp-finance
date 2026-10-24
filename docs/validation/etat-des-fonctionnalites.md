@@ -1,6 +1,6 @@
 # État des fonctionnalités et limites connues
 
-Version 1.3.0. Statuts selon [les conventions](../CONTRIBUTING.md#statut-des-fonctionnalités) : **disponible** (vérifié
+Version 1.3.1. Statuts selon [les conventions](../CONTRIBUTING.md#statut-des-fonctionnalités) : **disponible** (vérifié
 sur le système réel), **testé sur bouchon** (tests automatisés et simulateur seulement), **expérimental**, **prévu**.
 Preuves : [journal des tests réels](journal-tests-reels.md), [campagne de charge](charge-v1.2.1.md), CI.
 
@@ -15,7 +15,7 @@ Preuves : [journal des tests réels](journal-tests-reels.md), [campagne de charg
 | Dropbox (serveur MCP officiel) | testé sur bouchon | tests hub, bouchon aligné sur les schémas du serveur officiel (22/10/2026) | acceptation par `mcp.dropbox.com` d'un jeton d'app tierce |
 | MyReport (proxy MCP SSE) | testé sur bouchon | plomberie SSE et liste blanche seulement | serveur MCP de l'éditeur, non livré ; outils réels inconnus |
 | SSO Microsoft Entra ID (`entra`) | testé sur bouchon | `hub/test/sso.test.js`, bouchon | activation sur un vrai locataire |
-| Portail, diagnostic, blocs de configuration, bar à prompts | disponible | usage quotidien en préproduction | |
+| Portail, diagnostic, blocs de configuration, exemples de questions | disponible | usage quotidien en préproduction ; refonte v1.3.1 validée sur bouchon ([compte rendu](portail-v1.3.1.md)) | revue sur le portail de préproduction réel |
 | Claude Desktop via `mcp-remote` | disponible | vérifié le 23/10/2026 sur Windows | |
 | Claude Code, ChatGPT, Copilot (MCP HTTP + en-tête) | disponible (Claude Code) | Claude Code vérifié ; ChatGPT et Copilot non exercés | un test par client |
 | Claude.ai web et mobile | écarté | décision ([historique](../history/decisions.md)) | |
