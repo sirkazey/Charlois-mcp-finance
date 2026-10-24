@@ -173,12 +173,12 @@ async function runOpenLoop({ name, hub, mock, users, active, ratePerMin, duratio
 async function runFailures({ hub, mock, users, samples }) {
   log("▶ defaillances : backend lent, délai dépassé, 429, 500, reconnexions, sessions abandonnées");
   const out = {};
-  const phase = async (label, control, active, secs, mix, perMin = 120) => { await mock.control({ delay: 0, fail: null, routes: ".*", ...control }); const s = await runOpenLoop({ name: `defaillances_${label}`, hub, mock, users, active, ratePerMin: perMin, durationSec: secs, mix, samples }); out[label] = s; return s; };
+  const phase = async (label, control, active, secs, mix, perMin = 120) => { await mock.control({ delay: 0, fail: null, routes: "", ...control }); const s = await runOpenLoop({ name: `defaillances_${label}`, hub, mock, users, active, ratePerMin: perMin, durationSec: secs, mix, samples }); out[label] = s; return s; };
   const sageOnly = MIX.filter((m) => m[0] === "sagex3_query"), notSage = MIX.filter((m) => !m[0].startsWith("sagex3"));
   // (a) Sage lent (2 s) pendant que les autres connecteurs servent : les autres doivent rester rapides
-  await phase("sage_lent_2s", { delay: 2000, routes: "^/api1/" }, 10, 40, MIX, 120);
+  await phase("sage_lent_2s", { delay: 2000, routes: "/api1/" }, 10, 40, MIX, 120);
   // (b) Sage au-delà du délai du hub (30 s) : 3 appels seulement, les autres outils continuent
-  await mock.control({ delay: 35_000, routes: "^/api1/" });
+  await mock.control({ delay: 35_000, routes: "/api1/" });
   const slow = new VUser(users[0].key, users[0].marker, hub.url, false); await slow.connect();
   const t0 = Date.now(); const timeouts = await Promise.all([0, 1, 2].map(() => slow.call(sageOnly[0], "defaillances_timeout")));
   const others = await runOpenLoop({ name: "defaillances_pendant_timeout", hub, mock, users: users.slice(1), active: 5, ratePerMin: 60, durationSec: 20, mix: notSage, samples });
@@ -186,8 +186,8 @@ async function runFailures({ hub, mock, users, samples }) {
   await slow.close();
   // (c) 429 sur Salesforce, (d) 500 sur Graph
   await phase("salesforce_429", { delay: 0, fail: { status: 429, rate: 0.5 }, routes: "sobject-reads" }, 10, 30, MIX.filter((m) => m[0].startsWith("salesforce")), 120);
-  await phase("graph_500", { delay: 0, fail: { status: 500, rate: 0.5 }, routes: "^/v1.0/" }, 10, 30, MIX.filter((m) => m[0] === "sharepoint_list"), 120);
-  await mock.control({ delay: 0, fail: null, routes: ".*" });
+  await phase("graph_500", { delay: 0, fail: { status: 500, rate: 0.5 }, routes: "/v1.0/" }, 10, 30, MIX.filter((m) => m[0] === "sharepoint_list"), 120);
+  await mock.control({ delay: 0, fail: null, routes: "" });
   // (e) reconnexions SSE : 10 utilisateurs ouvrent, appellent, coupent brutalement, rouvrent, 5 fois
   const rssBefore = procSample(hub.pid).rssMb; let recon = { cycles: 0, ok: 0, errors: 0 };
   for (let c = 0; c < 5; c++) await Promise.all(users.slice(0, 10).map(async (u) => { const vu = new VUser(u.key, u.marker, hub.url, true); await vu.connect(); const r = await vu.call(MIX[0], "defaillances_reconnexion"); r.status === "ok" ? recon.ok++ : recon.errors++; await vu.transport.close(); recon.cycles++; }));

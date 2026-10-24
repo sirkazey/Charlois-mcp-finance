@@ -8,7 +8,14 @@ import { createServer } from "node:http";
 import { McpServer, StreamableHTTPServerTransport, SSEServerTransport, z } from "./sdk.js";
 
 const PORT = Number(process.env.PORT || 4100);
-const ctl = { delay: 0, routes: ".*", fail: null }; // fail : { status, rate }
+const ctl = { delay: 0, routes: "", fail: null }; // routes : sous-chaîne du chemin visé ("" = toutes) ; fail : { status, rate }
+/** Pilotage borné (le bouchon n'écoute qu'en local, mais rien d'externe ne doit choisir un délai, un statut ou une expression) :
+ *  délai 0-60 s, statut parmi 429/500/502/503, taux 0-1, routes = sous-chaîne (pas d'expression régulière). */
+function control(c) {
+  if ("delay" in c) { const d = Number(c.delay) || 0; ctl.delay = d <= 0 ? 0 : d >= 60_000 ? 60_000 : Math.floor(d); }
+  if ("routes" in c) ctl.routes = typeof c.routes === "string" ? c.routes.slice(0, 100) : "";
+  if ("fail" in c) { const st = Number(c.fail?.status), r = Number(c.fail?.rate); ctl.fail = c.fail ? { status: st === 429 ? 429 : st === 502 ? 502 : st === 503 ? 503 : 500, rate: r <= 0 ? 0 : r >= 1 ? 1 : r } : null; }
+}
 const stats = { families: {}, injected: { delay: 0, fail: 0 }, started: Date.now() };
 const fam = (path) => path.startsWith("/api1/") ? "sagex3" : path.includes("sobject-reads") || path.startsWith("/services/") ? "salesforce" : path.startsWith("/v1.0") ? "graph"
   : path.startsWith("/dropbox-mcp") || path.startsWith("/oauth2") ? "dropbox" : path.startsWith("/myreport") ? "myreport" : path.startsWith("/api/v1/telemetry") ? "clevoa" : "autre";
@@ -100,10 +107,10 @@ const server = createServer((req, res) => {
   let body = ""; req.on("data", (c) => { body += c; });
   req.on("end", async () => {
     const u = new URL(req.url, "http://mock"), path = decodeURIComponent(u.pathname), query = Object.fromEntries(u.searchParams);
-    if (path === "/__control") { Object.assign(ctl, JSON.parse(body || "{}")); return json(res, 200, ctl); }
+    if (path === "/__control") { control(JSON.parse(body || "{}")); return json(res, 200, ctl); }
     if (path === "/__reset") { stats.families = {}; stats.injected = { delay: 0, fail: 0 }; stats.started = Date.now(); return json(res, 200, { ok: true }); } // remet les compteurs, pas le pilotage
     if (path === "/__stats") return json(res, 200, { elapsedMs: Date.now() - stats.started, injected: stats.injected, control: ctl, families: Object.fromEntries(Object.entries(stats.families).map(([k, s]) => [k, { count: s.count, errors: s.errors, p50: pct(s.ms, 0.5), p95: pct(s.ms, 0.95), p99: pct(s.ms, 0.99), max: Math.max(0, ...s.ms) }])) });
-    const t0 = Date.now(), f = fam(path), matched = new RegExp(ctl.routes).test(path);
+    const t0 = Date.now(), f = fam(path), matched = path.includes(ctl.routes);
     res.on("finish", () => record(f, Date.now() - t0, res.statusCode));
     if (matched && ctl.delay) { stats.injected.delay++; await new Promise((r) => setTimeout(r, ctl.delay)); }
     if (matched && ctl.fail && Math.random() < ctl.fail.rate) { stats.injected.fail++; return json(res, ctl.fail.status, ctl.fail.status === 429 ? { error: "rate limited (mock)" } : { error: "internal error (mock)" }); }

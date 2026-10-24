@@ -8,7 +8,7 @@ un seul serveur HTTP local. Aucune dépendance ajoutée : `sdk.js` réutilise le
 
 | Fichier | Rôle |
 |---|---|
-| `mock-backends.js` | Bouchons des six backends sur un port local (défaut 4100). Chaque réponse porte le marqueur `usr-NN` déduit du jeton reçu, ce qui permet de détecter tout mélange entre utilisateurs. `POST /__control` injecte latence (`delay` ms) ou pannes (`fail: {status, rate}`) sur les routes `routes` (regex) ; `GET /__stats` donne par famille le nombre d'appels, d'erreurs et les temps de service p50/p95/p99 ; `POST /__reset`. |
+| `mock-backends.js` | Bouchons des six backends sur un port local (défaut 4100). Chaque réponse porte le marqueur `usr-NN` déduit du jeton reçu, ce qui permet de détecter tout mélange entre utilisateurs. `POST /__control` injecte latence (`delay` ms) ou pannes (`fail: {status, rate}`) sur les routes dont le chemin contient `routes` (sous-chaîne, vide = toutes ; délai borné à 60 s, statut parmi 429/500/502/503) ; `GET /__stats` donne par famille le nombre d'appels, d'erreurs et les temps de service p50/p95/p99 ; `POST /__reset`. |
 | `run.js` | Lance les bouchons puis le hub de la branche courante (`hub/server.js`) en processus enfants, enregistre 50 collaborateurs avec des jetons distincts dans un `users.json` temporaire, joue les scénarios et écrit les résultats JSON dans `results/`. |
 | `sdk.js` | Réexporte le SDK depuis `hub/node_modules`. |
 | `results/` | Résultats de la dernière campagne (un JSON par scénario + `campagne.json` avec les conditions d'exécution et les échantillons CPU/RSS). |
