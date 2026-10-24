@@ -2,7 +2,7 @@
 // contre le mock, déconnexion, et cohérence des URL appelées par public/index.html avec les routes du serveur.
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { startUpstream } from "./helpers/upstream.js";
 import { startHub, HUB_DIR, freePort } from "./helpers/hub.js";
@@ -317,9 +317,12 @@ test("index.html : chaque URL appelée (fetch / href) correspond à une route du
   }
   for (const m of html.matchAll(/src="(\/[^"]+)"/g)) statics.add(m[1]);
   for (const m of html.matchAll(/url\("(\/[^"]+)"\)/g)) statics.add(m[1]);
-  for (const u of statics) {
-    assert.ok(existsSync(join(HUB_DIR, "public", u)), `ressource absente de public/ : ${u}`);
-    assert.equal((await fetch(`${hub.url}${u}`)).status, 200, `ressource statique ${u}`);
+  // Chaque ressource citée doit exister dans public/ ; on n'interroge le hub qu'avec les chemins de la liste des fichiers
+  // (jamais une valeur lue dans le HTML).
+  const served = readdirSync(join(HUB_DIR, "public"), { recursive: true }).map((f) => "/" + String(f).split("\\").join("/"));
+  for (const u of statics) assert.ok(served.includes(u), `ressource absente de public/ : ${u}`);
+  for (const path of served.filter((f) => statics.has(f))) {
+    assert.equal((await fetch(`${hub.url}${path}`)).status, 200, `ressource statique ${path}`);
   }
   assert.ok(statics.has("/brand/clevoa-logo-couleur.svg") && statics.has("/fonts/outfit-variable-latin.woff2"), [...statics].join(", "));
   assert.ok(urls.has("/api/me") && urls.has("/api/disconnect/sagex3") && urls.has("/auth/sagex3") && urls.has("/api/test/sagex3") && urls.has("/api/myreport/apikey"), [...urls].join(", "));
