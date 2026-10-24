@@ -42,7 +42,7 @@ jobs:
           docker compose -f docker-compose.dev.yml up --build -d
           for i in $(seq 1 60); do curl -fsS http://localhost:8080/health && break; sleep 2; done
           curl -fsS http://localhost:8080/health
-      - name: Scénarios (ops/test-backup-restore.sh) : sauvegardes successives, corruption, perte, restauration, incohérence, mauvaise clé
+      - name: "Scénarios (ops/test-backup-restore.sh) : sauvegardes successives, corruption, perte, restauration, incohérence, mauvaise clé"
         run: BACKUP_DIR="$PWD/backups" ops/test-backup-restore.sh
       - name: Journaux du conteneur de sauvegarde
         if: always()
