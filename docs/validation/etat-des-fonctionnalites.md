@@ -19,6 +19,7 @@ sur le système réel), **testé sur bouchon** (tests automatisés et simulateur
 | Claude Desktop via `mcp-remote` | disponible | vérifié le 23/10/2026 sur Windows | |
 | Claude Code, ChatGPT, Copilot (MCP HTTP + en-tête) | testé sur bouchon | tests de transport du hub ; Claude Code déclaré vérifié sans entrée au journal ; ChatGPT et Copilot non exercés | une session réelle par assistant, consignée au journal |
 | Claude.ai web et mobile | écarté | décision ([historique](../history/decisions.md)) | |
+| Protocole MCP : révisions 2024-10-07 à 2025-11-25 négociées (SDK `@modelcontextprotocol/sdk` 1.32.1), outils annotés `readOnlyHint`, erreurs JSON-RPC propres, reconnexion SSE | testé sur bouchon | `hub/test/compat.test.js` (échanges JSON-RPC bruts) ; Claude Desktop vérifié en réel | une session réelle par assistant autre que Claude Desktop |
 | Transports Streamable HTTP et SSE | disponible | tests hub, campagne de charge | retrait du SSE quand les assistants cibles seront tous en Streamable HTTP |
 | Chiffrement `users.json`, clé MCP en en-tête, limitation de débit, en-têtes de sécurité | disponible | tests hub, ZAP passif | |
 | Diagnostic exportable (`node diagnostic.js`), contrôle de santé du conteneur | testé sur bouchon | `hub/test/diagnostic.test.js` ; exécuté dans le conteneur de la stack pré-prod locale (24/10/2026) | un diagnostic sur l'installation du client |
@@ -66,3 +67,7 @@ sur le système réel), **testé sur bouchon** (tests automatisés et simulateur
 | Exactitude financière sur un jeu de référence (factures, avoirs, signes, devises, dates) | réponses attendues approuvées par la Finance | jeu de référence |
 | Injection de prompts et contenus non fiables dans les données relayées | aucun accès supplémentaire ni exfiltration | cas de test documentés |
 | Comparaison croisée Sage + Salesforce dans une même réponse | vérifie la consigne par défaut du serveur MCP | |
+| Claude Code, ChatGPT, Copilot : une session réelle chacun, consignée au journal | seul Claude Desktop est prouvé ; les autres ne sont testés qu'au niveau du protocole | poste avec l'assistant, clé MCP |
+| Backend de télémétrie déployé sur AWS (DynamoDB, SNS, rapport) et `clevoa.fr` | testé localement sans AWS | compte AWS Clevoa, nom de domaine, validation juridique |
+| Mise à jour puis retour arrière sur la pré-production du client, depuis Portainer (référence de tag) | testé en CI et en local, jamais sous Portainer | tag `v1.3.2-rc.1` créé, stack reconfigurée sur un tag |
+| Diagnostic exporté depuis l'installation du client et relu | exécuté sur la stack pré-prod locale seulement | accès administrateur au serveur |

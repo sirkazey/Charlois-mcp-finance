@@ -11,8 +11,8 @@ Ce document sert aussi de journal de progression tant que la mission est en cour
 | 1 | Audit et nettoyage documentaire | GO | agent E (2 passages) |
 | 2 | Télémétrie éditeur | GO | agents E et F (2 passages chacun) |
 | 3 | Diagnostic et support | GO | agents F (1 passage) et E (2 passages) |
-| 4 | Releases et mises à jour contrôlées | en revue | agent E : GO ; agent F : corrections |
-| 5 | Compatibilité MCP et sécurité | à faire | — |
+| 4 | Releases et mises à jour contrôlées | GO | agent E (1 passage), agent F (3 passages, réserve : CI verte avant fusion) |
+| 5 | Compatibilité MCP et sécurité | en revue | — |
 | 6 | Qualification finale et livraison | à faire | — |
 
 Branche de travail : `maintenance/stabilisation-2026-10`, créée depuis `main` (`affa329`, v1.3.1).
@@ -189,3 +189,60 @@ Second passage de l'agent F : corrections acquises, mais clé `if-no-files-found
 invalide pour GitHub, aucune CI ne se serait exécutée). Corrigé ; `actionlint` 1.7.7 confirme l'erreur avant correction
 et n'émet après que deux avertissements shellcheck antérieurs à la mission (variable de boucle inutilisée). Validation
 par une exécution réelle : PR en brouillon vers `dev`.
+
+Troisième passage de l'agent F : **GO** sous réserve que la CI de la PR #16 finisse au vert avant fusion. Première
+exécution réelle sur GitHub (`705a130`) : 8 jobs verts dont `trivy-image`, `npm audit` et la sauvegarde ; deux rouges,
+corrigés dans `ce291be` :
+
+* `rollback` : la copie de sauvegarde, faite en root dans le conteneur, restait en mode 600 et illisible pour le runner
+  non root (vert en local parce que la session tourne en root). Reproduit en local avec un utilisateur non root, puis
+  corrigé (`chmod 644` de la copie chiffrée) et vérifié avec le même utilisateur.
+* CodeQL : une alerte haute nouvelle, `js/incomplete-sanitization` dans `hub/test/release.test.js` (version échappée
+  par une expression incomplète). Identifiée en exécutant CodeQL (bundle officiel, suite `security-extended`) en local,
+  corrigée par une comparaison littérale ; la requête ne renvoie plus rien.
+
+Commits du lot 4 : `073ed7e`, `140221a`, `705a130`, `ce291be`.
+
+## Lot 5 — Compatibilité MCP et sécurité
+
+**Compatibilité.** SDK `@modelcontextprotocol/sdk` 1.32.1 ; la 1.32.2 (23/10/2026) ne change que l'enregistrement des
+outils après `connect()`, que le hub n'utilise pas : pas de mise à jour, conformément à la règle « pas de mise à jour
+inutile ». Transports Streamable HTTP (sans état) et SSE. Nouveau `hub/test/compat.test.js` (8 tests en JSON-RPC brut,
+indépendants du client du SDK) : négociation de chacune des cinq révisions du protocole (2024-10-07 à 2025-11-25) et
+d'une révision inconnue, identité et consignes du serveur, schéma objet, description et `readOnlyHint` des 14 outils,
+erreurs JSON-RPC sans 500 (outil inconnu, arguments hors schéma, méthode inconnue, JSON mal formé), reconnexion SSE
+répétée, journaux détaillés sans argument, résultat, clé ni jeton. Clients déclarés : Claude Desktop seul vérifié en
+réel ; Claude Code, ChatGPT et Copilot testés au niveau du protocole seulement.
+
+**Dépendances.** `npm audit --omit=dev` : 0 vulnérabilité (hub, bouchon), désormais exécuté en CI. Backend : aucune
+dépendance. Image : base figée, npm retiré, Trivy image propre (lot 4).
+
+**Contrôles de sécurité** (preuves existantes ou ajoutées, aucun contrôle affaibli) :
+
+| Point | Preuve |
+|---|---|
+| Cloisonnement des utilisateurs | `mcp.test.js` (cloisonnement, cache par utilisateur, session SSE liée à sa clé), `sso.test.js` (Marie et Paul, poste partagé, usurpation) |
+| Transmission des jetons, aucun compte technique | `mcp.test.js` : chaque appel amont porte le jeton de l'appelant, jamais un jeton de service |
+| Lecture seule | listes blanches et refus d'écriture (`mcp.test.js`, `docs.test.js`), `readOnlyHint` sur les 14 outils (`compat.test.js`) |
+| Protection des points d'entrée | 401 sans clé, clé en URL refusée, limitation de débit, origine vérifiée, en-têtes de sécurité (`mcp.test.js`, `portal.test.js`) |
+| Gestion des erreurs | `isError` sans arrêt du processus, erreurs JSON-RPC sans 500 (`compat.test.js`) |
+| Secrets | `users.json` chiffré, secrets masqués au portail, diagnostic sans secret (`diagnostic.test.js`), Gitleaks (historique complet, aucune fuite) |
+| Journaux | `LOG_LEVEL=debug` sans argument ni secret (`compat.test.js`), réponses du backend filtrées avant journalisation (`telemetry.test.js`) |
+| Télémétrie, sauvegardes | lots 2 et 4 ; scénarios de sauvegarde et restauration A à L |
+| Exposition réseau | aucun port ajouté ; diagnostic et contrôle de santé internes au conteneur |
+| Configuration Docker | utilisateur `node`, lecture seule, `cap_drop: ALL`, `no-new-privileges` (inchangés), Trivy configuration et image |
+
+Analyses exécutées en local sur la branche : Gitleaks 8.30.1 (aucune fuite), Semgrep 1.181.1 (aucun constat), Trivy
+0.67.2 (image : 0 après retrait de npm), CodeQL `security-extended` (une alerte nouvelle corrigée ; restent cinq alertes
+antérieures à la mission : bouchon de test sans limitation de débit et deux expressions coûteuses, `store.js:58`
+injection de propriété — nom de système toujours validé par la liste des connecteurs —, requête de test construite
+depuis la liste des fichiers du portail).
+
+**Tests réels impossibles depuis cet environnement**, consignés dans
+[l'état des fonctionnalités § 3](etat-des-fonctionnalites.md#3-tests-restant-à-réaliser) : comptes restreints et
+révocation sur Sage X3 et Salesforce, Salesforce production, SharePoint, Dropbox, MyReport, SSO `entra`, restauration
+sur le serveur du client, charge en préproduction réelle, exactitude financière, injection de prompts, sessions
+réelles avec Claude Code, ChatGPT et Copilot, backend AWS déployé, mise à jour et retour arrière sous Portainer,
+diagnostic chez le client. Aucun n'est présenté comme fait.
+
+Tests : hub 101 tests (100 réussis, 1 ignoré en pré-prod ; 99 réussis, 2 ignorés en production) ; documentation réussie.

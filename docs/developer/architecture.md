@@ -25,7 +25,7 @@ Assistant IA (Claude Code, Claude Desktop, ChatGPT, Copilot)
 │                secret ni donnée métier (docker exec, lecture seule)  │
 │ connectors/    salesforce · sagex3 · sharepoint · dropbox · myreport │
 │ public/        index.html, le portail                                │
-│ test/          node:test, amont mocké, 93 tests                      │
+│ test/          node:test, amont mocké, 101 tests                     │
 └───┬─────────────┬───────────────┬───────────────┬───────────────┬────┘
     ▼ MCP HTTP    ▼ REST Syracuse ▼ Graph (GET)   ▼ MCP HTTP      ▼ MCP SSE
  Salesforce    Sage X3 24R1    SharePoint      Dropbox (MCP    MyReport Server
@@ -66,6 +66,8 @@ sont relayés tels quels. Une erreur d'outil devient `isError` avec le message ;
 * **Streamable HTTP** (`POST /mcp`) : sans état, un serveur jetable par requête.
 * **SSE** (`GET /sse`, `POST /messages?sessionId=`) : transport historique, la session n'est utilisable qu'avec la clé
   qui l'a ouverte. À retirer en premier quand tous les assistants cibles seront sur Streamable HTTP.
+* Révisions du protocole : celles du SDK (2024-10-07 à 2025-11-25), négociées à l'initialisation ; une révision
+  inconnue reçoit la plus récente ([tests de compatibilité](tests.md)).
 * Un seul tableau `INSTRUCTIONS` pour le modèle : citer la ligne Source, interroger Sage X3 et Salesforce quand le
   système n'est pas nommé, enchaînements d'outils conseillés.
 
