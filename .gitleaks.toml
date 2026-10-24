@@ -12,5 +12,5 @@ paths = [
   '''^hub/test/.*''',
   '''^charlois-mcp-stub/.*''',
   '''^clevoa-backend/README\.md$''',
-  '''^hub/public/index\.html$''',
+  '''^hub/public/index\.html$''',   # ancienne clé de démonstration du portail (mode démo retiré le 24/10) : toujours dans l'historique
 ]

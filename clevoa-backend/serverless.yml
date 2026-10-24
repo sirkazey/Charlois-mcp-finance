@@ -5,7 +5,7 @@ frameworkVersion: "4"            # version majeure du Serverless Framework atten
 
 provider:
   name: aws                      # cloud cible
-  runtime: nodejs20.x            # version de Node exécutée par Lambda
+  runtime: nodejs22.x            # version de Node exécutée par Lambda
   region: eu-west-3              # Paris ; données hébergées en France
   stage: ${opt:stage, "dev"}     # `serverless deploy --stage prod` pour la production
   memorySize: 128                # suffisant : aucune dépendance, quelques millisecondes par appel

@@ -1,5 +1,5 @@
 // Démarre hub/server.js dans un processus enfant, sur un port libre, avec un DATA_DIR temporaire
-// et toutes les URL amont (Salesforce, Sage X3, OAuth) pointées vers le mock.
+// et toutes les URL amont (Salesforce, Sage X3, Entra/Graph, Dropbox, MyReport, Clevoa, OAuth) pointées vers le mock.
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";

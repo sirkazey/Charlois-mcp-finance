@@ -1,8 +1,8 @@
 # Journal des tests sur systèmes réels
 
 Ce journal consigne ce qui a été **réellement exécuté** contre les systèmes Charlois, par qui, avec quel résultat, et ce que
-le hub a dû corriger. Les tests automatisés (59 tests hub, 8 tests bouchon) tournent à chaque commit ; ils ne sont pas
-listés ici.
+le hub a dû corriger. Les tests automatisés (73 tests hub, 11 tests bouchon, scénario CI de sauvegarde et restauration)
+tournent à chaque commit ; ils ne sont pas listés ici.
 
 Compte utilisé pour tous les tests : Alexandre Chebrou de Lespinats, profil **administrateur** sur les deux systèmes.
 Conséquence : le cloisonnement (un utilisateur restreint ne voit que ses données) n'est pas encore prouvé sur les vrais
@@ -67,4 +67,6 @@ cliente externe « MCP Charlois » créée le jour même (PKCE, JWT, secret exig
 | Salesforce production | Même procédure, org de production, serveurs d'écriture désactivés | Confirmation de l'intégrateur (Xavier, 4CAD) |
 | SharePoint, Dropbox | Jamais branchés sur un vrai compte | App Entra ID déléguée ; app Dropbox |
 | MyReport | Serveur MCP annoncé par l'éditeur, non livré | Absys Cyborg |
+| Restauration sur le serveur de pré-prod (`sudo ops/restore.sh`) | Jouée en CI à chaque commit, pas encore sur un serveur Charlois ; à faire une fois par trimestre (`EXPLOITATION.md` § 5) | Accès au serveur, `ENCRYPTION_KEY` du coffre |
+| SSO Entra en mode `entra` | Jamais exercé contre Microsoft, seulement contre le bouchon | URI de redirection sur l'application Entra, `MS_TENANT_ID` en GUID |
 | Comparaison croisée Coppola (Sage + Salesforce dans une même réponse, deux lignes Source) | Vérifie la consigne par défaut du serveur MCP | Redéploiement du 23/10 soir |

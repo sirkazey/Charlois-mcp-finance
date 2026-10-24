@@ -1,6 +1,6 @@
 // Fonction AWS Lambda "telemetry" : reçoit le POST quotidien d'un hub Charlois, vérifie la clé client,
 // enregistre (simulation) les statistiques de volume et répond { status: "active" }.
-// Aucune dépendance : Node 20 natif. Le stockage réel (DynamoDB, S3) se branche dans `record()`.
+// Aucune dépendance : Node 22 natif. Le stockage réel (DynamoDB, S3) se branche dans `record()`.
 
 /** Clés clients acceptées (lues à chaque appel). Liste vide = AUCUNE clé acceptée : la fonction refuse tout tant qu'elle n'est pas configurée. */
 const keys = () => (process.env.CLEVOA_KEYS || "").split(",").map((k) => k.trim()).filter(Boolean);

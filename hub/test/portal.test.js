@@ -23,7 +23,7 @@ test("GET / sert le portail HTML", async () => {
   const html = await r.text();
   assert.match(html, /Charlois AI Gateway/);
   assert.match(html, /ENV: <b/, "badge d'environnement rendu depuis /api/me");
-  assert.match(html, /api\("\/api\/me"\)/);
+  assert.match(html, /fetch\("\/api\/me"\)/);
 });
 
 test("GET /api/me sans cookie : pose mcp_key et renvoie {key, mcpUrl, systems[5]}", async () => {
@@ -302,7 +302,7 @@ test("index.html : chaque URL appelée (fetch / href) correspond à une route du
   const html = readFileSync(join(HUB_DIR, "public", "index.html"), "utf8");
   const systems = ["sagex3", "myreport"]; // systèmes acceptant les deux familles de routes (OAuth et jeton)
   const urls = new Set();
-  for (const m of html.matchAll(/\bapi\(\s*"([^"]+)"(?:\s*\+\s*\w+(?:\s*\+\s*"([^"]+)")?)?/g)) {
+  for (const m of html.matchAll(/\bfetch\(\s*"([^"]+)"(?:\s*\+\s*\w+(?:\s*\+\s*"([^"]+)")?)?/g)) {
     if (m[0].includes("+")) systems.forEach((s) => urls.add(m[1] + s + (m[2] || ""))); else urls.add(m[1]);
   }
   for (const m of html.matchAll(/href="([^"]+)"/g)) {

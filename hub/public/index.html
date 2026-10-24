@@ -39,13 +39,6 @@
   .theme { width:36px; height:36px; border-radius:50%; border:1px solid var(--line); background:var(--card); color:var(--ink); cursor:pointer; font-size:15px; flex:none }
   .theme:hover { border-color:var(--gold) }
 
-  /* Bandeau de scénarios (mode démo) */
-  .demo { margin-top:18px; border:1px solid var(--line); border-radius:12px; background:var(--soft); padding:10px 14px; font-size:.82rem; display:grid; gap:8px }
-  .demo .row { display:flex; flex-wrap:wrap; gap:6px 12px; align-items:center }
-  .demo label.sw { display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-weight:500 }
-  .demo button { font:inherit; padding:4px 10px; border-radius:999px; border:1px solid var(--line); background:transparent; color:var(--ink); cursor:pointer }
-  .demo button[aria-pressed=true] { background:var(--ink); color:var(--bg); border-color:var(--ink) }
-  .demo .sc { display:none } .demo.on .sc { display:flex }
 
   /* Hero */
   .hero { padding:44px 0 28px }
@@ -115,15 +108,6 @@
     </div>
   </header>
 
-  <div class="demo" id="demo">
-    <div class="row">
-      <label class="sw"><input type="checkbox" id="demo-sw"> Mode démo (passerelle simulée, aucun appel réel)</label>
-      <span id="demo-note" style="color:var(--muted)">Désactivé : la page dialogue avec la passerelle réelle.</span>
-    </div>
-    <div class="row sc"><span>Salesforce :</span><button data-sc="sf:1" aria-pressed="true">connecté</button><button data-sc="sf:0" aria-pressed="false">non connecté</button></div>
-    <div class="row sc"><span>Sage X3 :</span><button data-sc="sage:mock" aria-pressed="true">simulateur</button><button data-sc="sage:key" aria-pressed="false">réel, clé d'API à saisir</button></div>
-    <div class="row sc"><span>MyReport :</span><button data-sc="mr:mock" aria-pressed="true">simulateur</button><button data-sc="mr:key" aria-pressed="false">proxy SSE réel, jeton à saisir</button></div>
-  </div>
 
   <div class="hero">
     <h1>MCP <em>Charlois</em></h1>
@@ -203,54 +187,12 @@ $("#theme").onclick = () => {
   try { localStorage.setItem("theme", root.dataset.theme); } catch {}
 };
 
-// ---- Mode démo : bandeau de scénarios, passerelle simulée côté navigateur ----
-const SIM = { on: false, sf: true, sage: "mock", sageKey: false, sp: true, dbx: false, mr: "mock", mrKey: false, key: "k7Qb2xV9pLm4Nt8wRa3sJe6Hc1Yd5Fg0ZuIoKq", email: "prenom.nom@charlois.com" };
-const PUBLIC = location.origin;
-function demoMe() {
-  const sageMock = SIM.sage === "mock", mrMock = SIM.mr === "mock";
-  return { version: "1.0.0", env: "PRE-PROD", email: SIM.sf ? SIM.email : null, key: SIM.key, mcpUrl: PUBLIC + "/mcp",
-    systems: [
-      { id: "salesforce", label: "Salesforce", mock: false, oauth: true, configured: true, connected: SIM.sf, method: SIM.sf ? "oauth" : null },
-      { id: "sagex3", label: "Sage X3", mock: sageMock, oauth: true, configured: false, connected: !sageMock && SIM.sageKey, method: SIM.sageKey ? "apikey" : null, apiKey: sageMock ? undefined : { mode: "bearer", label: "clé d'API Syracuse personnelle (sans expiration)" } },
-      { id: "sharepoint", label: "SharePoint", mock: false, oauth: true, configured: true, connected: SIM.sp, method: SIM.sp ? "oauth" : null },
-      { id: "dropbox", label: "Dropbox", mock: false, oauth: true, configured: true, connected: SIM.dbx, method: SIM.dbx ? "oauth" : null },
-      { id: "myreport", label: "MyReport", mock: mrMock, oauth: false, configured: false, connected: !mrMock && SIM.mrKey, method: SIM.mrKey ? "apikey" : null, apiKey: mrMock ? undefined : { mode: "bearer", label: "jeton personnel MyReport Server" } },
-    ],
-    config: [["PUBLIC_URL", PUBLIC], ["SF_LOGIN_URL", "https://login.salesforce.com"], ["SF_CLIENT_ID", "3MVG9…Charlois"], ["SF_CLIENT_SECRET", "••••••••"], ["SAGE_URL", sageMock ? null : "https://x3.charlois.local:8124"], ["SAGE_FOLDER", sageMock ? null : "PROD"],
-      ["MS_TENANT_ID", "charlois.onmicrosoft.com"], ["MS_CLIENT_ID", "8f2a…c41e"], ["MS_CLIENT_SECRET", "••••••••"], ["SP_SITE", "charlois.sharepoint.com:/sites/Finance"], ["DROPBOX_APP_KEY", "x9k2…q7"], ["DROPBOX_APP_SECRET", "••••••••"],
-      ["SAGE_APIKEY_MODE", null], ["SAGE_OAUTH_AUTH_URL", null], ["SAGE_OAUTH_TOKEN_URL", null], ["SAGE_OAUTH_USERINFO_URL", null], ["SAGE_OAUTH_CLIENT_ID", null], ["SAGE_OAUTH_CLIENT_SECRET", null], ["SAGE_OAUTH_SCOPE", null],
-      ["MYREPORT_MCP_URL", mrMock ? null : "https://myreport.charlois.local/mcp/sse"], ["MYREPORT_AUTH_HEADER", null], ["MYREPORT_TOOLS", mrMock ? null : "liste_indicateurs,valeur_indicateur"]].map(([name, value]) => ({ name, value })) };
-}
-async function demoFetch(url, opts = {}) {
-  await new Promise((r) => setTimeout(r, 350));
-  const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { "Content-Type": "application/json" } });
-  const ko = (l) => ({ ok: false, error: `Non connecté à ${l}. Ouvrez le portail et cliquez « Se connecter à ${l} ».` });
-  if (url === "/api/me") return json(demoMe());
-  if (url === "/api/test/salesforce") return json(SIM.sf ? { ok: true, message: "Connecté au serveur MCP Salesforce (charloisgroup/platform/sobject-reads) · 6 outils en lecture seule", tables: ["find", "getObjectSchema", "getRelatedRecords", "getUserInfo", "listRecentSobjectRecords", "soqlQuery"] } : ko("Salesforce"));
-  if (url === "/api/test/sagex3") return json(SIM.sage === "mock" ? { ok: true, message: "Mode simulé actif · 3 tables (données inventées)", tables: ["YFAC", "YCLIENT", "ZVENTE"] } : SIM.sageKey ? { ok: true, message: "Connecté à https://x3.charlois.local:8124 (dossier PROD) par clé d'API (bearer)", tables: ["BPCUSTOMER", "SINVOICE", "PINVOICE", "SORDER", "GACCENTRY"] } : ko("Sage X3"));
-  if (url === "/api/test/sharepoint") return json(SIM.sp ? { ok: true, message: `Connecté à Microsoft Graph en tant que ${SIM.email} · site charlois.sharepoint.com:/sites/Finance` } : ko("SharePoint"));
-  if (url === "/api/test/dropbox") return json(SIM.dbx ? { ok: true, message: "Connecté au serveur MCP Dropbox (https://mcp.dropbox.com/mcp) · 8 outils en lecture seule", tables: ["who_am_i", "list_folder", "search", "get_file_metadata", "fetch", "file_preview", "list_shared_links", "get_shared_link_metadata"] } : ko("Dropbox"));
-  if (url === "/api/test/myreport") return json(SIM.mr === "mock" ? { ok: true, message: "Mode simulé actif · 2 outils MyReport fictifs", tables: ["liste_indicateurs", "valeur_indicateur"] } : SIM.mrKey ? { ok: true, message: "Proxy SSE connecté à https://myreport.charlois.local/mcp/sse · 2 / 4 outils autorisés (MYREPORT_TOOLS)", tables: ["liste_indicateurs", "valeur_indicateur", "planifier_export ✕", "purger_cache ✕"] } : ko("MyReport"));
-  if (url.endsWith("/apikey")) { const b = JSON.parse(opts.body || "{}"); if (!String(b.apiKey || "").trim()) return json({ error: "Jeton vide" }, 400); if (url.includes("sagex3")) SIM.sageKey = true; else SIM.mrKey = true; return new Response(null, { status: 204 }); }
-  if (url === "/api/key/rotate") return json({ key: SIM.key });
-  if (url.startsWith("/api/disconnect/")) { ({ salesforce: () => SIM.sf = false, sagex3: () => SIM.sageKey = false, sharepoint: () => SIM.sp = false, dropbox: () => SIM.dbx = false, myreport: () => SIM.mrKey = false })[url.split("/")[3]]?.(); return new Response(null, { status: 204 }); }
-  return json({ error: "route inconnue" }, 404);
-}
-const api = (url, opts) => SIM.on ? demoFetch(url, opts) : fetch(url, opts);
-$("#demo-sw").onchange = (e) => { SIM.on = e.target.checked; $("#demo").classList.toggle("on", SIM.on); $("#demo-note").textContent = SIM.on ? "Activé : états et réponses simulés dans le navigateur." : "Désactivé : la page dialogue avec la passerelle réelle."; load(); };
-document.querySelectorAll("[data-sc]").forEach((b) => b.onclick = () => {
-  const [k, v] = b.dataset.sc.split(":");
-  if (k === "sf") SIM.sf = v === "1"; if (k === "sage") { SIM.sage = v; SIM.sageKey = false; } if (k === "mr") { SIM.mr = v; SIM.mrKey = false; }
-  document.querySelectorAll(`[data-sc^="${k}:"]`).forEach((x) => x.setAttribute("aria-pressed", x === b));
-  load();
-});
-function demoAuth(id) { ({ salesforce: () => SIM.sf = true, sharepoint: () => SIM.sp = true, dropbox: () => SIM.dbx = true })[id]?.(); load(); } // simule le retour OAuth
 
 // ---- Rendu ----
 let seq = 0;
 async function load() {
   const n = ++seq; let me;
-  try { me = await api("/api/me").then((r) => r.json()); } catch { $("#profile").textContent = "👤 Passerelle injoignable"; return; }
+  try { me = await fetch("/api/me").then((r) => r.json()); } catch { $("#profile").textContent = "👤 Passerelle injoignable"; return; }
   if (n !== seq) return; // une réponse plus récente a pris le relais
   // SSO : un visiteur non identifié part vers Microsoft Entra ID (transparent si le navigateur a déjà une session Microsoft 365),
   // sauf juste après « Se déconnecter » (?sso=off) : la session Microsoft, elle, est toujours ouverte, on attend un clic.
@@ -259,15 +201,13 @@ async function load() {
     $("#profile").innerHTML = `👤 Déconnecté — <a href="/auth/sso">Se connecter avec Microsoft</a>`; $("#systems").innerHTML = ""; $("#diag").innerHTML = ""; return;
   }
   $("#env").innerHTML = `v${esc(me.version)} · ENV: <b class="${me.env === "PRODUCTION" ? "prod" : ""}">${esc(me.env)}</b>`;
-  if (me.env === "PRODUCTION") $("#demo").hidden = true; // verrou prod : pas de mode démo sur l'instance de production
   $("#env-foot").textContent = `MCP Charlois v${me.version} · ${me.env}`;
   $("#profile").innerHTML = (me.email ? `👤 <strong>${esc(me.email)}</strong> — ${DEPARTEMENT}` : `👤 Non identifié — ${DEPARTEMENT}`)
     + (me.sso ? ` · via Microsoft Entra ID${me.sso === "mock" ? " (simulé)" : ""} · <button class="link" onclick="logout()">Se déconnecter</button>` : "");
   $("#systems").innerHTML = me.systems.map((s) => `
     <div class="card">
       <div class="sys"><i style="--c:var(--${esc(s.id)})"></i>${esc(s.label)}</div>
-      ${!s.oauth ? "" : SIM.on ? `<button type="button" class="btn" onclick="demoAuth('${esc(s.id)}')">${s.connected ? "Reconnecter" : "Se connecter"}</button>`
-        : s.configured && !s.mock ? `<a class="btn" href="/auth/${esc(s.id)}">${s.connected ? "Reconnecter" : "Se connecter"}</a>` : `<span class="btn" aria-disabled="true">Se connecter</span>`}
+      ${!s.oauth ? "" : s.configured && !s.mock ? `<a class="btn" href="/auth/${esc(s.id)}">${s.connected ? "Reconnecter" : "Se connecter"}</a>` : `<span class="btn" aria-disabled="true">Se connecter</span>`}
       <div class="status">
         <span><i class="dot ${s.connected || s.mock ? "on" : ""}"></i>${s.mock ? "Mode simulé (sans compte)" : s.connected ? `Connecté${s.method === "apikey" ? " (jeton personnel)" : ""}` : s.oauth ? (s.configured ? "Non connecté" : "Non configuré (admin)") : "Jeton personnel requis"}</span>
         ${s.connected ? `<button class="link" onclick="disconnect('${esc(s.id)}')">Déconnecter</button>` : ""}
@@ -299,7 +239,7 @@ async function test(id, btn) {
   const out = $("#res-" + id);
   btn.disabled = true; out.innerHTML = `<i class="dot"></i>Test en cours…`;
   try {
-    const r = await api("/api/test/" + id).then((r) => r.json());
+    const r = await fetch("/api/test/" + id).then((r) => r.json());
     out.innerHTML = r.ok
       ? `<i class="dot led on"></i><strong>Connecté</strong> — ${esc(r.message)}${r.tables ? `<div class="chips">${r.tables.map((t) => `<span>${esc(t)}</span>`).join("")}</div>` : ""}`
       : `<i class="dot led off"></i><strong>Erreur d'accès</strong><br><code>${esc(r.error)}</code>`;
@@ -311,12 +251,12 @@ async function test(id, btn) {
 async function saveApiKey(e, id) {
   e.preventDefault();
   const body = { apiKey: $(`#${id}-apikey`).value, login: $(`#${id}-login`)?.value };
-  const r = await api("/api/" + id + "/apikey", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const r = await fetch("/api/" + id + "/apikey", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!r.ok) return toast("Jeton refusé"); toast("Jeton enregistré"); load();
 }
-async function disconnect(id) { await api("/api/disconnect/" + id, { method: "POST" }); load(); }
-async function rotateKey() { if (!confirm("Nouvelle clé : les clients MCP configurés avec l'ancienne cesseront de fonctionner. Continuer ?")) return; await api("/api/key/rotate", { method: "POST" }); toast("Nouvelle clé générée"); load(); }
-async function logout() { const r = await api("/api/logout", { method: "POST" }).then((x) => x.json()).catch(() => ({})); location.href = r.next || "/?sso=off"; } // puis déconnexion Microsoft
+async function disconnect(id) { await fetch("/api/disconnect/" + id, { method: "POST" }); load(); }
+async function rotateKey() { if (!confirm("Nouvelle clé : les clients MCP configurés avec l'ancienne cesseront de fonctionner. Continuer ?")) return; await fetch("/api/key/rotate", { method: "POST" }); toast("Nouvelle clé générée"); load(); }
+async function logout() { const r = await fetch("/api/logout", { method: "POST" }).then((x) => x.json()).catch(() => ({})); location.href = r.next || "/?sso=off"; } // puis déconnexion Microsoft
 renderTabs(); load();
 </script>
 </body>

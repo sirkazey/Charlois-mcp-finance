@@ -2,11 +2,12 @@
 
 Deux workflows GitHub Actions, aucun ne touche un système réel.
 
-## `Security - static analysis` (automatique : PR, push sur `main` et `dev`, ou manuel)
+## `CI` (`security-static.yml` ; automatique : PR, push sur `main` et `dev`, ou manuel)
 
 | Job | Outil (version figée) | Ce qu'il vérifie | Bloque le CI |
 |---|---|---|---|
-| tests | Node 22 | 63 tests du hub (pré-prod puis verrous de production), 9 tests de bout en bout hub ↔ bouchon | oui |
+| tests | Node 22 | 73 tests du hub (pré-prod puis verrous de production), 11 tests de bout en bout hub ↔ bouchon | oui |
+| backup-restore | Docker Compose, stack pré-prod | sauvegarde automatique et manuelle, perte de `users.json`, restauration, détection d'une mauvaise `ENCRYPTION_KEY` (`EXPLOITATION.md` § 4-5) | oui |
 | semgrep | `semgrep/semgrep:1.181.1`, règles `p/javascript`, `p/nodejs`, `p/security-audit` | injection, XSS, crypto, Express | oui |
 | codeql | `github/codeql-action@v4`, `security-extended` | flux de données JavaScript ; résultats dans l'onglet Security → Code scanning | selon la configuration du dépôt |
 | gitleaks | `ghcr.io/gitleaks/gitleaks:v8.30.1`, config `.gitleaks.toml` | secrets dans tout l'historique Git | oui |

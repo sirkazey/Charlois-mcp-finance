@@ -1,6 +1,6 @@
 # charlois-mcp-stub — bouchon d'entreprise
 
-Un seul processus Node (express + SDK MCP, ~330 lignes) qui imite, protocoles et routes compris, tout ce que le hub joint :
+Un seul processus Node (express + SDK MCP, ~430 lignes) qui imite, protocoles et routes compris, tout ce que le hub joint :
 
 | Système simulé | Protocole imité | Données canines |
 |---|---|---|
@@ -26,7 +26,7 @@ automatique en conditions réelles. Les refresh tokens n'expirent pas. Aucune pe
 
 ```bash
 npm install && npm start          # http://localhost:4000 (page d'accueil : collaborateurs, clés, points d'entrée)
-npm test                          # 8 tests : le vrai hub branché sur le bouchon, flux OAuth via les mires, droits, télémétrie
+npm test                          # 11 tests : le vrai hub branché sur le bouchon, flux OAuth et SSO via les mires, PKCE, droits, télémétrie
 ```
 
 Avec Docker : `docker compose -f docker-compose.dev.yml up -d --build` à la racine du dépôt lance le bouchon et le hub
@@ -36,10 +36,10 @@ déjà branché dessus (toutes les URL sortantes du hub pointent vers `mcp-stub`
 
 | Système | Confiance | Base |
 |---|---|---|
-| Salesforce | Élevée sur le protocole (OAuth PKCE, serveur MCP Streamable HTTP exigeant un jeton, 401 `JWT Token is required` relevé sur le vrai serveur), **faible sur les outils** : les six noms et schémas sont provisoires, à remplacer par la liste réelle de `SObject Reads` dès la première connexion. |
-| Microsoft Graph | Élevée | `/me`, `/sites`, `drive/root/children`, `search(q=)`, `items/{id}/content` en 302 pré-authentifié. Pas de pagination `@odata.nextLink` (le hub lit la première page). Identifiants de site simplifiés. |
+| Salesforce | Élevée : protocole (OAuth PKCE, serveur MCP Streamable HTTP exigeant un jeton, 401 `JWT Token is required`) et les six outils de `SObject Reads` (noms, arguments, descriptions) relevés sur la sandbox Charlois le 24/10/2026 ; données et SOQL simplifiés. |
+| Microsoft Graph et Entra ID | Élevée sur Graph (formats de réponse), moyenne sur Entra (id_token non signé, `prompt=none` honoré pour tout `login_hint` connu, déconnexion simulée) ; jamais confronté à un vrai locataire | `/me`, `/sites`, `drive/root/children`, `search(q=)`, `items/{id}/content` en 302 pré-authentifié. Pas de pagination `@odata.nextLink` (le hub lit la première page). Identifiants de site simplifiés. |
 | Dropbox MCP | Élevée sur les noms, arguments et formes de réponse (relevés sur le serveur officiel) | Non vérifié : l'acceptation par `mcp.dropbox.com` d'un jeton issu d'une app Dropbox tierce. |
-| Sage X3 Syracuse | Moyenne à faible | API REST « représentations » (`$query`, `$details`, `$prototypes`, filtre SData, `$resources`, `$diagnoses`) écrite de mémoire, non confrontée à une instance 24R1. À vérifier avec le `curl` du README principal. |
+| Sage X3 Syracuse | Élevée sur les formats | API REST « représentations » (`$query`, `$details`, `$prototypes`, filtre SData, `$resources`, `$diagnoses`) alignée sur les captures réelles de l'instance 24R1 de préproduction (prototypes PINVOICE anonymisés en fixtures, `GUIDE_CONFIGURATION.md` § 1) ; données inventées. |
 | MyReport | Aucune | Il n'existe pas, à ma connaissance, de serveur MCP officiel MyReport : le bouchon prouve seulement la plomberie SSE et la liste blanche, avec des outils inventés. |
 | Clevoa | Exacte | C'est notre propre backend. |
 
