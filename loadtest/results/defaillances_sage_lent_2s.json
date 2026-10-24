@@ -1,0 +1,183 @@
+{
+ "calls": 84,
+ "ok": 84,
+ "errorsByType": {
+  "ok": 84
+ },
+ "errorSamples": {},
+ "hubOwnErrors": 0,
+ "hubOwnErrorRate": 0,
+ "configuredLimitRefusals": 0,
+ "backendErrors": 0,
+ "latencyAllOk": {
+  "n": 84,
+  "p50": 23,
+  "p95": 2067,
+  "p99": 4071,
+  "max": 4071
+ },
+ "latencyPerTool": {
+  "sharepoint_list": {
+   "n": 14,
+   "p50": 7,
+   "p95": 71,
+   "p99": 71,
+   "max": 71,
+   "ok": 14,
+   "ok_p95": 71,
+   "errors": {}
+  },
+  "salesforce_tools": {
+   "n": 2,
+   "p50": 89,
+   "p95": 89,
+   "p99": 89,
+   "max": 89,
+   "ok": 2,
+   "ok_p95": 89,
+   "errors": {}
+  },
+  "salesforce_soql": {
+   "n": 21,
+   "p50": 16,
+   "p95": 94,
+   "p99": 97,
+   "max": 97,
+   "ok": 21,
+   "ok_p95": 94,
+   "errors": {}
+  },
+  "myreport_call": {
+   "n": 8,
+   "p50": 14,
+   "p95": 102,
+   "p99": 102,
+   "max": 102,
+   "ok": 8,
+   "ok_p95": 102,
+   "errors": {}
+  },
+  "sagex3_query": {
+   "n": 28,
+   "p50": 2007,
+   "p95": 2016,
+   "p99": 2067,
+   "max": 2067,
+   "ok": 28,
+   "ok_p95": 2016,
+   "errors": {}
+  },
+  "sagex3_describe": {
+   "n": 4,
+   "p50": 4013,
+   "p95": 4071,
+   "p99": 4071,
+   "max": 4071,
+   "ok": 4,
+   "ok_p95": 4071,
+   "errors": {}
+  },
+  "dropbox_list": {
+   "n": 6,
+   "p50": 15,
+   "p95": 18,
+   "p99": 18,
+   "max": 18,
+   "ok": 6,
+   "ok_p95": 18,
+   "errors": {}
+  },
+  "sagex3_get": {
+   "n": 1,
+   "p50": 2008,
+   "p95": 2008,
+   "p99": 2008,
+   "max": 2008,
+   "ok": 1,
+   "ok_p95": 2008,
+   "errors": {}
+  }
+ },
+ "latencyPerTransport": {
+  "http": {
+   "n": 68,
+   "p50": 23,
+   "p95": 2015,
+   "p99": 4013,
+   "max": 4013
+  },
+  "sse": {
+   "n": 16,
+   "p50": 26,
+   "p95": 4071,
+   "p99": 4071,
+   "max": 4071
+  }
+ },
+ "hub": {
+  "cpuAvg": 2,
+  "cpuMax": 23,
+  "rssStartMb": 102,
+  "rssEndMb": 105,
+  "rssMaxMb": 110
+ },
+ "backend": {
+  "salesforce": {
+   "count": 69,
+   "errors": 0,
+   "p50": 1,
+   "p95": 5,
+   "p99": 21,
+   "max": 21
+  },
+  "graph": {
+   "count": 14,
+   "errors": 0,
+   "p50": 0,
+   "p95": 1,
+   "p99": 1,
+   "max": 1
+  },
+  "myreport": {
+   "count": 24,
+   "errors": 0,
+   "p50": 0,
+   "p95": 1,
+   "p99": 3,
+   "max": 3
+  },
+  "sagex3": {
+   "count": 41,
+   "errors": 0,
+   "p50": 2001,
+   "p95": 2003,
+   "p99": 2010,
+   "max": 2010
+  },
+  "dropbox": {
+   "count": 18,
+   "errors": 0,
+   "p50": 1,
+   "p95": 3,
+   "p99": 3,
+   "max": 3
+  }
+ },
+ "injected": {
+  "delay": 41,
+  "fail": 0
+ },
+ "scenario": "defaillances_sage_lent_2s",
+ "registeredUsers": 50,
+ "activeUsers": 10,
+ "sseUsers": 2,
+ "targetPerMin": 120,
+ "durationSec": 40,
+ "elapsedSec": 46,
+ "scheduled": 84,
+ "notEmitted": 0,
+ "achievedPerMin": 126,
+ "maxInflight": 10,
+ "violations": [],
+ "hubExited": null
+}

@@ -1,5 +1,10 @@
 # Changelog
 
+Versions de Clevoa AI Gateway (nommé « Charlois AI Gateway » jusqu'à la 1.2.1 ; identité produit corrigée ensuite,
+noms techniques inchangés). Les documents cités par leur ancien nom sont désormais sous `docs/` :
+`GUIDE_CONFIGURATION.md` → `docs/admin/configuration.md`, `EXPLOITATION.md` → `docs/admin/exploitation.md`,
+`JOURNAL_TESTS.md` → `docs/validation/journal-tests-reels.md`, `AUDIT_ROADMAP.md` → `docs/history/audit-2026-10.md`.
+
 Une section par version, trois lignes au plus par rubrique. La version est celle de `hub/version.js`, le tag Git `vX.Y.Z` et la Release GitHub portent le même numéro.
 
 ## [1.2.1] – 2026-10-24

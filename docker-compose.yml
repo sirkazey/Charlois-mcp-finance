@@ -1,4 +1,4 @@
-# BASE COMMUNE : définitions partagées, jamais lancée telle quelle. Les stacks docker-compose.dev.yml (pré-prod, branche dev,
+# BASE COMMUNE : définitions partagées (lancée seule : démonstration avec les simulateurs internes, sans bouchon). Les stacks docker-compose.dev.yml (pré-prod, branche dev,
 # Docker Desktop) et docker-compose.prod.yml (prod, branche main) l'étendent et n'écrivent que leurs différences.
 # Le hub est un seul service ; les connecteurs sont des modules. mcp-backup et nginx (profil proxy) sont décrits en bas.
 services:
@@ -58,7 +58,7 @@ services:
       - mcp-data:/data   # users.json : jetons OAuth par utilisateur
 
   # Sauvegarde automatique : copie quotidienne de users.json (chiffré) dans BACKUP_DIR sur la machine hôte (chemin ABSOLU sous Portainer,
-  # un dossier par environnement), rétention BACKUP_KEEP_DAYS jours. Restauration : sudo ops/restore.sh <fichier>. Voir EXPLOITATION.md.
+  # un dossier par environnement), rétention BACKUP_KEEP_DAYS jours. Restauration : sudo ops/restore.sh <fichier>. Voir docs/admin/exploitation.md.
   mcp-backup:
     image: node:22-alpine
     restart: unless-stopped
@@ -78,7 +78,7 @@ services:
     cap_add:
       - DAC_OVERRIDE            # seule capacité conservée : lire /data (dossier 700 de l'utilisateur node) et écrire dans BACKUP_DIR quel qu'en soit le propriétaire.
                                 # Sans elle, il faudrait soit exécuter la copie sous l'utilisateur node et imposer un BACKUP_DIR appartenant à l'uid 1000
-                                # (chown à faire par l'administrateur, fragile sous Portainer), soit relâcher les droits 700 du volume : jugé disproportionné (EXPLOITATION.md § 4).
+                                # (chown à faire par l'administrateur, fragile sous Portainer), soit relâcher les droits 700 du volume : jugé disproportionné (docs/admin/exploitation.md).
 
   # Reverse proxy TLS optionnel, inactif sans le profil « proxy » (COMPOSE_PROFILES=proxy). Certificats fullchain.pem et privkey.pem
   # dans CERTS_DIR ; HUB_PORT=127.0.0.1:8080 pour que le hub ne soit joignable que par nginx. Une seule stack par machine peut le porter (80/443).

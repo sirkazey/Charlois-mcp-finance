@@ -29,6 +29,16 @@ jobs:
         run: APP_ENV=production npm test --prefix hub
       - name: Bouchon de bout en bout
         run: npm test --prefix charlois-mcp-stub
+  docs:
+    name: Documentation (liens Markdown, ancres, fichiers cités)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - run: node ops/check-docs.js
   backup-restore:
     name: Sauvegarde et restauration (scripts d'exploitation, stack pré-prod)
     runs-on: ubuntu-latest

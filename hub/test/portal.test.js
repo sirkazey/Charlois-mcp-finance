@@ -21,7 +21,7 @@ test("GET / sert le portail HTML", async () => {
   assert.equal(r.status, 200);
   assert.match(r.headers.get("content-type"), /text\/html/);
   const html = await r.text();
-  assert.match(html, /Charlois AI Gateway/);
+  assert.match(html, /Clevoa AI Gateway/);
   assert.match(html, /ENV: <b/, "badge d'environnement rendu depuis /api/me");
   assert.match(html, /fetch\("\/api\/me"\)/);
 });

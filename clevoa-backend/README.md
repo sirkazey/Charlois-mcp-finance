@@ -1,6 +1,6 @@
 # Clevoa backend (AWS Lambda)
 
-Une seule fonction, aucune dépendance : `POST /api/v1/telemetry` reçoit le payload anonyme d'un hub MCP Charlois,
+Une seule fonction, aucune dépendance : `POST /api/v1/telemetry` reçoit les compteurs de télémétrie d'un hub Clevoa AI Gateway,
 vérifie l'en-tête `X-Clevoa-Key`, enregistre les statistiques de volume (simulation : journal CloudWatch) et répond
 `{"status":"active"}`.
 
@@ -15,7 +15,7 @@ serverless logs -f telemetry --tail
 serverless remove              # supprime toute la pile
 ```
 
-Côté hub : `CLEVOA_URL=https://xxxx.execute-api.eu-west-3.amazonaws.com/api/v1/telemetry` et `CLEVOA_KEY=cle-charlois`.
+Ce qui est envoyé : [sécurité § 4](../docs/admin/securite.md#4-télémétrie-clevoa). Côté hub : `CLEVOA_URL=https://xxxx.execute-api.eu-west-3.amazonaws.com/api/v1/telemetry` et `CLEVOA_KEY=cle-charlois`.
 
 Tests locaux sans AWS : `cd ../hub && npm test` exécute `handler.js` directement avec des événements API Gateway simulés.
 
