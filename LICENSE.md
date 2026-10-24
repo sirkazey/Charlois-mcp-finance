@@ -27,6 +27,9 @@ suivants). L'Éditeur revendique la titularité des droits patrimoniaux sur les 
 sous réserve des droits des tiers sur les Composants tiers et des engagements contractuels préexistants qui en
 disposeraient autrement.
 
+Le nom et les logos Clevoa (fichiers `hub/public/brand/` et favicons de `hub/public/`) sont des signes distinctifs de
+l'Éditeur. Leur présence dans le Logiciel ne confère aucun droit de les utiliser en dehors de celui-ci.
+
 La présence du Logiciel dans un dépôt GitHub, public ou privé, et le nom de ce dépôt n'emportent aucune cession ni
 concession de droits. La chaîne de titularité (contributions, prestations, contexte de réalisation) relève d'une
 vérification contractuelle et non de l'historique Git (voir article 11).
@@ -97,6 +100,7 @@ ces composants pris isolément.
 | `zod` | validation des schémas | MIT |
 | Node.js (image `node:22-alpine`) | exécution | licence Node.js (type MIT) et licences des composants Alpine Linux |
 | nginx (image `nginx:1.28-alpine`) | reverse proxy optionnel | BSD-2-Clause |
+| Police Outfit (`hub/public/fonts/`, réduite au jeu latin) | typographie du portail | SIL Open Font License 1.1, texte joint (`hub/public/fonts/OFL.txt`) |
 | `mcp-remote` (exécuté sur le poste du collaborateur via `npx`, non distribué dans le dépôt) | pont pour Claude Desktop | à vérifier sur le registre npm |
 | Outils d'analyse exécutés en intégration continue (Semgrep, CodeQL, Gitleaks, Trivy, ZAP) | contrôle qualité, non distribués | licences propres à chaque outil, soumises à leurs conditions d'usage |
 
@@ -132,7 +136,9 @@ Ce texte a été rédigé par l'équipe produit, sans revue juridique. Avant tou
 5. **Clause de garantie et de responsabilité** (article 9) : à aligner sur les conditions générales de l'Éditeur.
 6. **Composants tiers** : confirmer la licence de `mcp-remote` et des images de base, et décider si une liste
    complète des licences doit être livrée au Client avec chaque version.
-7. **Télémétrie et données personnelles** : le Logiciel envoie des compteurs d'usage à l'Éditeur
+7. **Signes distinctifs** : vérifier l'état de protection du nom et du logo Clevoa (dépôt de marque éventuel), non
+   vérifié ici.
+8. **Télémétrie et données personnelles** : le Logiciel envoie des compteurs d'usage à l'Éditeur
    ([sécurité](docs/admin/securite.md)) ; vérifier l'information à donner au Client et aux utilisateurs.
 
 Aucun mécanisme technique de contrôle de licence n'est mis en œuvre par ce texte ; la télémétrie existante ne bloque

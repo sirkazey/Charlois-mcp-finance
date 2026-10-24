@@ -78,6 +78,14 @@ serveur, SSO, e-mail, clé, systèmes avec leur état) alimente les cartes ; `GE
 du collaborateur (même origine exigée). La liste des variables affichées est dérivée de l'environnement (préfixes
 `SF_`, `SAGE_`, `MS_`, …), secrets masqués.
 
+Charte et ressources (v1.3.1) : jetons de couleur, d'espacement et de rayon dans les variables CSS en tête de
+`index.html`, une variante claire et une sombre ; couleurs de la charte Clevoa (encre `#2B2540`, violet `#6B30D9`, violet
+clair `#B79CF0` sur fond sombre), neutres dérivés de l'encre, couleurs d'état fonctionnelles, contrastes WCAG AA vérifiés.
+Logos officiels sous `public/brand/` (SVG du kit Clevoa, versions fond clair et fond sombre), favicons à la racine de
+`public/`, police Outfit (SIL OFL 1.1) réduite au jeu latin sous `public/fonts/` avec sa licence. Tout est servi par le
+hub (`express.static`) : aucune ressource externe, la CSP n'a pas changé. Icônes : un sprite SVG en ligne, sans
+bibliothèque. Ne pas recréer un logo à la main : reprendre les fichiers du kit officiel.
+
 ## 5. Connecteurs
 
 Cinq modules dans `hub/connectors/`, trois familles : REST avec jeton de l'utilisateur (Sage X3, SharePoint), proxy
