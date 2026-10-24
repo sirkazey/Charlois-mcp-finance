@@ -78,6 +78,26 @@ test("Système injoignable : code d'erreur réseau et problème signalé", async
   assert.ok(d.problemes.some((p) => p.startsWith("sagex3 : hôte injoignable")));
 });
 
+test("Variables piégées : identifiants dans les URL, chemin et paramètres secrets, retour à la ligne, redirection → rien ne fuit", async () => {
+  const seen = [];
+  const { createServer } = await import("node:http");
+  const trap = createServer((req, res) => { seen.push({ method: req.method, url: req.url, auth: req.headers.authorization }); res.writeHead(302, { Location: "http://127.0.0.1:9/ailleurs" }); res.end(); });
+  await new Promise((r) => trap.listen(0, "127.0.0.1", r));
+  const host = `127.0.0.1:${trap.address().port}`;
+  try {
+    const { json: d, out } = await diagnose({
+      SAGE_URL: `http://sage-user:Sage-PASS-1@${host}/api1/x3?token=TOKEN-SECRET-2`, CLEVOA_URL: `http://lic:LIC-PASS-3@${host}/api/v1/telemetry`,
+      PUBLIC_URL: "https://admin:HUB-PASS-4@hub.client.example/", LOG_LEVEL: "debug\nINJECTION-5", TRUST_PROXY: "10.1.2.3/8", MYREPORT_MCP_URL: "pas-une-url",
+    }, []);
+    for (const s of ["Sage-PASS-1", "sage-user", "TOKEN-SECRET-2", "api1", "LIC-PASS-3", "HUB-PASS-4", "hub.client.example", "INJECTION-5", "10.1.2.3", "pas-une-url", host, "ailleurs"])
+      assert.ok(!out.includes(s), `fuite dans le rapport : ${s}`);
+    assert.equal(d.variables.LOG_LEVEL, "renseignée"); assert.equal(d.variables.TRUST_PROXY, "renseignée");
+    assert.equal(d.connecteurs.find((c) => c.id === "sagex3").reseau.http, 302, "redirection constatée, jamais suivie");
+    assert.equal(d.connecteurs.find((c) => c.id === "myreport").reseau.joignable, false);
+    assert.ok(seen.length >= 2 && seen.every((r) => r.method === "HEAD" && r.url === "/" && !r.auth), `requêtes reçues : ${JSON.stringify(seen)}`);
+  } finally { trap.close(); }
+});
+
 test("Mauvaise ENCRYPTION_KEY : signalée, sans plantage ni compteur", async () => {
   const { status, json: d } = await diagnose({ ENCRYPTION_KEY: "une-autre-cle-de-test-0123456789abcdef" });
   assert.equal(status, 0);

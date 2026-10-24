@@ -17,7 +17,8 @@ const set = (n) => !!(env[n] && env[n].trim());
 // Variables lues par le hub : seulement « renseignée » ou « vide ». Quelques réglages sans secret sont donnés en clair.
 const NAMES = Object.keys(env).filter((n) => /^(PUBLIC_URL|APP_ENV|LOG_LEVEL|TRUST_PROXY|ENCRYPTION_KEY|SSO_MODE|MCP_SERVER_NAME|INSTANCE_LABEL|SF_|SAGE_|MS_|SP_|GRAPH_URL|DROPBOX_|MYREPORT_|CLEVOA_|TZ$)/.test(n)).sort();
 const PLAIN = new Set(["APP_ENV", "LOG_LEVEL", "TRUST_PROXY", "SSO_MODE", "SAGE_APIKEY_MODE", "TZ", "MYREPORT_MAX_PER_MIN", "SF_MAX_PER_MIN", "SF_DEFAULT_LIMIT"]);
-const variables = Object.fromEntries(NAMES.map((n) => [n, !set(n) ? "vide" : PLAIN.has(n) && /^[\w./+:-]{1,40}$/.test(env[n]) ? env[n] : "renseignée"]));
+const plain = (n) => PLAIN.has(n) && (n === "TRUST_PROXY" ? /^\d{1,2}$/ : /^[\w./+:-]{1,40}$/).test(env[n]); // TRUST_PROXY : un nombre de sauts, jamais une adresse
+const variables = Object.fromEntries(NAMES.map((n) => [n, !set(n) ? "vide" : plain(n) ? env[n] : "renseignée"]));
 
 // Connecteurs : mêmes règles que les modules. Sage X3 et MyReport sans URL tournent en simulateur (pré-prod) et ne sont pas
 // exposés en production ; Salesforce, SharePoint et Dropbox sans application OAuth restent visibles mais « non configurés ».
@@ -63,7 +64,8 @@ function storeState() {
   } catch { out.dechiffrable = false; problems.push("users.json non déchiffrable avec ENCRYPTION_KEY (mauvaise clé ou fichier corrompu)"); return out; }
   const users = Object.values(db.users || {});
   const connected = (u, id) => !!(u[id] && (u[id].access_token || u[id].apiKey));
-  out.installation = typeof db.installation === "string" ? db.installation : null; // identifiant aléatoire déjà transmis à Clevoa par la télémétrie
+  // Identifiant aléatoire de la télémétrie (UUID v4 seulement, toute autre valeur est tue).
+  out.installation = typeof db.installation === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(db.installation) ? db.installation : null;
   out.entrees = users.length;
   out.liesSso = users.filter((u) => u.sso).length;
   out.connexions = Object.fromEntries(CONNECTORS.map((c) => [c.id, users.filter((u) => connected(u, c.id)).length]));
