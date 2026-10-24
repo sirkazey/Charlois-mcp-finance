@@ -47,7 +47,8 @@ jobs:
           curl -fsS -c jar.txt http://localhost:8080/api/me > /dev/null
           curl -fsS -b jar.txt -X POST -H 'Content-Type: application/json' -d '{"apiKey":"MR-MARIE-2026"}' http://localhost:8080/api/myreport/apikey
           docker compose -f docker-compose.dev.yml restart mcp-backup
-          sleep 3
+          for i in $(seq 1 10); do ls backups/users-*.json >/dev/null 2>&1 && break; sleep 1; done
+          echo "--- diagnostic"; docker compose -f docker-compose.dev.yml logs --no-log-prefix mcp-backup; ls -la backups; docker run --rm -v "$(docker volume ls -q --filter name=mcp-data):/data" node:22-alpine ls -la /data
           f=$(ls backups/users-*.json | head -1); [ -n "$f" ] && [ "$(head -c 5 "$f")" = "enc1:" ] && echo "sauvegarde automatique : $f (date en heure de Paris)"
       - name: Sauvegarde manuelle (ops/backup.sh)
         run: ops/backup.sh "$PWD/sauvegardes-manuelles" && ls -l sauvegardes-manuelles
