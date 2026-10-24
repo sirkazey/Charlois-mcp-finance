@@ -87,4 +87,4 @@ Première version déployable de Charlois AI Gateway.
 - **Exploitation** : stacks Portainer pré-prod (`dev`) et prod (`main`) par `extends`, télémétrie Clevoa anonyme quotidienne, backend AWS Lambda `clevoa-backend/`.
 - **Tests** : 48 tests `node:test` contre des mocks, verts en pré-prod et en production.
 
-[1.0.0]: https://github.com/sirkazey/Charlois-mcp-finance/releases/tag/v1.0.0
+[1.0.0]: https://github.com/sirkazey/Clevoa-IA-gateway/releases/tag/v1.0.0

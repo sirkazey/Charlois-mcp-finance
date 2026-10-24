@@ -5,8 +5,8 @@ outils métier d'une entreprise : CRM Salesforce, ERP Sage X3, documents SharePo
 MyReport. Chaque appel porte le jeton **personnel** du collaborateur : l'assistant ne voit que ce que le collaborateur
 a déjà le droit de voir, et le hub n'a aucun compte technique.
 
-Édité par Clevoa SASU. Première instance déployée pour le Groupe Charlois (direction financière), d'où le nom du dépôt
-et des identifiants techniques (`charlois-finance`, `charlois-mcp-stub`) conservés tels quels.
+Édité par Clevoa SASU. Première instance déployée pour le Groupe Charlois (direction financière), d'où les identifiants
+techniques (`charlois-finance`, `charlois-mcp-stub`) conservés tels quels.
 
 ## Ce que fait la passerelle
 
@@ -103,5 +103,5 @@ Composants annexes : [bouchon d'entreprise](charlois-mcp-stub/README.md), [backe
 
 Logiciel propriétaire de Clevoa SASU : [LICENSE.md](LICENSE.md). Les dépendances open source conservent leurs licences
 (MIT, ISC, BSD). Versions : [CHANGELOG.md](CHANGELOG.md) et
-[releases GitHub](https://github.com/sirkazey/Charlois-mcp-finance/releases) ; version courante **1.2.1**
+[releases GitHub](https://github.com/sirkazey/Clevoa-IA-gateway/releases) ; version courante **1.2.1**
 (`hub/version.js`), affichée sur le portail et dans les journaux de démarrage.
