@@ -1,0 +1,100 @@
+{
+ "calls": 64,
+ "ok": 10,
+ "errorsByType": {
+  "ok": 10,
+  "backend_429": 54
+ },
+ "errorSamples": {
+  "backend_429": [
+   "Salesforce MCP : Streamable HTTP error: Error POSTing to endpoint: {\"error\":\"rate limited (mock)\"}"
+  ]
+ },
+ "hubOwnErrors": 0,
+ "hubOwnErrorRate": 0,
+ "configuredLimitRefusals": 0,
+ "backendErrors": 54,
+ "latencyAllOk": {
+  "n": 10,
+  "p50": 14,
+  "p95": 44,
+  "p99": 44,
+  "max": 44
+ },
+ "latencyPerTool": {
+  "salesforce_tools": {
+   "n": 4,
+   "p50": 19,
+   "p95": 31,
+   "p99": 31,
+   "max": 31,
+   "ok": 3,
+   "ok_p95": 19,
+   "errors": {
+    "backend_429": 1
+   }
+  },
+  "salesforce_soql": {
+   "n": 60,
+   "p50": 9,
+   "p95": 38,
+   "p99": 44,
+   "max": 44,
+   "ok": 7,
+   "ok_p95": 44,
+   "errors": {
+    "backend_429": 53
+   }
+  }
+ },
+ "latencyPerTransport": {
+  "http": {
+   "n": 8,
+   "p50": 15,
+   "p95": 44,
+   "p99": 44,
+   "max": 44
+  },
+  "sse": {
+   "n": 2,
+   "p50": 13,
+   "p95": 13,
+   "p99": 13,
+   "max": 13
+  }
+ },
+ "hub": {
+  "cpuAvg": 2,
+  "cpuMax": 10,
+  "rssStartMb": 107,
+  "rssEndMb": 107,
+  "rssMaxMb": 107
+ },
+ "backend": {
+  "salesforce": {
+   "count": 111,
+   "errors": 60,
+   "p50": 1,
+   "p95": 2,
+   "p99": 2,
+   "max": 2
+  }
+ },
+ "injected": {
+  "delay": 0,
+  "fail": 60
+ },
+ "scenario": "defaillances_salesforce_429",
+ "registeredUsers": 50,
+ "activeUsers": 10,
+ "sseUsers": 2,
+ "targetPerMin": 120,
+ "durationSec": 30,
+ "elapsedSec": 34,
+ "scheduled": 64,
+ "notEmitted": 0,
+ "achievedPerMin": 128,
+ "maxInflight": 10,
+ "violations": [],
+ "hubExited": null
+}

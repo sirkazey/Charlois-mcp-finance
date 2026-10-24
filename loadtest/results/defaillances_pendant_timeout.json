@@ -1,0 +1,135 @@
+{
+ "calls": 22,
+ "ok": 22,
+ "errorsByType": {
+  "ok": 22
+ },
+ "errorSamples": {},
+ "hubOwnErrors": 0,
+ "hubOwnErrorRate": 0,
+ "configuredLimitRefusals": 0,
+ "backendErrors": 0,
+ "latencyAllOk": {
+  "n": 22,
+  "p50": 14,
+  "p95": 24,
+  "p99": 26,
+  "max": 26
+ },
+ "latencyPerTool": {
+  "sharepoint_list": {
+   "n": 8,
+   "p50": 8,
+   "p95": 20,
+   "p99": 20,
+   "max": 20,
+   "ok": 8,
+   "ok_p95": 20,
+   "errors": {}
+  },
+  "dropbox_list": {
+   "n": 3,
+   "p50": 15,
+   "p95": 24,
+   "p99": 24,
+   "max": 24,
+   "ok": 3,
+   "ok_p95": 24,
+   "errors": {}
+  },
+  "myreport_call": {
+   "n": 1,
+   "p50": 26,
+   "p95": 26,
+   "p99": 26,
+   "max": 26,
+   "ok": 1,
+   "ok_p95": 26,
+   "errors": {}
+  },
+  "salesforce_soql": {
+   "n": 10,
+   "p50": 14,
+   "p95": 18,
+   "p99": 18,
+   "max": 18,
+   "ok": 10,
+   "ok_p95": 18,
+   "errors": {}
+  }
+ },
+ "latencyPerTransport": {
+  "http": {
+   "n": 18,
+   "p50": 14,
+   "p95": 26,
+   "p99": 26,
+   "max": 26
+  },
+  "sse": {
+   "n": 4,
+   "p50": 14,
+   "p95": 20,
+   "p99": 20,
+   "max": 20
+  }
+ },
+ "hub": {
+  "cpuAvg": 1,
+  "cpuMax": 5,
+  "rssStartMb": 105,
+  "rssEndMb": 106,
+  "rssMaxMb": 106
+ },
+ "backend": {
+  "graph": {
+   "count": 8,
+   "errors": 0,
+   "p50": 0,
+   "p95": 1,
+   "p99": 1,
+   "max": 1
+  },
+  "dropbox": {
+   "count": 9,
+   "errors": 0,
+   "p50": 1,
+   "p95": 3,
+   "p99": 3,
+   "max": 3
+  },
+  "myreport": {
+   "count": 3,
+   "errors": 0,
+   "p50": 1,
+   "p95": 1,
+   "p99": 1,
+   "max": 1
+  },
+  "salesforce": {
+   "count": 30,
+   "errors": 0,
+   "p50": 1,
+   "p95": 2,
+   "p99": 2,
+   "max": 2
+  }
+ },
+ "injected": {
+  "delay": 0,
+  "fail": 0
+ },
+ "scenario": "defaillances_pendant_timeout",
+ "registeredUsers": 49,
+ "activeUsers": 5,
+ "sseUsers": 1,
+ "targetPerMin": 60,
+ "durationSec": 20,
+ "elapsedSec": 24,
+ "scheduled": 22,
+ "notEmitted": 0,
+ "achievedPerMin": 66,
+ "maxInflight": 5,
+ "violations": [],
+ "hubExited": null
+}
