@@ -1,0 +1,88 @@
+{
+ "calls": 65,
+ "ok": 35,
+ "errorsByType": {
+  "backend_5xx": 30,
+  "ok": 35
+ },
+ "errorSamples": {
+  "backend_5xx": [
+   "SharePoint 500: {\"error\":\"internal error (mock)\"}"
+  ]
+ },
+ "hubOwnErrors": 0,
+ "hubOwnErrorRate": 0,
+ "configuredLimitRefusals": 0,
+ "backendErrors": 30,
+ "latencyAllOk": {
+  "n": 35,
+  "p50": 6,
+  "p95": 30,
+  "p99": 32,
+  "max": 32
+ },
+ "latencyPerTool": {
+  "sharepoint_list": {
+   "n": 65,
+   "p50": 6,
+   "p95": 28,
+   "p99": 32,
+   "max": 32,
+   "ok": 35,
+   "ok_p95": 30,
+   "errors": {
+    "backend_5xx": 30
+   }
+  }
+ },
+ "latencyPerTransport": {
+  "http": {
+   "n": 26,
+   "p50": 6,
+   "p95": 28,
+   "p99": 30,
+   "max": 30
+  },
+  "sse": {
+   "n": 9,
+   "p50": 4,
+   "p95": 32,
+   "p99": 32,
+   "max": 32
+  }
+ },
+ "hub": {
+  "cpuAvg": 1,
+  "cpuMax": 10,
+  "rssStartMb": 107,
+  "rssEndMb": 108,
+  "rssMaxMb": 108
+ },
+ "backend": {
+  "graph": {
+   "count": 65,
+   "errors": 30,
+   "p50": 0,
+   "p95": 1,
+   "p99": 1,
+   "max": 1
+  }
+ },
+ "injected": {
+  "delay": 0,
+  "fail": 30
+ },
+ "scenario": "defaillances_graph_500",
+ "registeredUsers": 50,
+ "activeUsers": 10,
+ "sseUsers": 2,
+ "targetPerMin": 120,
+ "durationSec": 30,
+ "elapsedSec": 36,
+ "scheduled": 65,
+ "notEmitted": 0,
+ "achievedPerMin": 130,
+ "maxInflight": 10,
+ "violations": [],
+ "hubExited": null
+}

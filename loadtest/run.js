@@ -86,8 +86,8 @@ const MIX = [ // [nom, poids, outil MCP, arguments, marqueur attendu dans la ré
   ["sagex3_get", 2, "sagex3_get", () => ({ representation: "PINVOICE", key: "F1", champs: ["NUM", "BPRNAM", "LINES"] }), true],
 ];
 const pick = (mix) => { const total = mix.reduce((s, m) => s + m[1], 0); let r = Math.random() * total; return mix.find((m) => (r -= m[1]) < 0) || mix[mix.length - 1]; };
-const classify = (text) => /plafond/.test(text) ? "limite_configuree" : /injoignable/.test(text) ? "backend_injoignable" : /délai|timeout|abort/i.test(text) ? "backend_timeout"
-  : /\b429\b/.test(text) ? "backend_429" : /\b5\d\d\b/.test(text) ? "backend_5xx" : /\b4\d\d\b/.test(text) ? "backend_4xx" : /Non connecté/.test(text) ? "non_connecte" : "autre_isError";
+const classify = (text) => /plafond/.test(text) ? "limite_configuree" : /injoignable/.test(text) ? "backend_injoignable" : /délai|pas de réponse en|timeout|abort/i.test(text) ? "backend_timeout"
+  : /\b429\b|rate limit/i.test(text) ? "backend_429" : /\b5\d\d\b/.test(text) ? "backend_5xx" : /\b4\d\d\b/.test(text) ? "backend_4xx" : /Non connecté/.test(text) ? "non_connecte" : "autre_isError";
 
 class VUser {
   constructor(key, marker, hubUrl, sse) { Object.assign(this, { key, marker, hubUrl, sse, client: null, inflight: 0, records: [], violations: [] }); }
@@ -131,7 +131,8 @@ function summarize(records, samples, mockStats, extra = {}) {
   const hubSamples = samples.filter((s) => s.label === "hub"), cpu = hubSamples.map((s) => s.cpu), rss = hubSamples.map((s) => s.rssMb);
   const hubOwn = types => Object.entries(types).filter(([k]) => /^(hub_http_|connexion|exception|autre_isError|client_timeout)/.test(k)).reduce((s, [, n]) => s + n, 0);
   const configured = (types.limite_configuree || 0), backend = Object.entries(types).filter(([k]) => k.startsWith("backend_")).reduce((s, [, n]) => s + n, 0);
-  return { calls: records.length, ok: okRecs.length, errorsByType: types, hubOwnErrors: hubOwn(types), hubOwnErrorRate: records.length ? +(hubOwn(types) / records.length * 100).toFixed(2) : null, configuredLimitRefusals: configured, backendErrors: backend,
+  const errorSamples = Object.fromEntries(Object.entries(by((r) => r.type)).filter(([k]) => k !== "ok").map(([k, v]) => [k, [...new Set(v.map((r) => r.msg))].slice(0, 3)]));
+  return { calls: records.length, ok: okRecs.length, errorsByType: types, errorSamples, hubOwnErrors: hubOwn(types), hubOwnErrorRate: records.length ? +(hubOwn(types) / records.length * 100).toFixed(2) : null, configuredLimitRefusals: configured, backendErrors: backend,
     latencyAllOk: lat(okRecs), latencyPerTool: perTool, latencyPerTransport: perTransport,
     hub: { cpuAvg: cpu.length ? Math.round(cpu.reduce((a, b) => a + b, 0) / cpu.length) : null, cpuMax: cpu.length ? Math.max(...cpu) : null, rssStartMb: rss[0] ?? null, rssEndMb: rss[rss.length - 1] ?? null, rssMaxMb: rss.length ? Math.max(...rss) : null },
     backend: mockStats?.families || {}, injected: mockStats?.injected, ...extra };
@@ -172,7 +173,7 @@ async function runOpenLoop({ name, hub, mock, users, active, ratePerMin, duratio
 async function runFailures({ hub, mock, users, samples }) {
   log("▶ defaillances : backend lent, délai dépassé, 429, 500, reconnexions, sessions abandonnées");
   const out = {};
-  const phase = async (label, control, active, secs, mix, perMin = 120) => { await mock.control({ delay: 0, fail: null, routes: ".*" }); await mock.control(control); const s = await runOpenLoop({ name: `defaillances_${label}`, hub, mock, users, active, ratePerMin: perMin, durationSec: secs, mix, samples }); out[label] = s; return s; };
+  const phase = async (label, control, active, secs, mix, perMin = 120) => { await mock.control({ delay: 0, fail: null, routes: ".*", ...control }); const s = await runOpenLoop({ name: `defaillances_${label}`, hub, mock, users, active, ratePerMin: perMin, durationSec: secs, mix, samples }); out[label] = s; return s; };
   const sageOnly = MIX.filter((m) => m[0] === "sagex3_query"), notSage = MIX.filter((m) => !m[0].startsWith("sagex3"));
   // (a) Sage lent (2 s) pendant que les autres connecteurs servent : les autres doivent rester rapides
   await phase("sage_lent_2s", { delay: 2000, routes: "^/api1/" }, 10, 40, MIX, 120);
@@ -220,7 +221,7 @@ try {
   for (const s of wanted) { if (!SCENARIOS[s]) { log(`scénario inconnu : ${s}`); continue; } campaign.scenarios[s] = await SCENARIOS[s]({ hub, mock, users, samples }); if (hub.exited()) { log("LE HUB S'EST ARRÊTÉ"); break; } await sleep(3000); }
 } finally {
   campaign.finishedAt = new Date().toISOString(); campaign.hubExited = hub.exited(); campaign.hubLogTail = hub.logs().split("\n").slice(-20).join("\n"); campaign.samples = samples;
-  writeFileSync(join(RESULTS, "campagne.json"), JSON.stringify(campaign, null, 1));
+  writeFileSync(join(RESULTS, process.argv[2] ? `campagne_${wanted.join("+")}.json` : "campagne.json"), JSON.stringify(campaign, null, 1));
   await hub.stop(); mock.child.kill("SIGTERM");
   log(`campagne terminée ; hub arrêté par la campagne : ${hub.exited() ? JSON.stringify(hub.exited()) : "non (toujours vivant jusqu'à l'arrêt volontaire)"}`);
 }

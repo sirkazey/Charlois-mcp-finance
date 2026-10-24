@@ -299,5 +299,6 @@ Outils : `salesforce_tools`, `salesforce_call` · `sagex3_representations`, `sag
 cd hub && npm install
 ENCRYPTION_KEY=$(openssl rand -hex 32) PUBLIC_URL=http://localhost:8080 SF_CLIENT_ID=… SF_CLIENT_SECRET=… node server.js   # Sage X3 en mode simulé
 npm test                    # 73 tests node:test (pré-prod ; 1 réservé à la production)
+node loadtest/run.js        # campagne de charge sur bouchons (≈ 15 min, aucun système réel) ; rapport : loadtest/RAPPORT_CHARGE_v1.2.1.md
 APP_ENV=production npm test # même suite sous les verrous de production : transports, lecture seule, refresh, cache, OAuth, jetons personnels, portail, simulateurs, Graph, proxys MCP, télémétrie et Lambda Clevoa
 ```

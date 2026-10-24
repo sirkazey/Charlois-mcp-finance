@@ -101,7 +101,7 @@ const server = createServer((req, res) => {
   req.on("end", async () => {
     const u = new URL(req.url, "http://mock"), path = decodeURIComponent(u.pathname), query = Object.fromEntries(u.searchParams);
     if (path === "/__control") { Object.assign(ctl, JSON.parse(body || "{}")); return json(res, 200, ctl); }
-    if (path === "/__reset") { stats.families = {}; stats.injected = { delay: 0, fail: 0 }; stats.started = Date.now(); Object.assign(ctl, { delay: 0, routes: ".*", fail: null }); return json(res, 200, { ok: true }); }
+    if (path === "/__reset") { stats.families = {}; stats.injected = { delay: 0, fail: 0 }; stats.started = Date.now(); return json(res, 200, { ok: true }); } // remet les compteurs, pas le pilotage
     if (path === "/__stats") return json(res, 200, { elapsedMs: Date.now() - stats.started, injected: stats.injected, control: ctl, families: Object.fromEntries(Object.entries(stats.families).map(([k, s]) => [k, { count: s.count, errors: s.errors, p50: pct(s.ms, 0.5), p95: pct(s.ms, 0.95), p99: pct(s.ms, 0.99), max: Math.max(0, ...s.ms) }])) });
     const t0 = Date.now(), f = fam(path), matched = new RegExp(ctl.routes).test(path);
     res.on("finish", () => record(f, Date.now() - t0, res.statusCode));
