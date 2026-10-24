@@ -4,6 +4,11 @@ Une section par version, trois lignes au plus par rubrique. La version est celle
 
 ## [Non publié]
 
+### Modifié (check complet du 24/10 : simplicité, installation, exploitation)
+- Portail : mode démo navigateur retiré (quatrième couche de simulation, sans test, périmée) ; le bouchon joue ce rôle. Compose : `mcp-backup` et `nginx` déclarés une fois dans la base et étendus par les stacks ; journaux plafonnés aussi en pré-prod. Lambda Clevoa en Node 22. Workflow renommé `CI`.
+- Scripts : `restore.sh` exige `sudo`, vérifie l'unicité du conteneur, ne lit que les journaux postérieurs au redémarrage (plus de faux « mauvaise clé »), attend 30 s, relance le hub si la copie échoue ; `backup.sh` vérifie l'accès à Docker.
+- Documentation : chiffres et version réels, procédure Entra et Dropbox dans le guide, variables de pré-prod pour quitter le bouchon dans `.env.example`, table des URI de rappel, `EXPLOITATION.md` réécrit pour Portainer (pas de `.env`, boutons), `sudo`, un dossier de sauvegarde par environnement, retour arrière, interdiction de `down -v`, `nginx -t`, copie complète du `.env` au coffre ; `.gitignore` pour `backups/` et `certs/` ; roadmap et journal à jour.
+
 ### Ajouté
 - Exploitation : sauvegarde automatique quotidienne de `users.json` (conteneur `mcp-backup`, `BACKUP_DIR`, `BACKUP_KEEP_DAYS`), scripts `ops/backup.sh` et `ops/restore.sh` (détection d'une mauvaise `ENCRYPTION_KEY`), reverse proxy nginx en profil Compose `proxy` (`ops/nginx/mcp.conf`, `CERTS_DIR`, `HUB_PORT=127.0.0.1:8080`), guide `EXPLOITATION.md` pour un administrateur non spécialiste de Docker ; job CI qui joue sauvegarde, perte et restauration sur la stack pré-prod.
 - SSO Microsoft Entra ID du portail (`SSO_MODE=entra`, OIDC code + PKCE via le routeur OAuth existant) : clé MCP liée à l'identité Entra, visiteur anonyme sans clé, SharePoint connecté sans interaction après le SSO (`prompt=none`) sinon parcours interactif ; `SSO_MODE=mock` sur la mire Entra du bouchon (Marie, Paul), interdit en production. Régénération de clé (`POST /api/key/rotate`) et déconnexion du portail enchaînant sur la déconnexion Microsoft. Guide § 5.

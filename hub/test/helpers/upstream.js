@@ -1,4 +1,5 @@
-// Serveur HTTP mock "amont" qui imite à la fois Salesforce (REST + OAuth2) et Sage X3 Syracuse.
+// Serveur HTTP mock "amont" qui imite Salesforce (OAuth2 + serveur MCP SObject Reads), Sage X3 Syracuse, Entra ID (OIDC) et Graph,
+// Dropbox (OAuth2 + MCP), MyReport (MCP SSE) et Clevoa.
 // Il enregistre chaque requête reçue (méthode, chemin, query, en-têtes, corps) pour que les tests
 // vérifient notamment que l'en-tête Authorization transmis est bien le jeton de l'utilisateur.
 import { createServer } from "node:http";

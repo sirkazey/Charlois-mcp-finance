@@ -3,7 +3,9 @@
 # Usage : ops/backup.sh [dossier]        (défaut : BACKUP_DIR ou ./backups)
 # Variables : VOLUME=<nom du volume> si plusieurs volumes mcp-data existent sur la machine.
 # Le fichier est inutilisable sans ENCRYPTION_KEY (fichier .env ou variables de la stack) : la garder À PART des sauvegardes.
+# À lancer avec sudo (accès au démon Docker) depuis n'importe quel dossier, Portainer ou non.
 set -eu
+docker info >/dev/null 2>&1 || { echo "Docker inaccessible : lancer avec sudo (ou depuis un compte du groupe docker)." >&2; exit 1; }
 DEST=${1:-${BACKUP_DIR:-./backups}}
 VOL=${VOLUME:-$(docker volume ls -q --filter name=mcp-data)}
 [ -n "$VOL" ] || { echo "Aucun volume mcp-data : le hub n'a jamais démarré sur cette machine." >&2; exit 1; }

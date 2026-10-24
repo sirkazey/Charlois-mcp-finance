@@ -12,5 +12,4 @@ paths = [
   '''^hub/test/.*''',
   '''^charlois-mcp-stub/.*''',
   '''^clevoa-backend/README\.md$''',
-  '''^hub/public/index\.html$''',
 ]

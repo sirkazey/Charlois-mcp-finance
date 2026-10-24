@@ -21,15 +21,24 @@ ENCRYPTION_KEY=<32 caractères minimum, générés une fois, jamais changés ens
   connecteur non configuré n'est pas exposé du tout. **Ne jamais mettre de commentaire sur la même ligne qu'une valeur** :
   Compose le lirait comme la valeur.
 
-Après toute modification de `.env` :
+Après toute modification de `.env` (Docker Desktop ou déploiement manuel) :
 
 ```
-git pull
-docker compose -f docker-compose.dev.yml up -d --build
+docker compose -f docker-compose.dev.yml up -d      # pré-prod ; docker-compose.prod.yml en production
 ```
 
 Les connexions des collaborateurs sont conservées (volume Docker). Sur Portainer, les mêmes variables se saisissent dans
-l'écran « Environment variables » de la stack.
+l'écran « Environment variables » de la stack, puis **Update the stack**.
+
+URI de rappel à déclarer chez chaque fournisseur (toujours `<PUBLIC_URL>` exact, sans barre finale) :
+
+| Système | URI de redirection | Où la déclarer |
+|---|---|---|
+| Salesforce | `<PUBLIC_URL>/auth/salesforce/callback` | application cliente externe (§ 2) |
+| Sage X3 (OAuth, optionnel) | `<PUBLIC_URL>/auth/sagex3/callback` | IdP de Syracuse |
+| SharePoint / OneDrive | `<PUBLIC_URL>/auth/sharepoint/callback` | application Entra ID (§ 5) |
+| SSO Entra ID | `<PUBLIC_URL>/auth/sso/callback` et, après déconnexion, `<PUBLIC_URL>/?sso=off` | application Entra ID (§ 5) |
+| Dropbox | `<PUBLIC_URL>/auth/dropbox/callback` | App Console Dropbox (§ 6) |
 
 ## 1. Sage X3 (API REST Syracuse)
 
@@ -77,7 +86,7 @@ Carte **Sage X3** : champ « Identifiant » = identifiant Syracuse, champ « Jet
 
 Lecture du diagnostic :
 
-* `Connecté à … (dossier X3TST_CHREC) par clé d'API (basic) · 6 représentations` : OK.
+* `Connecté à … (dossier X3TST_CHREC) par identifiant et mot de passe Syracuse · 6 représentations` : OK.
 * `absentes de ce dossier (404) : …` : non publiées, ticket intégrateur, le reste fonctionne.
 * `interdites à votre utilisateur X3 (403) : …` : droits fonctionnels X3 du collaborateur.
 * `en erreur côté Sage (5xx) : …` : à signaler à l'intégrateur.
@@ -174,7 +183,7 @@ après confirmation de l'intégrateur Salesforce. Fixer `SF_MAX_PER_MIN`.
 
 ## 3. Brancher un assistant
 
-### Claude Desktop (vérifié)
+### Claude Desktop (vérifié le 23/10/2026 ; libellés de Claude Desktop pour Windows à cette date)
 
 Claude Desktop n'accepte pas d'en-tête d'autorisation sur un serveur distant : le portail fournit un bloc **Claude
 Desktop** qui passe par le pont `mcp-remote` (version épinglée `0.15`). Prérequis : Node.js LTS installé sur le poste
@@ -194,7 +203,10 @@ Journal en cas d'échec : Paramètres → Développeur → Ouvrir les journaux �
 ### Claude Code, ChatGPT, Copilot, clients MCP HTTP
 
 Bloc « Votre connecteur Claude » du portail : URL `<PUBLIC_URL>/mcp` et en-tête `Authorization: Bearer <clé>`. La clé est
-personnelle, jamais dans l'URL.
+personnelle, jamais dans l'URL. Claude Code : coller le bloc dans un fichier `.mcp.json` à la racine du projet (ou dans
+`~/.claude.json` pour tous les projets), puis relancer `claude` ; `/mcp` dans la session liste `charlois-finance`.
+Alternative en ligne de commande, syntaxe à confirmer avec `claude mcp add --help` :
+`claude mcp add --transport http charlois-finance <PUBLIC_URL>/mcp --header "Authorization: Bearer <clé>"`.
 
 ## 4. Lire une réponse
 
@@ -231,9 +243,15 @@ fonctionner aussitôt) et une limite de 60 requêtes par minute et par adresse I
 
 ### Mode `entra` : ce qu'il faut dans Entra ID
 
-La même application que SharePoint (section « Côté SharePoint » du README), complétée. Les libellés ci-dessous
-décrivent le portail Entra de mémoire, pas depuis le locataire Charlois : **à vérifier dans le portail Entra**. Seuls
-l'URI de redirection, le format GUID du locataire et le scope sont imposés par le code.
+Une seule application Entra ID sert SharePoint et le SSO. Les libellés ci-dessous décrivent le portail Entra de
+mémoire, pas depuis le locataire Charlois : **à vérifier dans le portail Entra**. Seuls les URI de redirection, le
+format GUID du locataire et les scopes sont imposés par le code.
+
+Création, si l'application n'existe pas encore (portail Entra → Identité → Applications → Inscriptions d'applications →
+Nouvelle inscription) : nom « MCP Charlois », comptes de cet annuaire uniquement, plateforme Web avec l'URI
+`<PUBLIC_URL>/auth/sharepoint/callback` ; puis Certificats et secrets → nouveau secret client (noter la valeur, visible
+une seule fois) ; API autorisées → Microsoft Graph → permissions déléguées ci-dessous → Accorder le consentement
+d'administrateur. Les mêmes valeurs servent au connecteur SharePoint (`MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET`).
 
 | Dans le portail Entra (Inscriptions d'applications → l'application) | Valeur |
 |---|---|
@@ -243,7 +261,7 @@ l'URI de redirection, le format GUID du locataire et le scope sont imposés par 
 | Authentification → URI de redirection (Web) | `<PUBLIC_URL>/auth/sso/callback`, à côté de `<PUBLIC_URL>/auth/sharepoint/callback`, à l'identique (pas de barre finale) |
 | Authentification → URI de redirection après déconnexion | `<PUBLIC_URL>/?sso=off` (le bouton « Se déconnecter » ferme aussi la session Microsoft ; sans cette URI, Entra affiche sa propre page) |
 | Certificats et secrets | le secret client déjà utilisé pour SharePoint (`MS_CLIENT_SECRET`) |
-| API autorisées (Microsoft Graph, déléguées) | `openid`, `profile`, `email` ; `Files.Read.All`, `Sites.Read.All` avec consentement administrateur pour que SharePoint se connecte sans écran |
+| API autorisées (Microsoft Graph, déléguées) | `openid`, `profile`, `email`, `offline_access`, `User.Read` ; `Files.Read.All`, `Sites.Read.All` avec consentement administrateur pour que SharePoint se connecte sans écran |
 
 `.env` (en production, `PUBLIC_URL` doit être en https : le hub refuse de démarrer sinon) :
 
@@ -260,7 +278,7 @@ audience = l'application, expiration) ; il arrive en direct du point de terminai
 sa signature n'est donc pas revérifiée (OIDC Core § 3.1.3.7, règle 6). Cette hypothèse tombe si l'exploitant désactive
 la vérification TLS de Node (`NODE_TLS_REJECT_UNAUTHORIZED=0`) : ne jamais le faire.
 
-Constater que le SSO est actif : la ligne de démarrage du hub se termine par `· SSO entra`, le portail affiche
+Constater que le SSO est actif : la ligne de démarrage du hub contient `· SSO entra`, le portail affiche
 « via Microsoft Entra ID » à côté de l'identité, et `SSO_MODE` apparaît dans la configuration du conteneur. Lire un
 échec : « Échec de la connexion Microsoft Entra ID (400) » = `id_token` refusé (locataire ou application inattendus) ;
 « (4xx ou 502) » = échange de code refusé (secret ou URI de redirection faux) ; « Système inconnu ou session absente »
@@ -295,3 +313,19 @@ fixation de session, clé héritée, compte Microsoft différent, sessions SSE, 
   quelqu'un d'autre.
 * Tout compte du locataire peut ouvrir le portail et obtenir une clé. Les droits sur les données restent ceux de chaque
   système (Sage X3, Salesforce, Graph…), avec les identifiants personnels du collaborateur.
+
+## 6. Dropbox (non vérifié sur un vrai compte)
+
+Connecteur exercé seulement contre le bouchon. Procédure attendue, libellés de l'App Console Dropbox de mémoire,
+**à vérifier** :
+
+1. https://www.dropbox.com/developers/apps → Create app → API « Scoped access », accès « Full Dropbox » (ou « App folder »
+   si un dossier dédié suffit), nom de l'application.
+2. Onglet Permissions : cocher `account_info.read`, `files.metadata.read`, `files.content.read`, `sharing.read`, et
+   enregistrer. Aucun scope d'écriture.
+3. Onglet Settings : OAuth 2 → Redirect URIs → `<PUBLIC_URL>/auth/dropbox/callback` ; relever App key et App secret.
+4. `.env` : `DROPBOX_APP_KEY`, `DROPBOX_APP_SECRET` (en pré-prod, renseigner aussi les trois URL réelles, voir README
+   « Pré-prod avec des systèmes réels »). Portail → Se connecter à Dropbox → Tester Dropbox.
+
+Point à confirmer dès le premier essai : l'acceptation par `mcp.dropbox.com` d'un jeton issu de votre propre app. En cas
+de refus, le diagnostic l'affiche et le connecteur reste inactif sans effet sur les autres.

@@ -1,6 +1,6 @@
-name: Security - static analysis
-# Analyses statiques à chaque PR et push sur main/dev : tests du hub et du bouchon, Semgrep, CodeQL, Gitleaks, Trivy.
-# Aucune de ces analyses ne touche un système réel. Versions figées et vérifiées le 23/10/2026.
+name: CI
+# À chaque PR et push sur main/dev : tests du hub et du bouchon, scénario de sauvegarde et restauration sur la stack pré-prod,
+# puis analyses statiques Semgrep, CodeQL, Gitleaks, Trivy. Rien ne touche un système réel. Versions figées et vérifiées le 23/10/2026.
 on:
   pull_request:
   push:

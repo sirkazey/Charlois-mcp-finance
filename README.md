@@ -7,7 +7,7 @@ transmet son jeton personnel, il n'a aucun compte technique. Le portail web « C
 unique : connexion aux outils, diagnostic, bar à prompts, configuration du connecteur.
 
 Né pour la Finance, le hub est générique : tout outil disposant d'une API REST ou d'un serveur MCP s'ajoute comme un
-module de 60 à 180 lignes dans `hub/connectors/`.
+module de 50 à 190 lignes dans `hub/connectors/`.
 
 **Documents de référence** : [`GUIDE_CONFIGURATION.md`](GUIDE_CONFIGURATION.md) (procédures de configuration vérifiées,
 connecteur par connecteur), [`JOURNAL_TESTS.md`](JOURNAL_TESTS.md) (tests exécutés sur les systèmes réels et tests
@@ -28,15 +28,15 @@ Assistant IA (Claude Code, Claude Desktop, ChatGPT, Copilot)
 │ telemetry.js   télémétrie Clevoa anonyme, au démarrage puis à 03:00  │
 │ connectors/    salesforce (proxy MCP) · sagex3 · sharepoint · dropbox · myreport │
 │ public/        index.html  portail Charlois AI Gateway               │
-│ test/          node:test, amont mocké, 62 tests                      │
+│ test/          node:test, amont mocké, 73 tests                      │
 └───┬─────────────┬───────────────┬───────────────┬───────────────┬────┘
-    │  (pré-prod : charlois-mcp-stub/ imite les cinq systèmes, 8 tests de bout en bout)
+    │  (pré-prod : charlois-mcp-stub/ imite les cinq systèmes, 11 tests de bout en bout)
     ▼ MCP HTTP    ▼ REST Syracuse ▼ Graph (GET)   ▼ MCP HTTP      ▼ MCP SSE
  Salesforce    Sage X3 24R1    SharePoint      Dropbox (MCP    MyReport Server
  (SObject Reads) (ou simulateur) OneDrive      officiel)       (ou simulateur)
 ```
 
-* **Pas de framework** : `@modelcontextprotocol/sdk` + `express` + `zod`. Environ 870 lignes de code, 5 connecteurs de 50 à 180 lignes. En production, un connecteur sans configuration n'est pas exposé ; en pré-prod, Sage X3 et MyReport tournent en simulateur étiqueté.
+* **Pas de framework** : `@modelcontextprotocol/sdk` + `express` + `zod`. Environ 1 060 lignes de code, 5 connecteurs de 50 à 190 lignes. En production, un connecteur sans configuration n'est pas exposé ; en pré-prod, Sage X3 et MyReport tournent en simulateur étiqueté.
 * **Données jamais cachées** : chaque question interroge l'outil en direct. Seule la *structure* (objets / champs)
   est gardée en mémoire, **par utilisateur** (donc selon ses propres droits), et expire chaque nuit.
 * **Lecture seule** : Salesforce via le serveur MCP hébergé `SObject Reads` uniquement ; Sage X3 `$query` / `$details` / `$prototypes` uniquement ;
@@ -94,8 +94,9 @@ derrière API Gateway, décrite par un `serverless.yml` commenté.
   du reverse-proxy. Conséquence : les connecteurs personnalisés de claude.ai web/mobile, qui ne posent pas d'en-tête,
   ne peuvent pas se connecter tant que le hub n'expose pas un serveur OAuth 2.1 (non implémenté, volontairement).
 * Limitation de débit en mémoire, par adresse IP et par minute : 20 diagnostics, 30 actions portail (jeton,
-  déconnexion), 60 `/api/me`, et 20 échecs d'authentification MCP (force brute sur la clé) → `429`. `TRUST_PROXY`
-  indique le nombre de reverse-proxys pour lire l'IP réelle.
+  déconnexion, rotation de clé), 60 `/api/me`, 60 départs et retours OAuth (`/auth/…`, SSO compris), et 20 échecs
+  d'authentification MCP (force brute sur la clé) → `429`. `TRUST_PROXY` indique le nombre de reverse-proxys pour lire
+  l'IP réelle.
 * Plafond d'appels sortants par connecteur, tous utilisateurs confondus, outils et diagnostic compris :
   `MYREPORT_MAX_PER_MIN` (défaut 20, MyReport n'ayant qu'une production) et `SF_MAX_PER_MIN` (défaut illimité, crédits
   Flex). Au-delà, l'outil répond une erreur claire sans rien envoyer au système.
@@ -112,9 +113,10 @@ docker compose -f docker-compose.dev.yml up -d --build
 open http://localhost:8080  # ouvrir EXACTEMENT l'adresse de PUBLIC_URL (pas 127.0.0.1) : le cookie et les callbacks y sont liés
 ```
 
-Les boutons « Se connecter » ouvrent les mires du bouchon sur `http://localhost:4000`. Si une version antérieure du hub a
-déjà tourné sur ce poste, supprimer son volume avant (`docker compose -f docker-compose.dev.yml down -v`) : il appartenait
-à root et le hub tourne désormais sous l'utilisateur `node`.
+Les boutons « Se connecter » ouvrent les mires du bouchon sur `http://localhost:4000`. Si une version antérieure à la
+1.1.0 a déjà tourné sur ce poste, supprimer son volume avant (`docker compose -f docker-compose.dev.yml down -v`, **sur
+un poste de développement uniquement** : sur un serveur, `down -v` détruit `users.json`) : il appartenait à root et le hub
+tourne désormais sous l'utilisateur `node`.
 
 Le conteneur `mcp-stub` ([`charlois-mcp-stub/`](charlois-mcp-stub/)) imite Salesforce, Entra/Graph, Dropbox MCP, Sage X3
 Syracuse, MyReport MCP et Clevoa. Renseigner une variable réelle dans `.env` (ex. `SF_LOGIN_URL`, `SF_CLIENT_ID`…) rebranche
@@ -140,34 +142,46 @@ La section **Configuration du conteneur** affiche les variables lues par le hub 
 
 ## Déploiement à distance : deux environnements étanches (Portainer Git auto-update)
 
-| Environnement | Branche Git | Fichier compose           | Conteneur         | Particularités |
-|---------------|-------------|---------------------------|-------------------|----------------|
-| Pré-prod      | `dev`       | `docker-compose.dev.yml`  | `mcp-hub-preprod` + `mcp-stub` | `LOG_LEVEL=debug` ; par défaut toutes les API sortantes pointent vers le conteneur bouchon `mcp-stub` (jeu de données canin, mires OAuth sur le port 4000) ; chaque variable renseignée rebranche un système réel |
-| Production    | `main`      | `docker-compose.prod.yml` | `mcp-hub-prod`    | `APP_ENV=production` : badge « ENV: PRODUCTION », mode démo masqué, `PUBLIC_URL` https obligatoire (sinon refus de démarrer), `CLEVOA_KEY` obligatoire, télémétrie figée sur `https://clevoa.fr`, conteneur sans privilèges, système de fichiers en lecture seule, journaux plafonnés |
+| Environnement | Branche Git | Fichier compose | Conteneurs | Particularités |
+|---|---|---|---|---|
+| Pré-prod | `dev` | `docker-compose.dev.yml` | `mcp-hub-preprod`, `mcp-stub`, `mcp-backup-preprod`, `mcp-proxy-preprod` (profil `proxy`) | `LOG_LEVEL=debug` ; par défaut toutes les API sortantes pointent vers le bouchon `mcp-stub` (jeu de données canin, mires OAuth sur le port 4000) ; chaque variable renseignée rebranche un système réel |
+| Production | `main` | `docker-compose.prod.yml` | `mcp-hub-prod`, `mcp-backup-prod`, `mcp-proxy-prod` (profil `proxy`) | `APP_ENV=production` : badge « ENV: PRODUCTION », `PUBLIC_URL` https obligatoire (sauf `localhost` pour un test local), `CLEVOA_KEY` obligatoire, télémétrie figée sur `https://clevoa.fr`, conteneur sans privilèges, système de fichiers en lecture seule, journaux plafonnés |
 
-Les deux fichiers **étendent** `docker-compose.yml` (base commune, aussi utilisée telle quelle sur Docker Desktop) :
-une seule définition du service, seules les différences sont écrites. Chaque stack a son propre volume `mcp-data`
-(nom préfixé par Portainer avec le nom de la stack), donc ses propres `users.json` : les jetons de pré-prod ne sont
-jamais visibles en prod, et inversement.
+Les deux fichiers **étendent** `docker-compose.yml` (définitions communes, jamais lancé tel quel) : seules les
+différences sont écrites. Chaque stack a son propre volume `mcp-data` (nom préfixé par Portainer avec le nom de la
+stack), donc ses propres `users.json` : les jetons de pré-prod ne sont jamais visibles en prod, et inversement.
+L'exploitation au quotidien (sauvegarde automatique, restauration, nginx, pannes) est dans [`EXPLOITATION.md`](EXPLOITATION.md).
 
-**Mise en place dans Portainer** (une fois par environnement) :
+**Mise en place dans Portainer** (une fois par environnement, depuis Git uniquement : les fichiers `ops/` doivent être
+présents à côté du compose) :
 
-1. **Stacks → Add stack → Repository** : URL de ce dépôt, *Repository reference* = `refs/heads/dev` (pré-prod) ou
-   `refs/heads/main` (prod), *Compose path* = le fichier du tableau ci-dessus.
+1. **Stacks → Add stack → Repository** : URL de ce dépôt (et identifiants Git s'il est privé), *Repository reference* =
+   `refs/heads/dev` (pré-prod) ou `refs/heads/main` (prod), *Compose path* = le fichier du tableau ci-dessus.
 2. **GitOps updates** : activer, mode *Polling* (ex. 5 min) ou *Webhook* (coller l'URL du webhook dans GitHub →
    Settings → Webhooks, événement *push*). À chaque commit sur la branche, Portainer reconstruit l'image et redéploie.
-3. Variables d'environnement : celles de `.env.example`. `PUBLIC_URL` et `ENCRYPTION_KEY` sont obligatoires partout ;
-   `CLEVOA_KEY` l'est en prod. En pré-prod avec le bouchon, `BROWSER_URL_REWRITE=http://mcp-stub:4000=>http://<hôte-préprod>:4000`
+3. Variables d'environnement : celles de `.env.example`. Obligatoires partout : `PUBLIC_URL`, `ENCRYPTION_KEY`,
+   `BACKUP_DIR` en chemin **absolu** et distinct par environnement (ex. `/srv/mcp/backups-prod`). En prod : `CLEVOA_KEY`
+   (clé de licence fournie par Clevoa ; si `clevoa.fr` ne répond pas, le hub journalise `[telemetry] échec` et
+   fonctionne normalement). En pré-prod avec le bouchon : `BROWSER_URL_REWRITE=http://mcp-stub:4000=>http://<hôte-préprod>:4000`
    (le navigateur des collaborateurs doit joindre les mires du bouchon ; `localhost` ne vaut que sur Docker Desktop).
-4. Port 8080 derrière votre reverse-proxy TLS, un sous-domaine par environnement (`mcp-preprod.` / `mcp.`).
+4. https : le nginx fourni (profil `proxy`, `HUB_PORT=127.0.0.1:8080`, `CERTS_DIR`) ou votre reverse-proxy existant,
+   un sous-domaine par environnement (`mcp-preprod.` / `mcp.`) : `EXPLOITATION.md` § 6.
+
+**Pré-prod avec des systèmes réels** : `docker-compose.dev.yml` donne des valeurs par défaut vers le bouchon, et une
+variable **vide** garde le défaut. Pour brancher un vrai système, renseigner explicitement : Microsoft / SSO Entra →
+`MS_LOGIN_URL=https://login.microsoftonline.com`, `GRAPH_URL=https://graph.microsoft.com/v1.0` (sinon `SSO_MODE=entra`
+est refusé et Graph part vers le bouchon) ; Dropbox → `DROPBOX_AUTH_URL=https://www.dropbox.com`,
+`DROPBOX_API_URL=https://api.dropboxapi.com`, `DROPBOX_MCP_URL=https://mcp.dropbox.com/mcp` ; Sage X3 réel sans OAuth →
+la carte Sage X3 garde un bouton « Se connecter » menant à l'IdP du bouchon (`SAGE_OAUTH_CLIENT_ID=stub`), sans effet sur
+la connexion par identifiant et mot de passe ; Clevoa → `CLEVOA_URL`. Toutes ces variables sont dans `.env.example`.
 
 **Cycle de livraison** : développer et committer sur `dev` → la stack de pré-prod se met à jour → vérifier le portail
 (badge « ENV: PRE-PROD », diagnostic) et la suite `npm test` → fusionner `dev` dans `main` (`git merge --ff-only dev`)
 → la stack de production se met à jour. Ne jamais committer directement sur `main`.
 
-**Version** : `hub/version.js` porte la version stricte (`VERSION = "1.0.0"`), affichée dans les logs de démarrage,
-dans l'en-tête et le pied de page du portail, dans `/api/me` et dans chaque envoi de télémétrie. L'incrémenter à chaque
-fusion dans `main` (et aligner `hub/package.json`).
+**Version** : `hub/version.js` porte la version stricte (actuellement `1.2.0`, alignée sur `hub/package.json`),
+affichée dans les logs de démarrage, dans l'en-tête et le pied de page du portail, dans `/api/me` et dans chaque envoi de
+télémétrie. L'incrémenter à chaque fusion dans `main`.
 
 ## Suivi : backlog, versions, releases
 
@@ -220,8 +234,11 @@ Procédure, vérifications curl, lecture du diagnostic et limites connues (type 
 
 ## Côté SharePoint / OneDrive (Microsoft Graph)
 
-App Entra ID avec **permissions déléguées** `User.Read`, `Files.Read.All`, `Sites.Read.All`, callback
-`<PUBLIC_URL>/auth/sharepoint/callback`. Variables `MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET`, et `SP_SITE`
+> **Non vérifié sur un vrai compte** : validé contre le bouchon et les mocks seulement (`JOURNAL_TESTS.md`). Procédure de
+> création de l'application Entra (SharePoint et SSO) : `GUIDE_CONFIGURATION.md` § 5.
+
+App Entra ID avec **permissions déléguées** `User.Read`, `Files.Read.All`, `Sites.Read.All` (plus `openid`,
+`offline_access`), callback `<PUBLIC_URL>/auth/sharepoint/callback`. Variables `MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET`, et `SP_SITE`
 (ex. `charlois.sharepoint.com:/sites/Finance` ; vide = OneDrive de l'utilisateur). Graph répond avec les droits du
 collaborateur connecté : un dossier « Finance » qu'il ne voit pas dans SharePoint renvoie 403, donc une erreur à Claude.
 Outils : `sharepoint_sites`, `sharepoint_list`, `sharepoint_search`, `sharepoint_read` (texte, csv, json ; les binaires
@@ -236,10 +253,14 @@ Deux outils : `dropbox_tools` (outils du serveur Dropbox filtrés par liste blan
 `dropbox_call` (exécution d'un de ces outils). Les outils d'écriture (`create_*`, `move`, `copy`, `delete`) sont refusés
 avant tout appel, et les scopes OAuth ne les permettraient de toute façon pas. Dropbox applique les droits du collaborateur.
 
-> **À vérifier** : l'acceptation par `mcp.dropbox.com` d'un jeton issu de votre propre app Dropbox (la doc Dropbox indique
-> que les clients sans enregistrement dynamique utilisent les identifiants de l'app). Le bouton « Tester Dropbox » le dit en un clic.
+> **Non vérifié sur un vrai compte**, notamment l'acceptation par `mcp.dropbox.com` d'un jeton issu de votre propre app
+> Dropbox (la doc Dropbox indique que les clients sans enregistrement dynamique utilisent les identifiants de l'app). Le
+> bouton « Tester Dropbox » le dit en un clic. Création de l'app : `GUIDE_CONFIGURATION.md` § 6.
 
 ## Côté MyReport (proxy MCP distant, HTTP SSE)
+
+> **À vérifier** : le serveur MCP MyReport est annoncé par l'éditeur (Absys Cyborg) mais non livré à ce jour ; le
+> connecteur n'a été exercé que contre le bouchon.
 
 Pas de connecteur métier : le hub est **client MCP SSE** du serveur MCP de votre MyReport Server (`MYREPORT_MCP_URL`).
 Chaque collaborateur saisit dans le portail **son** jeton MyReport, stocké sous sa clé MCP (`myreport.apiKey`) et joint à
@@ -253,13 +274,12 @@ marquées `simule: true`) pour les tests Docker Desktop, sans jeton ni réseau. 
 
 ## Utilisation (collaborateur)
 
-1. Ouvrir le portail Charlois AI Gateway → **Se connecter** aux outils dont vous disposez (Salesforce, SharePoint,
-   Dropbox par OAuth ; Sage X3 et MyReport par OAuth ou jeton personnel).
+1. Ouvrir le portail Charlois AI Gateway (avec le SSO Entra, l'identification est automatique) → **Se connecter** aux
+   outils dont vous disposez (Salesforce, SharePoint, Dropbox par OAuth ; Sage X3 par OAuth ou identifiant et mot de
+   passe Syracuse ; MyReport par jeton personnel).
 2. Vérifier chaque connexion dans **Diagnostic & connectivité** (voyant vert).
-3. Copier le bloc JSON « Votre connecteur Claude » dans la configuration de votre assistant (`mcpServers`, en-tête
-   `Authorization: Bearer`). Claude Desktop n'accepte pas d'en-tête sur un serveur distant : le portail fournit un second
-   bloc qui passe par le pont `mcp-remote` (Node.js sur le poste), à coller dans `claude_desktop_config.json`
-   (Paramètres → Développeur → Modifier la configuration), puis redémarrer Claude Desktop.
+3. Brancher l'assistant : bloc « Votre connecteur Claude » (Claude Code, ChatGPT, Copilot) ou bloc « Claude Desktop »
+   (pont `mcp-remote`). Où coller chaque bloc : `GUIDE_CONFIGURATION.md` § 3.
 4. Poser une question, ou partir d'une fiche du **Bar à prompts** (onglets Onboarding, Analyse de données,
    Contrôle de gestion) : *« CA facturé des 12 derniers mois par client »*.
 
@@ -278,6 +298,6 @@ Outils : `salesforce_tools`, `salesforce_call` · `sagex3_representations`, `sag
 ```bash
 cd hub && npm install
 ENCRYPTION_KEY=$(openssl rand -hex 32) PUBLIC_URL=http://localhost:8080 SF_CLIENT_ID=… SF_CLIENT_SECRET=… node server.js   # Sage X3 en mode simulé
-npm test                    # 62 tests node:test (pré-prod)
+npm test                    # 73 tests node:test (pré-prod ; 1 réservé à la production)
 APP_ENV=production npm test # même suite sous les verrous de production : transports, lecture seule, refresh, cache, OAuth, jetons personnels, portail, simulateurs, Graph, proxys MCP, télémétrie et Lambda Clevoa
 ```

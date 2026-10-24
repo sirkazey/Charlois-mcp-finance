@@ -25,7 +25,7 @@ const CONNECTORS = [salesforce, sagex3, sharepoint, dropbox, myreport].filter((c
 const byId = Object.fromEntries(CONNECTORS.map((c) => [c.id, c]));
 // Variables visibles dans le portail : toutes celles des connecteurs et du hub présentes dans l'environnement (jamais la valeur des secrets).
 const ENV = Object.keys(process.env).filter((n) => /^(PUBLIC_URL|APP_ENV|LOG_LEVEL|TRUST_PROXY|ENCRYPTION_KEY|SSO_MODE|SF_|SAGE_|MS_|SP_|GRAPH_URL|DROPBOX_|MYREPORT_|CLEVOA_)/.test(n)).sort();
-const masked = (n) => (/SECRET|CLEVOA_KEY|ENCRYPTION_KEY/.test(n) ? "••••••••" : process.env[n]);
+const masked = (n) => (/SECRET|CLEVOA_KEY|ENCRYPTION_KEY/.test(n) ? "••••••••" : process.env[n]); // CLEVOA_KEY est une clé de licence, masquée comme les secrets
 
 // ---------- Limitation de débit (mémoire, par adresse IP) ----------
 // Protège le diagnostic, les jetons et les échecs d'authentification contre la force brute. Fenêtre fixe simple.
@@ -46,7 +46,6 @@ const cookieKey = (req) => req.headers.cookie?.match(/(?:^|;\s*)mcp_key=([^;]+)/
 const mcpKey = (req) => req.headers.authorization?.match(/^Bearer\s+(\S+)$/i)?.[1];
 // Avec le SSO, une clé n'est utilisable qu'une fois liée à une identité Entra (une clé temporaire de navigateur ne l'est pas).
 const user = (key) => { const u = store.get(key); return u && (!sso.MODE || u.sso) ? u : null; };
-// CLEVOA_KEY est une clé de licence (pas un secret utilisateur) mais reste masquée comme les autres clés.
 const requireKey = (read) => (req, res, next) => {
   req.key = read(req);
   if (user(req.key)) return next(); // une clé valide n'est jamais freinée par les échecs d'autres clients de la même IP

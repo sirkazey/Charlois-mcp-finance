@@ -132,6 +132,7 @@ comme un aléa d'exécution locale, à surveiller dans le CI (QA-02).
 * ZAP passif exécuté sur `main` (démo isolée) : 0 échec, 57 contrôles passés, 10 avertissements, tous liés aux en-têtes de sécurité HTTP absents et à l'annonce `X-Powered-By` → en-têtes ajoutés avec test (PR suivante). Les rapports n'avaient pas été produits (dossier non inscriptible par le conteneur ZAP) : corrigé dans le workflow.
 * OPS-03, dépôt public : historique contrôlé par Gitleaks, aucun secret publié ; décision à prendre sur la visibilité (privé, ou publication assumée).
 * Non traités ce soir, car ils demandent une décision ou un test humain : SEC-03 (périmètre d'accès au portail : reverse-proxy, VPN ou SSO), SEC-04 (comptes restreints), SEC-05 (exposition réseau du port 8080), QA-01, AI-01, SEC-09, SEC-10, QA-03, et le volet P2.
+* Mise à jour du 24/10 : SEC-03 traité par le SSO Entra ID (PR #4 et #5, `GUIDE_CONFIGURATION.md` § 5, activation réelle à faire) ; SEC-05 et SEC-10 traités par la PR #6 (nginx en profil `proxy` avec hub limité à `127.0.0.1`, sauvegarde automatique, `ops/restore.sh`, scénario CI de restauration, `EXPLOITATION.md`) ; reste à jouer la restauration sur un serveur Charlois.
 * Les tests humains restent prioritaires sur tout scanner : compte restreint sur Sage X3 et Salesforce, révocation OAuth.
 
 ## 1. Bilan de la simplicité (audit actualisé)
@@ -300,7 +301,7 @@ Tout ce qui est marqué **DSI Charlois** demande un accès administrateur aux ou
 | B2 | Portainer : stack « mcp-preprod » depuis le dépôt, référence `refs/heads/dev`, compose `docker-compose.dev.yml`, GitOps activé (polling 5 min ou webhook GitHub), variables de `.env.example` | DSI | C'est le déploiement continu : chaque commit sur `dev` met la pré-prod à jour |
 | B3 | Même chose pour « mcp-prod » : `refs/heads/main`, `docker-compose.prod.yml`, `CLEVOA_KEY` obligatoire | DSI | Idem pour la prod, après validation en pré-prod |
 | B4 | Premier déploiement en pré-prod et vérification des logs de démarrage (`Hub MCP v1.0.0 · ENV: PRE-PROD`) | DSI + Clevoa | Le build de l'image (utilisateur `node`, système de fichiers en lecture seule) n'a jamais été exécuté : c'est le premier vrai test |
-| B5 | Sauvegarde du volume `mcp-data` de chaque stack, avec la `ENCRYPTION_KEY` correspondante à côté | DSI | Le volume sans la clé est illisible ; la clé sans le volume ne sert à rien |
+| B5 | Sauvegarde automatique de `users.json` (conteneur `mcp-backup`, `BACKUP_DIR` par stack) incluse dans la sauvegarde du serveur ; `ENCRYPTION_KEY` **à part**, dans le coffre DSI, jamais avec les sauvegardes (`EXPLOITATION.md` § 4) | DSI | Le fichier sans la clé est illisible ; la clé sans le fichier ne sert à rien |
 
 ### C. Comptes applicatifs, un par outil (DSI Charlois, avec l'administrateur de chaque outil)
 
