@@ -10,6 +10,9 @@ Un dossier par public. Chaque procédure a une seule source de vérité ; les au
 | [`validation/`](validation/etat-des-fonctionnalites.md) | DSI, recette | [état des fonctionnalités et limites](validation/etat-des-fonctionnalites.md), [journal des tests réels](validation/journal-tests-reels.md), [campagne de charge v1.2.1](validation/charge-v1.2.1.md) |
 | [`history/`](history/audit-2026-10.md) | archives | [audits d'octobre 2026](history/audit-2026-10.md), [décisions](history/decisions.md), [feuille de route d'octobre 2026](history/roadmap-2026-10.md) ; comptes rendus figés, jamais des instructions à jour |
 
+Roadmap active : [`roadmap-produit.md`](roadmap-produit.md) (vision, incréments priorisés avec critères de sortie,
+documentation utilisateur, conduite du changement). Elle remplace pour la suite la feuille de route archivée dans `history/`.
+
 À la racine du dépôt : [`README.md`](../README.md) (présentation), [`CHANGELOG.md`](../CHANGELOG.md) (versions),
 [`LICENSE.md`](../LICENSE.md) (licence propriétaire), [`.env.example`](../.env.example) (toutes les variables, commentées).
 Composants annexes documentés à côté de leur code : [bouchon d'entreprise](../clevoa-mcp-stub/README.md),

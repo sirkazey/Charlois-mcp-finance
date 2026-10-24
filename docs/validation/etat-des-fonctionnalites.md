@@ -25,8 +25,9 @@ Preuves : [journal des tests réels](journal-tests-reels.md), [campagne de charg
 | Reverse proxy nginx (profil `proxy`) | testé sur bouchon | `docker compose config` en local ; non exercé en CI (Trivy n'analyse que la configuration des fichiers Compose) | déploiement réel ; `COMPOSE_PROFILES` sous Portainer |
 | Télémétrie Clevoa et backend Lambda | testé sur bouchon | tests hub (handler exécuté localement) | déploiement AWS, nom de domaine `clevoa.fr` |
 | Capacité 50 collaborateurs | démontrée sur bouchons | [campagne de charge](charge-v1.2.1.md) | recette de charge sur la préproduction réelle |
-| Mini-portail d'administration (retrait d'une entrée, suspension) | prévu | [feuille de route](../history/roadmap-2026-10.md) | |
-| Santé des connecteurs, tableau de bord Clevoa, connecteurs MCP déclaratifs | prévu | [feuille de route](../history/roadmap-2026-10.md) | |
+| Compétences métier : registre, exposition aux assistants, gouvernance, rédaction guidée, export | prévu | [roadmap produit](../roadmap-produit.md), incréments P0 à P5 | |
+| Mini-portail d'administration (retrait d'une entrée, suspension) | prévu, non planifié | [roadmap produit](../roadmap-produit.md#hors-priorités-actuelles) | |
+| Santé des connecteurs, tableau de bord Clevoa, connecteurs MCP déclaratifs | prévu, non planifié | [roadmap produit](../roadmap-produit.md#hors-priorités-actuelles) | |
 
 ## 2. Limites connues
 

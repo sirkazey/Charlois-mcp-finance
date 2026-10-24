@@ -67,7 +67,8 @@ explicite. Les rapports d'analyse de sécurité restent dans les artefacts GitHu
 ### Mise à jour dans les PR fonctionnelles
 
 Une PR qui change une variable, une commande, un comportement visible, un chiffre ou une limite met à jour la
-documentation concernée dans le même commit, et `CHANGELOG.md`. Une PR qui déplace ou supprime un fichier corrige les
+documentation concernée dans le même commit, et `CHANGELOG.md`. Une fonctionnalité livrée pour les utilisateurs suit en plus
+la [définition de terminé documentaire](roadmap-produit.md#définition-de-terminé-pour-chaque-fonctionnalité-livrée) de la roadmap. Une PR qui déplace ou supprime un fichier corrige les
 liens qui y menaient : le contrôle `docs` de la CI échoue sinon.
 
 ## 3. Contrôle des liens
