@@ -45,6 +45,8 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    cap_add:
+      - DAC_OVERRIDE            # seule capacité conservée : lire /data (dossier 700 de l'utilisateur node) et écrire dans BACKUP_DIR quel qu'en soit le propriétaire
 
   # Reverse proxy TLS optionnel (profil « proxy » : COMPOSE_PROFILES=proxy, ou docker compose --profile proxy up -d).
   # Certificats fullchain.pem et privkey.pem dans CERTS_DIR ; mettre HUB_PORT=127.0.0.1:8080 pour que le hub ne soit joignable que par nginx.
